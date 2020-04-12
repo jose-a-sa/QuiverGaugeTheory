@@ -77,7 +77,7 @@ PotentialQ[W_] := PotentialCoefficientTestQ[__][W];
 ClosedLoopPotentialQ[W_] := If[!PotentialQ[W], False,
   (Sort[#] == Sort@First@FindCycle[#, Infinity, All] &) /@ 
   Cases[Expand@W, HoldPattern[Times][a___, b:(Subscript[X, _][__] ..)] :>
-    ({b} /. {Subscript[X, _] -> DirectedEdge}) /; FreeQ[{a},Subscript[X, _][__]]
+    ({b} /. {Subscript[X, _] -> DirectedEdge}) /; FreeQ[ {a}, Subscript[X, _][__] ]
   ] // Apply[And]
 ];
 

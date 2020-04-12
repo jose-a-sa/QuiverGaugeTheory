@@ -36,9 +36,10 @@ FieldRedefinition[Subscript[X, f_][i_, j_], edges_?GraphEdgeQ, deg_, factor_: 1]
       #1.Table[Subscript[RedefSymbols[[k]], f][i, j], {k, 2, Length@#1 + 1}] &;
 
 
-RedefMinMonomialCount = Total@Coefficient[#, Cases[#, 
-    Abs@HoldPattern[Times][1/m^_. | m^_., Subscript[\[Alpha], _][__] ..] | 
-    Abs@HoldPattern[Times][Subscript[\[Alpha], _][__] ..]
+RedefMinMonomialCount[form_] := Total@Coefficient[#, Cases[#, 
+    Abs@HoldPattern[Times][form, Subscript[\[Alpha], _][__] ..] | 
+    Abs@HoldPattern[Times][Subscript[\[Alpha], _][__] ..] |
+    Abs[ Subscript[\[Alpha], _][__] ] 
   ]
 ] &;
 
@@ -59,12 +60,12 @@ GeneratorsTable[gen_Association, charges_Association] :=
     If[Length[{##}] > 1, Equal[##], #] & @@@ Values@gen, 
     List @@@ Keys@gen // 
       ReplaceAll[{x_^y_Integer :> Sequence @@ Table[x, {y}]}] // 
-      Map[FullSimplify@*Total@*Map[charges]],
+      Map[ FullSimplify@*Total@*Map[charges] ],
     List @@@ Keys@gen // 
       ReplaceAll[{x_^y_Integer :> Sequence @@ Table[x, {y}]}] // 
-      Map[N@*Total@*Map[charges]]
+      Map[ N@*Total@*Map[charges] ]
   }], Frame -> All];
-
+  
 
 With[{syms = Names["QuiverGaugeTheory`Perturbations`*"]},
   SetAttributes[syms, {Protected, ReadProtected}]
