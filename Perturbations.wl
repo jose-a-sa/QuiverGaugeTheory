@@ -11,7 +11,13 @@ ClearAll["QuiverGaugeTheory`Perturbations`*"];
 FieldRedefinition::usage = "";
 
 
-RedefMinMonomialCount::usage = "";
+RedefinitionMinMonomialCount::usage = "";
+
+
+MassShiftRules::usage = "";
+
+
+LikelyRedefinitionFields::usage = "";
 
 
 FTermsTable::usage = "";
@@ -36,12 +42,48 @@ FieldRedefinition[Subscript[X, f_][i_, j_], edges_?GraphEdgeQ, deg_, factor_: 1]
       #1.Table[Subscript[RedefSymbols[[k]], f][i, j], {k, 2, Length@#1 + 1}] &;
 
 
-RedefMinMonomialCount[form_] := Total@Coefficient[#, Cases[#, 
-    Abs@HoldPattern[Times][form, Subscript[\[Alpha], _][__] ..] | 
-    Abs@HoldPattern[Times][Subscript[\[Alpha], _][__] ..] |
-    Abs[ Subscript[\[Alpha], _][__] ] 
-  ]
-] &;
+RedefinitionMinMonomialCount[form_] :=
+  RedefinitionMinMonomialCount[#, form] &;
+RedefinitionMinMonomialCount[W_, form_] :=
+  Total@Coefficient[#,
+    Cases[#, 
+      Abs@HoldPattern[Times][form, Subscript[\[Alpha], _][__] ..] | 
+      Abs@HoldPattern[Times][Subscript[\[Alpha], _][__] ..] |
+      Abs[ Subscript[\[Alpha], _][__] ] 
+    ] 
+  ] & /@ ReplaceAll[HoldPattern[Times][___, _Plus, ___] -> 0]@FTermsConstraint[W, Abs];
+
+
+LikelyRedefinitionFields[coef_] := 
+  LikelyRedefinitionFields[#, coef] &;
+LikelyRedefinitionFields[W_?PotentialQ, coef_] := Module[
+  {exclude, include},
+  exclude = Cases[W //Expand, 
+    HoldPattern[Times][1/coef | -(1/coef), a : (Subscript[X, _][__] ..)] :> a
+  ] // DeleteDuplicates;
+  include = Cases[W // Expand,
+    If[exclude == {},
+      HoldPattern[Times][-coef | coef, a : (Subscript[X, _][__] ..)] :> a, 
+      HoldPattern[Times][-1, a : (Subscript[X, _][__] ..)] | 
+      HoldPattern[Times][a : (Subscript[X, _][__] ..)] :> a
+    ]
+  ] // DeleteDuplicates;
+  include // DeleteCases[Alternatives @@ exclude]
+];
+
+
+MassShiftRules[coef_, restriction_ : (0<=#<=1 &)] := 
+  MassShiftRules[#, coef, restriction] &;
+MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] := Module[
+  {vars, q, rule, sol, fields},
+  fields = FieldsInPotential@W;
+  vars = fields/.{X -> q};
+  rule = Thread[fields -> Power[coef,vars]*fields];
+  sol = Last@FindInstance[ And[
+    And @@ Thread[Cases[W/.rule // Expand, _. Power[coef, a_] :> a] == 0],
+    And @@ (restriction /@ vars) ], Evaluate[vars], Integers];
+  rule/.sol // DeleteCases[f_ -> f_]
+];
 
 
 FTermsTable[W_] := FTermsTable[W, {}]; 
@@ -54,17 +96,29 @@ FTermsTable[W_, fList:{(___Function|___Symbol)..}] :=
   }], Frame -> All];
 
 
-GeneratorsTable[gen_Association, charges_Association] := 
-  Grid[Transpose[{
-    Keys@gen,
-    If[Length[{##}] > 1, Equal[##], #] & @@@ Values@gen, 
-    List @@@ Keys@gen // 
-      ReplaceAll[{x_^y_Integer :> Sequence @@ Table[x, {y}]}] // 
-      Map[ FullSimplify@*Total@*Map[charges] ],
-    List @@@ Keys@gen // 
-      ReplaceAll[{x_^y_Integer :> Sequence @@ Table[x, {y}]}] // 
-      Map[ N@*Total@*Map[charges] ]
-  }], Frame -> All];
+GeneratorsTable[W_?FEquationsPotentialQ, gen_Association, charges_Association] :=
+  Module[{genCol, fieldCol, rCol, trivialCol, fsimp},
+    fsimp = And@@PossibleZeroQ@FullSimplify[#, 
+        Assumptions -> Thread[FTerms[W]==0] 
+      ] &;
+    genCol = Keys@gen;
+    fieldCol = If[Length[{##}] > 1, Equal[##], #] & @@@ Values@gen;
+    rCol = List @@@ Keys@gen // 
+        ReplaceAll[{x_^y_Integer :> Sequence @@ Table[x, {y}]}] // 
+        Map[ FullSimplify@*Total@*Map[charges] ];
+    trivialCol = Values@gen // 
+      Map[Rule @@@ TensorTranspose[Subsets[
+        Transpose[{Range@Length@#, #}], {2}], {1, 3, 2}] &] // 
+      Map@MapAt[fsimp@*First@*Differences, {All, 2}];
+    Grid[Transpose[{
+      Prepend[genCol, "Generators"], 
+      Prepend[fieldCol, "Field generators"],
+      Prepend[rCol, "R-charge"],
+      Prepend[N@rCol, SpanFromLeft],
+      Prepend[Column /@ trivialCol, "Trivial"]
+    } // MapAt[If[StringQ[#], Item[#, ItemSize->{Automatic,1.7}], #] &, {All, 1}]
+    ], Frame -> All]
+  ];
   
 
 With[{syms = Names["QuiverGaugeTheory`Perturbations`*"]},

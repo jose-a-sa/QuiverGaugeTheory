@@ -71,7 +71,7 @@ PotentialCoefficientTestQ[coefPatt_] := MatchQ[Expand@#,
 ] &;
 
 
-PotentialQ[W_] := PotentialCoefficientTestQ[__][W];
+PotentialQ[W_] := PotentialCoefficientTestQ[__][Expand@W];
 
 
 ClosedLoopPotentialQ[W_] := If[!PotentialQ[W], False,
@@ -101,8 +101,10 @@ ChangeGroupIndices[cycles__Cycles] :=
   With[{len = Max@Cases[{cycles}, _Integer, Infinity]},
     ChangeGroupIndices[Range[len] -> Fold[Permute, Range[len], {cycles}] // Thread];
   ]
-ChangeGroupIndices[{rules__Rule}] :=
-  {Subscript[X, c_][a_, b_] :> Subscript[X, c] @@ ({a, b} /. {rules})};
+ChangeGroupIndices[{rules__Rule}] := 
+  Subscript[symb_, c_][a_, b_] :> Subscript[symb, c] @@ ({a, b} /. {rules}) /; 
+    MatchQ[symb, X | \[Alpha] | \[Beta] | \[Gamma] | \[Delta] | \[Epsilon] | \[Eta] |
+\[Lambda] | \[Xi] | \[Rho] | \[Sigma] ];
 
 
 With[{syms = Names["QuiverGaugeTheory`Main`*"]},
