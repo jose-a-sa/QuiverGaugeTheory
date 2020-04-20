@@ -1,9 +1,6 @@
 (* ::Package:: *)
 
-(* Wolfram Language Package *)
-
 BeginPackage["QuiverGaugeTheory`Quiver`", {"QuiverGaugeTheory`Main`"}]
-(* Exported symbols added here with SymbolName::usage *)  
 
 
 Unprotect["QuiverGaugeTheory`Quiver`*"];
@@ -31,7 +28,7 @@ QuiverGraph::usage = "";
 QuiverIncidenceMatrix::usage = "";
 
 
-Begin["`Private`"] (* Begin Private Context *)
+Begin["`Private`"]
 
 
 GraphOpts = Sequence[
@@ -41,20 +38,28 @@ GraphOpts = Sequence[
 ];
 
 
+SyntaxInformation[GraphEdgeQ] = {"ArgumentsPattern" -> {_}};
+
 GraphEdgeQ = MatchQ[{ (DirectedEdge[__]|UndirectedEdge[__]) .. }];
 
+
+SyntaxInformation[QuiverFields] = {"ArgumentsPattern" -> {_}};
 
 QuiverFields[edges_?GraphEdgeQ] := 
   KeyValueMap[Table[Subscript[X, i] @@ #1, {i, Range[#2]}] &, 
     Counts@edges] // Flatten;
 
 
-QuiverPathToFields[edges_?GraphEdgeQ] := Composition[
-  Flatten,
-  Map[ Outer[Times, Sequence@@#1] & ],
-  ReplaceAll[ KeyValueMap[#1 -> Table[Subscript[X, i]@@#1, {i, Range@#2}] &, Counts@edges] ]
-];
+SyntaxInformation[QuiverPathToFields] = {"ArgumentsPattern" -> {_, _.}};
 
+QuiverPathToFields[edges_?GraphEdgeQ] := 
+  QuiverPathToFields[#, edges] &;
+QuiverPathToFields[paths : {__?GraphEdgeQ}, edges_?GraphEdgeQ] := 
+  paths/.KeyValueMap[#1 -> Table[Subscript[X, i]@@#1, {i, Range@#2}] &, Counts@edges] //
+  Map[ Outer[Times, Sequence@@#1] & ] // Flatten;
+
+
+SyntaxInformation[QuiverLoops] = {"ArgumentsPattern" -> {_, _}};
 
 QuiverLoops[edges_?GraphEdgeQ, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] := 
   Join @@ (QuiverLoops[edges, #] & /@ degspec);
@@ -62,8 +67,13 @@ QuiverLoops[edges_?GraphEdgeQ, deg_] :=
   FindCycle[edges, deg, All] // QuiverPathToFields[edges];
 
 
-QuiverFromPotential = ReplaceAll[{Subscript[X, _] -> DirectedEdge}]@*FieldsInPotential;
+SyntaxInformation[QuiverFromPotential] = {"ArgumentsPattern" -> {_}};
 
+QuiverFromPotential[W_] := 
+  ReplaceAll[{Subscript[X, _] -> DirectedEdge}]@FieldsInPotential[W];
+
+
+SyntaxInformation[QuiverGraph] = {"ArgumentsPattern" -> {_, _., OptionsPattern[]}};
 
 QuiverGraph[W_?FEquationsPotentialQ, opts:OptionsPattern[Graph] ] := 
   QuiverGraph[QuiverFromPotential@W, opts];
@@ -78,6 +88,8 @@ QuiverGraph[vertex:{__Integer}, edges_?GraphEdgeQ, opts:OptionsPattern[Graph] ] 
       ]
   ];
 
+
+SyntaxInformation[QuiverIncidenceMatrix] = {"ArgumentsPattern" -> {_}};
 
 QuiverIncidenceMatrix[W_?FEquationsPotentialQ] := 
   QuiverIncidenceMatrix[QuiverFromPotential@W];
@@ -95,6 +107,6 @@ With[{syms = Names["QuiverGaugeTheory`Quiver`*"]},
   SetAttributes[syms, {Protected, ReadProtected}]
 ]
 
-End[] (* End Private Context *)
+End[]
 
 EndPackage[]

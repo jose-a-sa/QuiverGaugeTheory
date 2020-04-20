@@ -1,9 +1,6 @@
 (* ::Package:: *)
 
-(* Wolfram Language Package *)
-
 BeginPackage["QuiverGaugeTheory`Main`"]
-(* Exported symbols added here with SymbolName::usage *)
 
 
 Unprotect["QuiverGaugeTheory`Main`*"];
@@ -49,30 +46,44 @@ yields True if the F-terms for the superpotential \!\(\*StyleBox[\"W\", \"TI\"]\
 exactly 2 monominals with opposite coefficients \[PlusMinus]1.";
 
 
-Begin["`Private`"] (* Begin Private Context *)
+Begin["`Private`"]
 
+
+SyntaxInformation[FieldsInPotential] = {"ArgumentsPattern" -> {_, _.}};
 
 FieldsInPotential[W_] := Cases[
   Expand@W, Subscript[X, _][__], Infinity
 ] // DeleteDuplicates // Sort;
 
 
+SyntaxInformation[FTerms] = {"ArgumentsPattern" -> {_, _.}};
+
 FTerms[W_, f_: Identity] :=
   Expand@Collect[Expand@D[W, {FieldsInPotential@W}], Subscript[X, _][__] .., f@*Simplify];
 
+
+SyntaxInformation[FTermsConstraint] = {"ArgumentsPattern" -> {_, _.}};
 
 FTermsConstraint[W_, f_: Identity] := 
   FTerms[W, f] // ReplaceAll[{Subscript[X, _][__] -> 1}]
 
 
-PotentialCoefficientTestQ[coefPatt_] := MatchQ[Expand@#, 
-  HoldPattern[Plus][(HoldPattern[Times][coefPatt, Subscript[X, _][__] ..] |
-   HoldPattern[Times][Subscript[X, _][__] ..]) ..]
-] &;
+SyntaxInformation[PotentialCoefficientTestQ] = {"ArgumentsPattern" -> {_, _.}};
 
+PotentialCoefficientTestQ[coefPatt_] := 
+  PotentialCoefficientTestQ[#, coefPatt] &;
+PotentialCoefficientTestQ[W_, coefPatt_] := MatchQ[Expand@W,
+  HoldPattern[Plus][(HoldPattern[Times][coefPatt, Subscript[X, _][__] ..] |
+  HoldPattern[Times][Subscript[X, _][__] ..]) ..]
+];
+
+
+SyntaxInformation[PotentialQ] = {"ArgumentsPattern" -> {_}};
 
 PotentialQ[W_] := PotentialCoefficientTestQ[__][Expand@W];
 
+
+SyntaxInformation[ClosedLoopPotentialQ] = {"ArgumentsPattern" -> {_}};
 
 ClosedLoopPotentialQ[W_] := If[!PotentialQ[W], False,
   (Sort[#] == Sort@First@FindCycle[#, Infinity, All] &) /@ 
@@ -82,12 +93,16 @@ ClosedLoopPotentialQ[W_] := If[!PotentialQ[W], False,
 ];
 
 
+SyntaxInformation[FEquationsPotentialQ] = {"ArgumentsPattern" -> {_}};
+
 FEquationsPotentialQ[W_] := 
   FullSimplify@And[
     And @@ Thread[FTermsConstraint[W] == 0],
     And @@ Thread[FTermsConstraint[W, Abs] == 2]
   ];
 
+
+SyntaxInformation[ChangeGroupIndices] = {"ArgumentsPattern" -> {_, ___}};
 
 ChangeGroupIndices[list:{__Integer}] := 
   ChangeGroupIndices@Thread[Range@Length[list] -> list];
@@ -111,7 +126,7 @@ With[{syms = Names["QuiverGaugeTheory`Main`*"]},
   SetAttributes[syms, {Protected, ReadProtected}]
 ];
 
-End[] (* End Private Context *)
+End[]
 
 
 EndPackage[]

@@ -1,7 +1,6 @@
-(* Wolfram Language Package *)
+(* ::Package:: *)
 
 BeginPackage["QuiverGaugeTheory`Perturbations`", {"QuiverGaugeTheory`Main`", "QuiverGaugeTheory`Quiver`"}]
-(* Exported symbols added here with SymbolName::usage *)  
 
 
 Unprotect["QuiverGaugeTheory`Perturbations`*"];
@@ -17,7 +16,7 @@ RedefinitionMinMonomialCount::usage = "";
 MassShiftRules::usage = "";
 
 
-LikelyRedefinitionFields::usage = "";
+(* LikelyRedefinitionFields::usage = ""; *)
 
 
 FTermsTable::usage = "";
@@ -26,21 +25,32 @@ FTermsTable::usage = "";
 GeneratorsTable::usage = "";
 
 
-Begin["`Private`"] (* Begin Private Context *)
+Begin["`Private`"]
 
 
 RedefSymbols = {\[Alpha], \[Beta], \[Gamma], \[Delta],
   \[Epsilon], \[Eta], \[Lambda], \[Xi], \[Rho], \[Sigma]};
 
 
-FieldRedefinition[fields: { Subscript[X, _][__] .. }, edges_?GraphEdgeQ, deg_, factor_: 1] := 
-  (FieldRedefinition[#, edges, deg, factor] & /@ fields);
-FieldRedefinition[Subscript[X, f_][i_, j_], edges_?GraphEdgeQ, deg_, factor_: 1] :=
-  FindPath[edges, i, j, deg, All] // Map[BlockMap[Apply[DirectedEdge], #, 2, 1] &] // 
-    QuiverPathToFields[edges] // DeleteCases[ Subscript[X, f][i, j] ] // 
-    Subscript[X, f][i, j] -> Subscript[First@RedefSymbols, f][i, j] Subscript[X, f][i, j] + 
-      #1.Table[Subscript[RedefSymbols[[k]], f][i, j], {k, 2, Length@#1 + 1}] &;
+Options[FieldRedefinition] = {ExcludePureRescalings -> True};
+SyntaxInformation[FieldRedefinition] = {
+  "ArgumentsPattern" -> {_, _, _, OptionsPattern[]},
+  "OptionNames" -> {"ExcludePureRescalings"}
+};
 
+FieldRedefinition[fields: { Subscript[X, _][__] .. }, edges_?GraphEdgeQ, deg_, opts:OptionsPattern[] ] := 
+  (FieldRedefinition[#, edges, deg, opts] & /@ fields);
+FieldRedefinition[Subscript[X, f_][i_, j_], edges_?GraphEdgeQ, deg_, OptionsPattern[] ] :=
+  Module[{path, fields, redef},
+    paths = FindPath[edges, i, j, deg, All] // Map[BlockMap[Apply[DirectedEdge], #, 2, 1] &];
+    fieldList = paths // QuiverPathToFields[edges] // DeleteCases[ Subscript[X, f][i, j] ];
+    redef = Subscript[X, f][i, j] -> Subscript[First@RedefSymbols, f][i, j] Subscript[X, f][i, j] 
+      + fieldList.Table[Subscript[RedefSymbols[[k]], f][i, j], {k, 2, Length@fieldList + 1}];
+    If[And[OptionValue["ExcludePureRescalings"], fieldList == {}], Nothing, redef]
+  ]
+
+
+SyntaxInformation[RedefinitionMinMonomialCount] = {"ArgumentsPattern" -> {_, _.}};
 
 RedefinitionMinMonomialCount[form_] :=
   RedefinitionMinMonomialCount[#, form] &;
@@ -53,6 +63,8 @@ RedefinitionMinMonomialCount[W_, form_] :=
     ] 
   ] & /@ ReplaceAll[HoldPattern[Times][___, _Plus, ___] -> 0]@FTermsConstraint[W, Abs];
 
+
+SyntaxInformation[LikelyRedefinitionFields] = {"ArgumentsPattern" -> {_, _.}};
 
 LikelyRedefinitionFields[coef_] := 
   LikelyRedefinitionFields[#, coef] &;
@@ -72,19 +84,23 @@ LikelyRedefinitionFields[W_?PotentialQ, coef_] := Module[
 ];
 
 
+SyntaxInformation[MassShiftRules] = {"ArgumentsPattern" -> {_, _., _.}};
+
 MassShiftRules[coef_, restriction_ : (0<=#<=1 &)] := 
   MassShiftRules[#, coef, restriction] &;
-MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] := Module[
-  {vars, q, rule, sol, fields},
-  fields = FieldsInPotential@W;
-  vars = fields/.{X -> q};
-  rule = Thread[fields -> Power[coef,vars]*fields];
-  sol = Last@FindInstance[ And[
-    And @@ Thread[Cases[W/.rule // Expand, _. Power[coef, a_] :> a] == 0],
-    And @@ (restriction /@ vars) ], Evaluate[vars], Integers];
-  rule/.sol // DeleteCases[f_ -> f_]
-];
+MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] := 
+  Module[{vars, q, rule, sol, fields},
+    fields = FieldsInPotential@W;
+    vars = fields/.{X -> q};
+    rule = Thread[fields -> Power[coef,vars]*fields];
+    sol = Last@FindInstance[ And[
+      And @@ Thread[Cases[W/.rule // Expand, _. Power[coef, a_] :> a] == 0],
+      And @@ (restriction /@ vars) ], Evaluate[vars], Integers];
+    rule/.sol // DeleteCases[f_ -> f_]
+  ];
 
+
+SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_, _.}};
 
 FTermsTable[W_] := FTermsTable[W, {}]; 
 FTermsTable[W_, fList:{(___Function|___Symbol)..}] := 
@@ -95,6 +111,8 @@ FTermsTable[W_, fList:{(___Function|___Symbol)..}] :=
     Sequence@@Table[f@W, {f,fList}]
   }], Frame -> All];
 
+
+SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_, _, _}};
 
 GeneratorsTable[W_?FEquationsPotentialQ, gen_Association, charges_Association] :=
   Module[{genCol, fieldCol, rCol, trivialCol, fsimp},
@@ -119,12 +137,12 @@ GeneratorsTable[W_?FEquationsPotentialQ, gen_Association, charges_Association] :
     } // MapAt[If[StringQ[#], Item[#, ItemSize->{Automatic,1.7}], #] &, {All, 1}]
     ], Frame -> All]
   ];
-  
+
 
 With[{syms = Names["QuiverGaugeTheory`Perturbations`*"]},
   SetAttributes[syms, {Protected, ReadProtected}]
 ];
 
-End[] (* End Private Context *)
+End[]
 
 EndPackage[]

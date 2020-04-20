@@ -1,9 +1,6 @@
 (* ::Package:: *)
 
-(* Wolfram Language Package *)
-
 BeginPackage["QuiverGaugeTheory`Polytope`", {"QuiverGaugeTheory`Main`"}]
-(* Exported symbols added here with SymbolName::usage *)  
 
 
 Unprotect["QuiverGaugeTheory`Polytope`*"];
@@ -22,7 +19,7 @@ PolytopePlot::usage = "";
 PolytopeArea::usage = "";
 
 
-Begin["`Private`"] (* Begin Private Context *)
+Begin["`Private`"]
 
 
 ColinearQ[pts_?MatrixQ] := MatrixRank[
@@ -37,9 +34,13 @@ RemoveColinear[pts_?MatrixQ] :=
   }]@pts;
 
 
+SyntaxInformation[DualPolytope] = {"ArgumentsPattern" -> {_}};
+
 DualPolytope[pts_?MatrixQ] := {x, y} // 
   ReplaceAll@Solve[And @@ ({x, y}.#1 >= -1 &) /@ pts, {x, y}, Integers];
 
+
+SyntaxInformation[PolytopeVertices] = {"ArgumentsPattern" -> {_}};
 
 PolytopeVertices[pts_?MatrixQ] := Module[
   {furthest, argGrouped, vertices},
@@ -50,6 +51,8 @@ PolytopeVertices[pts_?MatrixQ] := Module[
     !PossibleZeroQ[PolygonAngle[Polygon@furthest, #] - Pi] &]
 ]
 
+
+SyntaxInformation[PolytopePlot] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
 
 PolytopePlot[pts_?MatrixQ, opts: OptionsPattern[Graphics] ] := 
   Block[{vert = PolytopeVertices[pts]}, 
@@ -63,6 +66,8 @@ PolytopePlot[pts_?MatrixQ, opts: OptionsPattern[Graphics] ] :=
   ];
 
 
+SyntaxInformation[PolytopeArea] = {"ArgumentsPattern" -> {_}};
+
 PolytopeArea[pts_?MatrixQ] := Area@Polygon@PolytopeVertices[pts];
 
 
@@ -70,6 +75,6 @@ With[{syms = Names["QuiverGaugeTheory`Polytope`*"]},
   SetAttributes[syms, {Protected, ReadProtected}]
 ]
 
-End[] (* End Private Context *)
+End[]
 
 EndPackage[]
