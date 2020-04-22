@@ -84,7 +84,7 @@ QuiverGraph[edges_?GraphEdgeQ, opts:OptionsPattern[Graph] ] :=
 QuiverGraph[vertex:{__Integer}, edges_?GraphEdgeQ, opts:OptionsPattern[Graph] ] := 
   Graph[vertex, edges, opts, GraphOpts, 
     VertexCoordinates -> ReIm@Exp[2 Pi I Range[0, Length@vertex - 1]/Length@vertex
-        + I Pi {0,0,0,1/4,1/10,0,0,0}[[Length@vertex]]
+        + I Pi {0, 0, 1/2, 1/4, 1/10, 0, 3/14, 1/8}[[Length@vertex]]
       ]
   ];
 

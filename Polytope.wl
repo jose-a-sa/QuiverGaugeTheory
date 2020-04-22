@@ -55,12 +55,13 @@ PolytopeVertices[pts_?MatrixQ] := Module[
 SyntaxInformation[PolytopePlot] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
 
 PolytopePlot[pts_?MatrixQ, opts: OptionsPattern[Graphics] ] := 
-  Block[{vert = PolytopeVertices[pts]}, 
+  Module[{vert, other},
+    vert = PolytopeVertices[pts];
+    other = DeleteCases[pts, Alternatives@@(vert~Join~{{0, 0}})];
     Graphics[{
       {EdgeForm[{Thick, Black}], FaceForm[Transparent], Polygon@vert},
       {FaceForm[Black], Disk[#, 0.15] & /@ vert},
-      {EdgeForm[{Thick, Black}], FaceForm[Yellow], Disk[#, 0.12] & /@ 
-        DeleteCases[Alternatives@@(vert~Join~{{0, 0}})]@pts},
+      {EdgeForm[{Thick, Black}], FaceForm[Yellow], Disk[#, 0.12] & /@ other},
       {EdgeForm[{Thick, Black}], FaceForm@Lighter[Red, 0.6], Disk[{0, 0}, 0.12]}
     }, opts]
   ];

@@ -115,15 +115,18 @@ FTermsTable[W_, fList:{(___Function|___Symbol)..}] :=
 SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_, _, _}};
 
 GeneratorsTable[W_?FEquationsPotentialQ, gen_Association, charges_Association] :=
-  Module[{genCol, fieldCol, rCol, trivialCol, fsimp},
+  Module[{genCol, fieldCol, rCol, trivialCol, fsimp, rsimp},
     fsimp = And@@PossibleZeroQ@FullSimplify[#, 
         Assumptions -> Thread[FTerms[W]==0] 
       ] &;
+    rsimp = If[Count[Expand@#, Root[__]^(_.) .., Infinity] > 6, 
+        SpanFromLeft, RootReduce[#]
+      ] &;  
     genCol = Keys@gen;
     fieldCol = If[Length[{##}] > 1, Equal[##], #] & @@@ Values@gen;
     rCol = List @@@ Keys@gen // 
         ReplaceAll[{x_^y_Integer :> Sequence @@ Table[x, {y}]}] // 
-        Map[ FullSimplify@*Total@*Map[charges] ];
+        Map[ Total@*Map[charges] ];
     trivialCol = Values@gen // 
       Map[Rule @@@ TensorTranspose[Subsets[
         Transpose[{Range@Length@#, #}], {2}], {1, 3, 2}] &] // 
@@ -131,8 +134,8 @@ GeneratorsTable[W_?FEquationsPotentialQ, gen_Association, charges_Association] :
     Grid[Transpose[{
       Prepend[genCol, "Generators"], 
       Prepend[fieldCol, "Field generators"],
-      Prepend[rCol, "R-charge"],
-      Prepend[N@rCol, SpanFromLeft],
+      Prepend[N@rCol, "R-charge"],
+      Prepend[rsimp /@ rCol, SpanFromLeft],
       Prepend[Column /@ trivialCol, "Trivial"]
     } // MapAt[If[StringQ[#], Item[#, ItemSize->{Automatic,1.7}], #] &, {All, 1}]
     ], Frame -> All]
