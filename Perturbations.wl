@@ -115,21 +115,25 @@ FTermsTable[W_, fList:{(___Function|___Symbol)..}] :=
 SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_, _, _}};
 
 GeneratorsTable[W_?FEquationsPotentialQ, gen_Association, charges_Association] :=
-  Module[{genCol, fieldCol, rCol, trivialCol, fsimp, rsimp},
+  Module[{genCol, fieldCol, rCol, trivialCol, fsimp, rsimp, subsetNonDeg2},
     fsimp = And@@PossibleZeroQ@FullSimplify[#, 
         Assumptions -> Thread[FTerms[W]==0] 
       ] &;
     rsimp = If[Count[Expand@#, Root[__]^(_.) .., Infinity] > 6, 
         SpanFromLeft, RootReduce[#]
-      ] &;  
+      ] &;
+    (* FLAG: add compatibility with <= 12.0,  *)
+    subsetNonDeg2[list_] := Tuples[list, {2}] // 
+      DeleteCases[{___, x_, ___, x_, ___}] // DeleteDuplicatesBy[Sort];
+    (* TODO: replace by (Subset[#,{2}] &) for only > 12.0 compatibility *)
     genCol = Keys@gen;
     fieldCol = If[Length[{##}] > 1, Equal[##], #] & @@@ Values@gen;
     rCol = List @@@ Keys@gen // 
         ReplaceAll[{x_^y_Integer :> Sequence @@ Table[x, {y}]}] // 
         Map[ Total@*Map[charges] ];
     trivialCol = Values@gen // 
-      Map[Rule @@@ TensorTranspose[Subsets[
-        Transpose[{Range@Length@#, #}], {2}], {1, 3, 2}] &] // 
+      Map[Rule @@@ TensorTranspose[
+        subsetNonDeg2@Transpose[{Range@Length@#, #}], {1, 3, 2}] &] // 
       Map@MapAt[fsimp@*First@*Differences, {All, 2}];
     Grid[Transpose[{
       Prepend[genCol, "Generators"], 
@@ -140,7 +144,6 @@ GeneratorsTable[W_?FEquationsPotentialQ, gen_Association, charges_Association] :
     } // MapAt[If[StringQ[#], Item[#, ItemSize->{Automatic,1.7}], #] &, {All, 1}]
     ], Frame -> All]
   ];
-
 
 With[{syms = Names["QuiverGaugeTheory`Perturbations`*"]},
   SetAttributes[syms, {Protected, ReadProtected}]
