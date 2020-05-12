@@ -112,7 +112,7 @@ FTermsTable[W_, fList:{(___Function|___Symbol)..}] :=
   }], Frame -> All];
 
 
-SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_, _, _}};
+SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_, _, _}};
 
 GeneratorsTable[W_?FEquationsPotentialQ, gen_Association, charges_Association] :=
   Module[{genCol, fieldCol, rCol, trivialCol, fsimp, rsimp, subsetNonDeg2},
