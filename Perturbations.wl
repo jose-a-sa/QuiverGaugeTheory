@@ -141,7 +141,7 @@ GeneratorsTable[W_?FEquationsPotentialQ, gen_Association, charges_Association] :
       Prepend[fieldCol, "Field generators"],
       Prepend[N@rCol, "R-charge"],
       Prepend[rsimp /@ rCol, SpanFromLeft],
-      Prepend[Column /@ trivialCol, "Trivial"]
+      Prepend[Column /@ trivialCol, "Trivial difference"]
     } // MapAt[If[StringQ[#], Item[#, ItemSize->{Automatic,1.7}], #] &, {All, 1}]
     ], Frame -> All]
   ];
