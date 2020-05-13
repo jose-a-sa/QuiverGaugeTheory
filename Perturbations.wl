@@ -28,8 +28,10 @@ GeneratorsTable::usage = "";
 Begin["`Private`"]
 
 
-RedefSymbols = {\[Alpha], \[Beta], \[Gamma], \[Delta],
-  \[Epsilon], \[Eta], \[Lambda], \[Xi], \[Rho], \[Sigma]};
+RedefSymbols = {\[Alpha], \[Beta], \[Gamma], \[Delta], \[Epsilon], \[Zeta], \[Eta],
+  \[Theta], \[Iota], \[Kappa], \[Lambda], \[Mu], \[Nu], \[Xi],
+  \[Omicron], \[Rho], \[Sigma], \[Tau], \[Upsilon], \[Phi], \[Chi],
+  \[Psi], \[Omega]};
 
 
 Options[FieldRedefinition] = {ExcludePureRescalings -> True};
@@ -41,9 +43,9 @@ SyntaxInformation[FieldRedefinition] = {
 FieldRedefinition[fields: { Subscript[X, _][__] .. }, edges_?GraphEdgeQ, deg_, opts:OptionsPattern[] ] := 
   (FieldRedefinition[#, edges, deg, opts] & /@ fields);
 FieldRedefinition[Subscript[X, f_][i_, j_], edges_?GraphEdgeQ, deg_, OptionsPattern[] ] :=
-  Module[{path, fields, redef},
-    paths = FindPath[edges, i, j, deg, All] // Map[BlockMap[Apply[DirectedEdge], #, 2, 1] &];
-    fieldList = paths // QuiverPathToFields[edges] // DeleteCases[ Subscript[X, f][i, j] ];
+  Module[{path, fieldList, redef},
+    fieldList = FindQuiverPaths[edges, i, j, deg] // QuiverPathToFields[edges] // 
+      Flatten // DeleteCases[ Subscript[X, f][i, j] ];
     redef = Subscript[X, f][i, j] -> Subscript[First@RedefSymbols, f][i, j] Subscript[X, f][i, j] 
       + fieldList.Table[Subscript[RedefSymbols[[k]], f][i, j], {k, 2, Length@fieldList + 1}];
     If[And[OptionValue["ExcludePureRescalings"], fieldList == {}], Nothing, redef]
@@ -114,7 +116,7 @@ FTermsTable[W_, fList:{(___Function|___Symbol)..}] :=
 
 SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_, _, _}};
 
-GeneratorsTable[W_?FEquationsPotentialQ, gen_Association, charges_Association] :=
+GeneratorsTable[W_?ToricPotentialQ, gen_Association, charges_Association] :=
   Module[{genCol, fieldCol, rCol, trivialCol, fsimp, rsimp, subsetNonDeg2},
     fsimp = And@@PossibleZeroQ@FullSimplify[#, 
         Assumptions -> Thread[FTerms[W]==0] 
