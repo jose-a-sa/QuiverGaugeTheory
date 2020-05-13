@@ -27,6 +27,9 @@ FTerms::usage = "";
 FTermsConstraint::usage = "";
 
 
+FTermsTable::usage = "";
+
+
 ChangeGroupIndices::usage = "";
 
 
@@ -61,7 +64,17 @@ FTerms[W_, f_: Identity] :=
 SyntaxInformation[FTermsConstraint] = {"ArgumentsPattern" -> {_, _., _.}};
 
 FTermsConstraint[W_, f_: Identity, g_: Plus] := 
-  g @@@ ReplaceAll[List @@@ FTerms[W, f], Subscript[X, _][__] -> 1]
+  g @@@ ReplaceAll[List @@@ FTerms[W, f], Subscript[X, _][__] -> 1];
+
+
+SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_}};
+
+FTermsTable[W_] := 
+  Grid[Transpose[{
+    FTerms[W, Highlighted],
+    Simplify@FTermsConstraint[W], 
+    Simplify@FTermsConstraint[W, Abs]
+  }], Frame -> All];
 
 
 SyntaxInformation[PotentialCoefficientTestQ] = {"ArgumentsPattern" -> {_, _.}};

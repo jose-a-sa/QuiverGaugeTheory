@@ -19,9 +19,6 @@ MassShiftRules::usage = "";
 (* LikelyRedefinitionFields::usage = ""; *)
 
 
-FTermsTable::usage = "";
-
-
 GeneratorsTable::usage = "";
 
 
@@ -100,18 +97,6 @@ MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] :=
       And @@ (restriction /@ vars) ], Evaluate[vars], Integers];
     rule/.sol // DeleteCases[f_ -> f_]
   ];
-
-
-SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_, _.}};
-
-FTermsTable[W_] := FTermsTable[W, {}]; 
-FTermsTable[W_, fList:{(___Function|___Symbol)..}] := 
-  Grid[Transpose[{
-    FTerms[W, Highlighted],
-    Simplify@FTermsConstraint[W], 
-    Simplify@FTermsConstraint[W, Abs],
-    Sequence@@Table[f@W, {f,fList}]
-  }], Frame -> All];
 
 
 SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_, _, _}};
