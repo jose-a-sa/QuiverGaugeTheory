@@ -1,6 +1,10 @@
 (* ::Package:: *)
 
-BeginPackage["QuiverGaugeTheory`Perturbations`", {"QuiverGaugeTheory`Main`", "QuiverGaugeTheory`Quiver`"}]
+BeginPackage["QuiverGaugeTheory`Perturbations`", {
+  "QuiverGaugeTheory`Tools`",
+  "QuiverGaugeTheory`Main`", 
+  "QuiverGaugeTheory`Quiver`"
+}]
 
 
 Unprotect["QuiverGaugeTheory`Perturbations`*"];
@@ -102,33 +106,23 @@ MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] :=
 SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_, _, _}};
 
 GeneratorsTable[W_?ToricPotentialQ, gen_Association, charges_Association] :=
-  Module[{genCol, fieldCol, rCol, trivialCol, fsimp, rsimp, subsetNonDeg2},
-    fsimp = And@@PossibleZeroQ@FullSimplify[#, 
-        Assumptions -> Thread[FTerms[W]==0] 
-      ] &;
-    rsimp = If[Count[Expand@#, Root[__]^(_.) .., Infinity] > 6, 
-        SpanFromLeft, RootReduce[#]
-      ] &;
-    (* FLAG: add compatibility with <= 12.0 *)
-    subsetNonDeg2[list_] := Tuples[list, {2}] // 
-      DeleteCases[{___, x_, ___, x_, ___}] // DeleteDuplicatesBy[Sort];
-    (* TODO: replace by (Subset[#,{2}] &) for only > 12.0 compatibility *)
+  Module[{genCol, fieldCol, rCol, tdCol, rExactParse},
+    rExactParse = If[Count[Expand@#, Root[__]^(_.) .., Infinity] > 10, 
+        SpanFromLeft, RootReduce[#] ] &;
     genCol = Keys@gen;
-    fieldCol = (If[Length[{##}] > 1, Equal[##], #] &) @@@ Values@gen;
-    rCol = List @@@ Keys@gen // 
-      ReplaceAll[{x_^y_Integer :> Sequence @@ Table[x, {y}]}] // 
-      Map[ Total@*Map[charges] ];
-    trivialCol = (If[Length[{##}] > 1, 
-        (Rule[#1, fsimp@First@Differences@#2] &) @@@ TensorTranspose[
-          subsetNonDeg2@Transpose[{Range@Length@{##}, {##}}], {1, 3, 2}], 
-        {Undefined}
-      ] &) @@@ Values@gen;
+    fieldCol = If[Length[#] > 1, Equal@@#, First@#] & /@ Values[gen];
+    rCol = List @@@ Keys[gen] // ReplaceAll[{x_^y_Integer :> Table[x, {y}]}] // 
+      Map[Total@*Map[charges]@*Flatten];
+    (* FLAG: using SubsetsOld for < 12.0 compatibility *)
+    tdCol = Map[Transpose]@*(SubsetsOld[#, {2}] &)@*IndexedList /@ Values[gen] // 
+      Map[ If[Length[#] == 0, {Undefined}, 
+        ApplyTo[#1 -> FEquationsTrivialQ[Subtract@@#2, W] &, {1}]@#] & ];
     Grid[Transpose[{
       Prepend[genCol, "Generators"], 
       Prepend[fieldCol, "Field generators"],
-      Prepend[N@rCol, "R-charge"],
-      Prepend[rsimp /@ rCol, SpanFromLeft],
-      Prepend[Column /@ trivialCol, "Trivial difference"]
+      Prepend[N /@ rCol, "R-charge"],
+      Prepend[rExactParse /@ rCol, SpanFromLeft],
+      Prepend[Column /@ tdCol, "Trivial differences"]
     } // MapAt[If[StringQ[#], Item[#, ItemSize->{Automatic,1.7}], #] &, {All, 1}]
     ], Frame -> All]
   ];

@@ -1,7 +1,9 @@
 (* ::Package:: *)
 
-BeginPackage["QuiverGaugeTheory`Quiver`", {"QuiverGaugeTheory`Main`"}]
-
+BeginPackage["QuiverGaugeTheory`Quiver`", {
+  "QuiverGaugeTheory`Tools`",
+  "QuiverGaugeTheory`Main`"
+}]
 
 Unprotect["QuiverGaugeTheory`Quiver`*"];
 ClearAll["QuiverGaugeTheory`Quiver`*"];

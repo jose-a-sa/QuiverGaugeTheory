@@ -1,6 +1,8 @@
 (* ::Package:: *)
 
-BeginPackage["QuiverGaugeTheory`Main`"]
+BeginPackage["QuiverGaugeTheory`Main`", {
+  "QuiverGaugeTheory`Tools`"
+}]
 
 
 Unprotect["QuiverGaugeTheory`Main`*"];
@@ -13,6 +15,7 @@ Map[(MessageName[#, "usage"] = "") &,
     "\[Mu]", "\[Nu]", "\[Xi]", "\[Omicron]", "\[Rho]", "\[Sigma]",
     "\[Tau]", "\[Upsilon]", "\[Phi]", "\[Chi]", "\[Psi]", "\[Omega]"},
   InputForm, Hold], {2}]; // ReleaseHold
+
 
 X::usage = "";
 U::usage = "";
@@ -37,6 +40,9 @@ PotentialCoefficientTestQ::usage = "";
 
 
 PotentialQ::usage = "";
+
+
+FEquationsTrivialQ::usage = "";
 
 
 ToricPotentialQ::usage = "\
@@ -98,6 +104,16 @@ ToricPotentialQ[W_] :=
   Simplify@And[
     And @@ Thread[FTermsConstraint[W] == 0],
     And @@ Thread[FTermsConstraint[W, Abs] == 2]
+  ];
+
+
+SyntaxInformation[FEquationsTrivialQ] = {"ArgumentsPattern" -> {_, _.}};
+
+FEquationsTrivialQ[W_?PotentialQ] :=
+  FEquationsTrivialQ[#, W] &;
+FEquationsTrivialQ[diff_,  W_?PotentialQ] :=
+  PossibleZeroQ@Simplify[diff, 
+    Assumptions -> Thread[FTerms@W==0]
   ];
 
 

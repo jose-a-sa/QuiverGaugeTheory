@@ -1,6 +1,9 @@
 (* ::Package:: *)
 
-BeginPackage["QuiverGaugeTheory`Polytope`", {"QuiverGaugeTheory`Main`"}]
+BeginPackage["QuiverGaugeTheory`Polytope`", {
+  "QuiverGaugeTheory`Tools`",
+  "QuiverGaugeTheory`Main`"
+}]
 
 
 Unprotect["QuiverGaugeTheory`Polytope`*"];
