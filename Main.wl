@@ -5,18 +5,6 @@ BeginPackage["QuiverGaugeTheory`Main`", {
 }]
 
 
-Unprotect["QuiverGaugeTheory`Main`*"];
-ClearAll["QuiverGaugeTheory`Main`*"];
-
-
-Map[(MessageName[#, "usage"] = "") &,
-  ToExpression[{"\[Alpha]", "\[Beta]", "\[Gamma]", "\[Delta]", "\[Epsilon]",
-    "\[Zeta]", "\[Eta]", "\[Theta]", "\[Iota]", "\[Kappa]", "\[Lambda]",
-    "\[Mu]", "\[Nu]", "\[Xi]", "\[Omicron]", "\[Rho]", "\[Sigma]",
-    "\[Tau]", "\[Upsilon]", "\[Phi]", "\[Chi]", "\[Psi]", "\[Omega]"},
-  InputForm, Hold], {2}]; // ReleaseHold
-
-
 X::usage = "";
 U::usage = "";
 
@@ -52,6 +40,24 @@ exactly 2 monominals with opposite coefficients \[PlusMinus]1.";
 
 
 Begin["`Private`"]
+
+
+formalVars = {
+  \[FormalAlpha], \[FormalBeta], \[FormalGamma], \[FormalDelta],
+  \[FormalCurlyEpsilon], \[FormalZeta], \[FormalEta], \[FormalTheta],
+  \[FormalIota], \[FormalKappa], \[FormalLambda], \[FormalMu],
+  \[FormalNu], \[FormalXi], \[FormalOmicron], \[FormalPi],
+  \[FormalRho], \[FormalFinalSigma], \[FormalSigma], \[FormalTau],
+  \[FormalUpsilon], \[FormalCurlyPhi], \[FormalChi], \[FormalPsi],
+  \[FormalOmega], \[FormalCurlyTheta], \[FormalPhi], \[FormalCurlyPi],
+  \[FormalStigma], \[FormalDigamma], \[FormalKoppa], \[FormalSampi],
+  \[FormalCurlyKappa], \[FormalCurlyRho], \[FormalEpsilon]
+};
+
+
+SyntaxInformation[X] = {"ArgumentsPattern" -> {_, _, _.}};
+
+X[i_Integer, j_Integer, k_Integer : 1] := Subscript[X, k][i, j]
 
 
 SyntaxInformation[FieldsInPotential] = {"ArgumentsPattern" -> {_, _.}};
@@ -103,7 +109,7 @@ SyntaxInformation[ToricPotentialQ] = {"ArgumentsPattern" -> {_}};
 ToricPotentialQ[W_] := 
   Simplify@And[
     And @@ Thread[FTermsConstraint[W] == 0],
-    And @@ Thread[FTermsConstraint[W, Abs] == 2]
+    SameQ @@ FTermsConstraint[W, Abs]
   ];
 
 
@@ -129,15 +135,8 @@ ChangeGroupIndices[i_Integer, j_Integer] :=
   ChangeGroupIndices[{i->j,j->i}];
 ChangeGroupIndices[{rules__Rule}] := 
   Subscript[symb_, c_][a_, b_] :> Subscript[symb, c] @@ ({a, b} /. {rules}) /; 
-    MatchQ[symb, X | \[Alpha] | \[Beta] | \[Gamma] | \[Delta] | \[Epsilon] | \[Zeta] |
-      \[Eta] | \[Theta] | \[Iota] | \[Kappa] | \[Lambda] | \[Mu] | \[Nu] |
-      \[Xi] | \[Omicron] | \[Rho] | \[Sigma] | \[Tau] | \[Upsilon] | \[Phi] |
-      \[Chi] | \[Psi] | \[Omega] ];
+    MatchQ[symb, X | Alternatives@@formalVars ];
 
-
-With[{syms = Names["QuiverGaugeTheory`Main`*"]},
-  SetAttributes[syms, {Protected, ReadProtected}]
-];
 
 End[]
 

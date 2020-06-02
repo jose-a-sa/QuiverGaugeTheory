@@ -5,11 +5,8 @@ BeginPackage["QuiverGaugeTheory`Quiver`", {
   "QuiverGaugeTheory`Main`"
 }]
 
-Unprotect["QuiverGaugeTheory`Quiver`*"];
-ClearAll["QuiverGaugeTheory`Quiver`*"];
 
-
-GraphEdgeQ::usage = "";
+EdgeListQ::usage = "";
 
 
 QuiverFields::usage = "";
@@ -36,16 +33,20 @@ QuiverIncidenceMatrix::usage = "";
 Begin["`Private`"]
 
 
-GraphOpts = Sequence[
-   PlotTheme -> "ClassicDiagram",
-   VertexLabelStyle -> Directive[Bold, 14],
-   EdgeShapeFunction -> GraphElementData["Arrow"]
+graphOpts = Sequence[
+  VertexSize -> {"Scaled", 0.04},
+  VertexStyle -> Directive[EdgeForm[{Black}], FaceForm[{Hue[0.15, 0.2, 1]}] ],
+  VertexLabels -> Placed[Automatic, {0.52,0.48}],
+  VertexLabelStyle -> Directive[Bold, FontSize -> Scaled[0.04] ],
+  EdgeStyle -> Directive[Opacity[1], Hue[0, 1, 0.5] ],
+  EdgeShapeFunction -> GraphElementData[{"FilledArrow"}],
+  ImageSize -> Medium
 ];
 
 
-SyntaxInformation[GraphEdgeQ] = {"ArgumentsPattern" -> {_}};
+SyntaxInformation[EdgeListQ] = {"ArgumentsPattern" -> {_}};
 
-GraphEdgeQ = MatchQ[{ (DirectedEdge[__]|UndirectedEdge[__]) .. }];
+EdgeListQ = MatchQ[{ (DirectedEdge[__]|UndirectedEdge[__]) .. }];
 
 
 SyntaxInformation[QuiverFromPotential] = {"ArgumentsPattern" -> {_}};
@@ -56,57 +57,131 @@ QuiverFromPotential[W_] :=
 
 SyntaxInformation[QuiverFields] = {"ArgumentsPattern" -> {_}};
 
-QuiverFields[edges_?GraphEdgeQ] := 
+QuiverFields[edges_?EdgeListQ] := 
   KeyValueMap[Table[Subscript[X, i] @@ #1, {i, Range[#2]}] &, Counts@edges] // Flatten;
 
 
 SyntaxInformation[FindQuiverPaths] = {"ArgumentsPattern" -> {_, _, _, _}};
 
-FindQuiverPaths[edges_?GraphEdgeQ, i_, j_, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] := 
-  Join @@ (FindQuiverPaths[edges, i, j, #] & /@ SortBy[First]@degspec);
-FindQuiverPaths[edges_?GraphEdgeQ, i_, j_, deg_] := 
-  FindPath[edges, i, j, deg, All] // Map[BlockMap[Apply[DirectedEdge], #, 2, 1] &];
+FindQuiverPaths[edges_?EdgeListQ, i_, j_, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] :=
+  Switch[edges,
+    _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
+    _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
+    _, Join @@ (FindQuiverPaths[edges, i, j, #] & /@ SortBy[First]@degspec);
+  ]
+FindQuiverPaths[edges_?EdgeListQ, i_, j_, deg_] :=
+  Switch[edges,
+    _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
+    _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
+    _, FindPath[edges, i, j, deg, All] // 
+      Map[BlockMap[Apply[DirectedEdge], #, 2, 1] &]
+  ]
 
 
 SyntaxInformation[QuiverLoops] = {"ArgumentsPattern" -> {_, _}};
 
-QuiverLoops[edges_?GraphEdgeQ, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] := 
+QuiverLoops[edges_?EdgeListQ, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] := 
   Join @@ (QuiverLoops[edges, #] & /@ SortBy[First]@degspec);
-QuiverLoops[edges_?GraphEdgeQ, deg_] := 
+QuiverLoops[edges_?EdgeListQ, deg_] := 
   FindCycle[edges, deg, All];
 
 
 SyntaxInformation[QuiverPathToFields] = {"ArgumentsPattern" -> {_, _.}};
 
-QuiverPathToFields[edges_?GraphEdgeQ] := 
+QuiverPathToFields[edges_?EdgeListQ] := 
   QuiverPathToFields[#, edges] &;
-QuiverPathToFields[paths: {__?GraphEdgeQ}, edges_?GraphEdgeQ] :=
+QuiverPathToFields[paths: {__?EdgeListQ}, edges_?EdgeListQ] :=
   QuiverPathToFields[#, edges] & /@ paths;
-QuiverPathToFields[path_?GraphEdgeQ, edges_?GraphEdgeQ] := 
+QuiverPathToFields[path_?EdgeListQ, edges_?EdgeListQ] := 
   path/.KeyValueMap[#1 -> Table[Subscript[X, i]@@#1, {i, Range@#2}] &, Counts@edges] //
   Outer[Times, Sequence@@#1] & // Flatten;
 
 
-SyntaxInformation[QuiverGraph] = {"ArgumentsPattern" -> {_, _., OptionsPattern[]}};
-
-QuiverGraph[W_?PotentialQ, opts:OptionsPattern[Graph] ] := 
-  QuiverGraph[QuiverFromPotential@W, opts];
-QuiverGraph[vertex:{__Integer}, W_?PotentialQ, opts:OptionsPattern[Graph] ] :=
-  QuiverGraph[vertex, QuiverFromPotential@W, opts];
-QuiverGraph[edges_?GraphEdgeQ, opts:OptionsPattern[Graph] ] := 
-  QuiverGraph[Sort@DeleteDuplicates@Flatten[List@@@edges], edges, opts];
-QuiverGraph[vertex:{__Integer}, edges_?GraphEdgeQ, opts:OptionsPattern[Graph] ] := 
-  Graph[vertex, edges, opts, GraphOpts, 
-    VertexCoordinates -> ReIm@Exp[2 Pi I Range[0, Length@vertex - 1]/Length@vertex
-        + I Pi Switch[Length@vertex, 3, 1/2, 4, 1/4, 5, 1/10, 7, 3/14, _, 0] ]
+parseVertexPositioning[v : {(_Integer | {__Integer}) ..}] :=
+  Module[{spread = Pi/20, shifts, parsedV, polyV, nV = Length@v},
+    shifts = <| 3 -> Pi/2, 4 -> Pi/4, 5 -> Pi/10, 7 -> 3 Pi/14 |>;
+    parsedV = Map[Flatten@*List, v];
+    polyV = Thread[parsedV -> Exp[2 Pi I Range[0,nV-1]/nV +
+      If[KeyExistsQ[shifts, nV], I shifts@nV, 0] ] ];
+    (Thread[#1 -> ReIm[#2 Exp[ I spread Range[-Length@#1 + 1, Length@#1 - 1, 2]/2] ]
+      ] &) @@@ polyV // Flatten
   ];
+
+
+parseArrowheads[edges_, s: (_?NumericQ): 0.04, p: (_?NumericQ | {_?NumericQ,_?NumericQ}): 0.8] :=
+  Module[{shapeF, parsePos, f, b},
+    {f, b} = If[MatchQ[p, {_, _}], p, {p, 1 - p}];
+    parsePos[l_] := (# + {0, First@MaximalBy[
+      {-Min[MinimalBy[l,Last],0], -Max[MaximalBy[l,Last] - 1, 0]},
+        Abs]} &) /@ l;
+    shapeF[edge_, ah_] := edge -> ({ah, Arrow[#]} &);
+    GroupBy[edges, Sort -> (Signature[#] &)] //
+      Map[{Count[-1]@#, Count[+1]@#} &] //
+      ApplyTo[Arrowheads[Join @@ parsePos /@ {
+        Table[{-s,b+(2*k-#1+1)*2*s/3}, {k,0,#1-1}],
+        Table[{+s,f+(2*k-#2+1)*2*s/3}, {k,0,#2-1}]
+      }] &, {1}] //
+    KeyValueMap[shapeF]
+   ];
+
+
+SyntaxInformation[QuiverGraph] = {
+  "ArgumentsPattern" -> {_, _., OptionsPattern[]},
+  "OptionsName" -> {
+    "MultiplicityAsEdges", 
+    "ArrowsPosition",
+    "ArrowSize"}
+  };
+
+Options[QuiverGraph] = {
+  VertexSize -> {"Scaled", 0.04},
+  VertexStyle -> Directive[ EdgeForm[{Black}], FaceForm[{Hue[0.15, 0.2, 1]}] ],
+  VertexLabels -> Placed[Automatic, {0.52, 0.48}],
+  VertexLabelStyle -> Directive[ Bold, FontSize -> Scaled[0.04] ],
+  EdgeStyle -> Directive[ Opacity[1], Hue[0, 1, 0.5] ],
+  "MultiplicityAsEdges" -> False,
+  "ArrowSize" -> 0.04,
+  "ArrowsPosition" -> {0.8, 0.16}
+};
+
+QuiverGraph[W_?PotentialQ, opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
+  QuiverGraph[Automatic, QuiverFromPotential@W, opts];
+QuiverGraph[Automatic, edges_?EdgeListQ, opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
+  QuiverGraph[Sort@DeleteDuplicates@Flatten[List@@@edges], edges, opts];
+QuiverGraph[Automatic, W_?PotentialQ, opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
+  QuiverGraph[Automatic, QuiverFromPotential@W, opts];
+QuiverGraph[vertex: {(_Integer|{__Integer})..}, W_?PotentialQ, 
+  opts: OptionsPattern[{QuiverGraph, Graph}] ] :=
+    QuiverGraph[vertex, QuiverFromPotential@W, opts];
+QuiverGraph[vertex: {(_Integer | {__Integer}) ..}, edges_?EdgeListQ, 
+  opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
+    Graph[
+      Flatten@vertex,
+      If[OptionValue["MultiplicityAsEdges"],
+        Identity, Map[First]@*parseArrowheads]@edges,
+      Sequence @@ FilterRules[{opts}, Except[
+        Union[Options@QuiverGraph, {EdgeShapeFunction}], 
+        Options@Graph]
+      ],
+      VertexSize -> OptionValue["VertexSize"],
+      VertexStyle -> OptionValue["VertexStyle"],
+      VertexLabels -> OptionValue["VertexLabels"],
+      VertexLabelStyle -> OptionValue["VertexLabelStyle"],
+      VertexCoordinates -> parseVertexPositioning[vertex],
+      EdgeStyle -> OptionValue["EdgeStyle"],
+      EdgeShapeFunction -> If[
+        OptionValue["MultiplicityAsEdges"],
+        GraphElementData[{"FilledArrow", "ArrowSize" -> OptionValue["ArrowSize"]}],
+        parseArrowheads[edges, OptionValue["ArrowSize"], OptionValue["ArrowsPosition"] ]
+      ]
+    ];
 
 
 SyntaxInformation[QuiverIncidenceMatrix] = {"ArgumentsPattern" -> {_}};
 
 QuiverIncidenceMatrix[W_] := 
   QuiverIncidenceMatrix[QuiverFromPotential@W];
-QuiverIncidenceMatrix[edges_?GraphEdgeQ] :=
+QuiverIncidenceMatrix[edges_?EdgeListQ] :=
   TableForm[
     Transpose@Normal@IncidenceMatrix[edges], 
     TableHeadings -> {
@@ -115,10 +190,6 @@ QuiverIncidenceMatrix[edges_?GraphEdgeQ] :=
     }
   ];
 
-
-With[{syms = Names["QuiverGaugeTheory`Quiver`*"]},
-  SetAttributes[syms, {Protected, ReadProtected}]
-]
 
 End[]
 

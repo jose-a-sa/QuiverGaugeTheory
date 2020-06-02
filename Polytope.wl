@@ -6,10 +6,6 @@ BeginPackage["QuiverGaugeTheory`Polytope`", {
 }]
 
 
-Unprotect["QuiverGaugeTheory`Polytope`*"];
-ClearAll["QuiverGaugeTheory`Polytope`*"];
-
-
 DualPolytope::usage = "";
 
 
@@ -45,27 +41,28 @@ DualPolytope[pts_?MatrixQ] := {x, y} //
 
 SyntaxInformation[PolytopeVertices] = {"ArgumentsPattern" -> {_}};
 
-PolytopeVertices[pts_?MatrixQ] := Module[
-  {furthest, argGrouped, vertices},
-  argGrouped = DeleteCases[pts, {0, 0}] // 
-    GroupBy@Apply[Mod[Arg[#1 + I #2], 2 Pi] &] // KeySortBy[N];
-  furthest = First@MaximalBy[#, Abs, 1] & /@ argGrouped // Values;
-  vertices = Select[furthest, 
-    !PossibleZeroQ[PolygonAngle[Polygon@furthest, #] - Pi] &]
-]
+PolytopeVertices[pts_?MatrixQ] :=
+  Module[{sorted, hull, sortF, vert},
+    hull = (First@Nearest[pts, #] &) /@ MeshCoordinates@ConvexHullMesh[pts];
+    sortF[{x_, y_}] := (\[Pi] - 1. ArcTan[#1 - x, #2 - y] &);
+    sorted = hull // SortBy[ Apply@sortF[RegionCentroid@Polygon@hull] ];
+    vert = Select[sorted,!PossibleZeroQ[PolygonAngle[Polygon@sorted, #] - Pi] &];
+    {vert, hull}
+  ];
 
 
 SyntaxInformation[PolytopePlot] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
 
 PolytopePlot[pts_?MatrixQ, opts: OptionsPattern[Graphics] ] := 
-  Module[{vert, other},
-    vert = PolytopeVertices[pts];
-    other = DeleteCases[pts, Alternatives@@(vert~Join~{{0, 0}})];
+  Module[{vert, hull, inside},
+    {vert, hull} = PolytopeVertices[pts];
     Graphics[{
       {EdgeForm[{Thick, Black}], FaceForm[Transparent], Polygon@vert},
       {FaceForm[Black], Disk[#, 0.15] & /@ vert},
-      {EdgeForm[{Thick, Black}], FaceForm[Yellow], Disk[#, 0.12] & /@ other},
-      {EdgeForm[{Thick, Black}], FaceForm@Lighter[Red, 0.6], Disk[{0, 0}, 0.12]}
+      {EdgeForm[{Thick, Black}], FaceForm[Yellow], 
+        Disk[#, 0.12] & /@ Complement[hull, vert]},
+      {EdgeForm[{Thick, Black}], FaceForm@Lighter[Red, 0.6], 
+        Disk[#, 0.12] & /@ Complement[pts, hull]}
     }, opts]
   ];
 
@@ -74,10 +71,6 @@ SyntaxInformation[PolytopeArea] = {"ArgumentsPattern" -> {_}};
 
 PolytopeArea[pts_?MatrixQ] := Area@Polygon@PolytopeVertices[pts];
 
-
-With[{syms = Names["QuiverGaugeTheory`Polytope`*"]},
-  SetAttributes[syms, {Protected, ReadProtected}]
-]
 
 End[]
 

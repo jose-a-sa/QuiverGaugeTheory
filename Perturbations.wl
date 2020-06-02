@@ -7,10 +7,6 @@ BeginPackage["QuiverGaugeTheory`Perturbations`", {
 }]
 
 
-Unprotect["QuiverGaugeTheory`Perturbations`*"];
-ClearAll["QuiverGaugeTheory`Perturbations`*"];
-
-
 FieldRedefinition::usage = "";
 
 
@@ -20,19 +16,23 @@ RedefinitionMinMonomialCount::usage = "";
 MassShiftRules::usage = "";
 
 
-(* LikelyRedefinitionFields::usage = ""; *)
-
-
 GeneratorsTable::usage = "";
 
 
 Begin["`Private`"]
 
 
-RedefSymbols = {\[Alpha], \[Beta], \[Gamma], \[Delta], \[Epsilon], \[Zeta], \[Eta],
-  \[Theta], \[Iota], \[Kappa], \[Lambda], \[Mu], \[Nu], \[Xi],
-  \[Omicron], \[Rho], \[Sigma], \[Tau], \[Upsilon], \[Phi], \[Chi],
-  \[Psi], \[Omega]};
+formalVars = {
+  \[FormalAlpha], \[FormalBeta], \[FormalGamma], \[FormalDelta],
+  \[FormalCurlyEpsilon], \[FormalZeta], \[FormalEta], \[FormalTheta],
+  \[FormalIota], \[FormalKappa], \[FormalLambda], \[FormalMu],
+  \[FormalNu], \[FormalXi], \[FormalOmicron], \[FormalPi],
+  \[FormalRho], \[FormalFinalSigma], \[FormalSigma], \[FormalTau],
+  \[FormalUpsilon], \[FormalCurlyPhi], \[FormalChi], \[FormalPsi],
+  \[FormalOmega], \[FormalCurlyTheta], \[FormalPhi], \[FormalCurlyPi],
+  \[FormalStigma], \[FormalDigamma], \[FormalKoppa], \[FormalSampi],
+  \[FormalCurlyKappa], \[FormalCurlyRho], \[FormalEpsilon]
+};
 
 
 Options[FieldRedefinition] = {ExcludePureRescalings -> True};
@@ -41,14 +41,18 @@ SyntaxInformation[FieldRedefinition] = {
   "OptionNames" -> {"ExcludePureRescalings"}
 };
 
-FieldRedefinition[fields: { Subscript[X, _][__] .. }, edges_?GraphEdgeQ, deg_, opts:OptionsPattern[] ] := 
+FieldRedefinition[fields: { Subscript[X, _][__] .. }, edges_?EdgeListQ, deg_, opts:OptionsPattern[] ] := 
   (FieldRedefinition[#, edges, deg, opts] & /@ fields);
-FieldRedefinition[Subscript[X, f_][i_, j_], edges_?GraphEdgeQ, deg_, OptionsPattern[] ] :=
+FieldRedefinition[Subscript[X, f_][i_, j_], edges_?EdgeListQ, deg_, OptionsPattern[] ] :=
   Module[{path, fieldList, redef},
+    Switch[edges,
+      _?(FreeQ[i]), Return@Missing["QuiverVertexAbsent", i],
+      _?(FreeQ[j]), Return@Missing["QuiverVertexAbsent", j],
+      _, Null];
     fieldList = FindQuiverPaths[edges, i, j, deg] // QuiverPathToFields[edges] // 
       Flatten // DeleteCases[ Subscript[X, f][i, j] ];
-    redef = Subscript[X, f][i, j] -> Subscript[First@RedefSymbols, f][i, j] Subscript[X, f][i, j] 
-      + fieldList.Table[Subscript[RedefSymbols[[k]], f][i, j], {k, 2, Length@fieldList + 1}];
+    redef = Subscript[X, f][i, j] -> Subscript[First@formalVars, f][i, j] Subscript[X, f][i, j] 
+      + fieldList.Table[Subscript[formalVars[[k+1]], f][i, j], {k, Length@fieldList}];
     If[And[OptionValue["ExcludePureRescalings"], fieldList == {}], Nothing, redef]
   ]
 
@@ -60,31 +64,11 @@ RedefinitionMinMonomialCount[form_] :=
 RedefinitionMinMonomialCount[W_, form_] :=
   Total@Coefficient[#,
     Cases[#, 
-      Abs@HoldPattern[Times][form, Subscript[\[Alpha], _][__] ..] | 
-      Abs@HoldPattern[Times][Subscript[\[Alpha], _][__] ..] |
-      Abs[ Subscript[\[Alpha], _][__] ] 
+      Abs@HoldPattern[Times][form, Subscript[\[FormalAlpha], _][__] ..] | 
+      Abs@HoldPattern[Times][Subscript[\[FormalAlpha], _][__] ..] |
+      Abs[ Subscript[\[FormalAlpha], _][__] ] 
     ] 
   ] & /@ ReplaceAll[HoldPattern[Times][___, _Plus, ___] -> 0]@FTermsConstraint[W, Abs];
-
-
-SyntaxInformation[LikelyRedefinitionFields] = {"ArgumentsPattern" -> {_, _.}};
-
-LikelyRedefinitionFields[coef_] := 
-  LikelyRedefinitionFields[#, coef] &;
-LikelyRedefinitionFields[W_?PotentialQ, coef_] := Module[
-  {exclude, include},
-  exclude = Cases[W //Expand, 
-    HoldPattern[Times][1/coef | -(1/coef), a : (Subscript[X, _][__] ..)] :> a
-  ] // DeleteDuplicates;
-  include = Cases[W // Expand,
-    If[exclude == {},
-      HoldPattern[Times][-coef | coef, a : (Subscript[X, _][__] ..)] :> a, 
-      HoldPattern[Times][-1, a : (Subscript[X, _][__] ..)] | 
-      HoldPattern[Times][a : (Subscript[X, _][__] ..)] :> a
-    ]
-  ] // DeleteDuplicates;
-  include // DeleteCases[Alternatives @@ exclude]
-];
 
 
 SyntaxInformation[MassShiftRules] = {"ArgumentsPattern" -> {_, _., _.}};
@@ -103,7 +87,7 @@ MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] :=
   ];
 
 
-SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_, _, _}};
+SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_, _., _.}};
 
 GeneratorsTable[W_?ToricPotentialQ, gen_Association, charges_Association] :=
   Module[{genCol, fieldCol, rCol, tdCol, rExactParse},
@@ -127,10 +111,6 @@ GeneratorsTable[W_?ToricPotentialQ, gen_Association, charges_Association] :=
     ], Frame -> All]
   ];
   
-
-With[{syms = Names["QuiverGaugeTheory`Perturbations`*"]},
-  SetAttributes[syms, {Protected, ReadProtected}]
-];
 
 End[]
  
