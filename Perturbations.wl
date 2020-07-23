@@ -97,8 +97,7 @@ GeneratorsTable[W_?ToricPotentialQ, gen_Association, charges_Association] :=
     fieldCol = If[Length[#] > 1, Equal@@#, First@#] & /@ Values[gen];
     rCol = List @@@ Keys[gen] // ReplaceAll[{x_^y_Integer :> Table[x, {y}]}] // 
       Map[Total@*Map[charges]@*Flatten];
-    (* FLAG: using SubsetsOld for < 12.0 compatibility *)
-    tdCol = Map[Transpose]@*(SubsetsOld[#, {2}] &)@*IndexedList /@ Values[gen] // 
+    tdCol = Map[Transpose]@*(Subsets[#, {2}] &)@*IndexedList /@ Values[gen] // 
       Map[ If[Length[#] == 0, {Undefined}, 
         ApplyTo[#1 -> FEquationsTrivialQ[Subtract@@#2, W] &, {1}]@#] & ];
     Grid[Transpose[{

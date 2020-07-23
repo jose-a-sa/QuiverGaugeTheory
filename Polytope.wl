@@ -69,7 +69,7 @@ PolytopePlot[pts_?MatrixQ, opts: OptionsPattern[Graphics] ] :=
 
 SyntaxInformation[PolytopeArea] = {"ArgumentsPattern" -> {_}};
 
-PolytopeArea[pts_?MatrixQ] := Area@Polygon@PolytopeVertices[pts];
+PolytopeArea[pts_?MatrixQ] := Area@Polygon@Last@PolytopeVertices[pts];
 
 
 End[]

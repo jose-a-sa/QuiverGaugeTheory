@@ -98,14 +98,14 @@ ExpandableBox[q_, header_, grid_, fmt_ : StandardForm] :=
       Pane[Style[#1, FontSize -> 12, FontFamily -> "Helvetica"], 
         Alignment -> Left, 
         BaselinePosition -> Baseline, 
-        FrameMargins -> {{4, 2}, {0, 0}}],
+        FrameMargins -> {{4, 2}, {1, 0}}],
       Item[Pane[Setter[#2, {#3}, #4, 
             Appearance -> None, 
             ContentPadding -> False, 
             FrameMargins -> 0
           ], 
           Alignment -> Left, 
-          FrameMargins -> {{2, 1}, {0, 0}}, 
+          FrameMargins -> {{2, 1}, {1, 0}}, 
           BaselinePosition -> {1, 1}
         ], 
         Frame -> {{Directive[ Opacity[0.5], RGBColor["#d4d8d9"] ], False}, 

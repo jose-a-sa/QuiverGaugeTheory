@@ -27,7 +27,7 @@ Get["QuiverGaugeTheory`Perturbations`"]
 Get["QuiverGaugeTheory`Model`"]
 
 
-With[{clearSyms = {"QuiverFormalVariables"}},
+With[{clearSyms = {}},
   Unprotect /@ clearSyms;
   ClearAll /@ clearSyms;
 ];
