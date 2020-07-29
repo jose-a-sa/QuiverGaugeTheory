@@ -27,7 +27,7 @@ Begin["`Private`"]
 SyntaxInformation[UsageForm] = {"ArgumentsPattern" -> {_, _.}};
 
 UsageForm[u: {__String}, a: ({__String} | HoldPattern[Alternatives][__String] | Automatic): Automatic] := 
-    Map[UsageForm[#, a] &, u];
+  Map[UsageForm[#, a] &, u];
 UsageForm[u_String, a: ({__String} | HoldPattern[Alternatives][__String] | Automatic): Automatic] :=
   Module[{uf, handleV, TIrule, funcPatt, varPatt, vars},
     Attributes[uf] = {HoldFirst};
@@ -42,7 +42,7 @@ UsageForm[u_String, a: ({__String} | HoldPattern[Alternatives][__String] | Autom
       ],
       a
     ];
-    varPatt = (WordBoundary ~~ Pattern[#, __] ~~ WordBoundary /;
+    varPatt = (WordBoundary ~~ Pattern[#, __] ~~ WordBoundary /; 
       StringMatchQ[#, Alternatives @@ vars]) &;
     TIrule = (varPatt[x] :> StringJoin["Style[", x, ",\"TI\"]"]);
     handleV = ReleaseHold@Map[uf, ToExpression[

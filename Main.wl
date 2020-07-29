@@ -39,6 +39,9 @@ yields True if the F-terms for the superpotential \!\(\*StyleBox[\"W\", \"TI\"]\
 exactly 2 monominals with opposite coefficients \[PlusMinus]1.";
 
 
+ToricPotentialTeXForm::usage = "";
+
+
 Begin["`Private`"]
 
 
@@ -136,6 +139,27 @@ ChangeGroupIndices[i_Integer, j_Integer] :=
 ChangeGroupIndices[{rules__Rule}] := 
   Subscript[symb_, c_][a_, b_] :> Subscript[symb, c] @@ ({a, b} /. {rules}) /; 
     MatchQ[symb, X | Alternatives@@formalVars ];
+
+
+SyntaxInformation[ToricPotentialTeXForm] = {"ArgumentsPattern" -> {_, _.}};
+
+ToricPotentialTeXForm[W_?ToricPotentialQ, perline : (_Integer?NonNegative) : 3] := 
+  Module[{texStr, terms, gather, sorted},
+    texStr = ToString[
+      W /. {
+        Subscript[X, k_][i_, j_] :> If[ 
+        FreeQ[ W, Subscript[X, 2][i, j] ], 
+        Subscript[ X, Row[{i, j}] ],  Subsuperscript[ X, Row[{i, j}], Row[{k}] ] 
+      ]},
+      TeXForm];
+    terms = StringSplit[texStr, c : {"+", "-"} -> c] // 
+      Partition[If[First[#] != "-", Prepend[#, "+"], #], 2] &;
+    gather = SortBy[StringCount[Last[#], "X"] &] /@ GatherBy[terms, First];
+    sorted = (StringJoin[" ", #1, " ", #2] &) @@@ Join @@ Reverse@SortBy[First@*First]@gather;
+    "&= " <> StringReplace[
+      StringJoin @@ Riffle[sorted, " \\\\ \n & \\qquad", perline + 1], 
+      StartOfLine ~~ " + " -> ""]
+  ];
 
 
 End[]

@@ -58,7 +58,7 @@ PolytopePlot[pts_?MatrixQ, opts: OptionsPattern[Graphics] ] :=
     {vert, hull} = PolytopeVertices[pts];
     Graphics[{
       {EdgeForm[{Thick, Black}], FaceForm[Transparent], Polygon@vert},
-      {FaceForm[Black], Disk[#, 0.15] & /@ vert},
+      {FaceForm[Black], Disk[#, 0.18] & /@ vert},
       {EdgeForm[{Thick, Black}], FaceForm[Yellow], 
         Disk[#, 0.12] & /@ Complement[hull, vert]},
       {EdgeForm[{Thick, Black}], FaceForm@Lighter[Red, 0.6], 
