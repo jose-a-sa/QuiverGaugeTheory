@@ -90,22 +90,30 @@ MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] :=
 SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_, _., _.}};
 
 GeneratorsTable[W_?ToricPotentialQ, gen_Association, charges_Association] :=
-  Module[{genCol, fieldCol, rCol, tdCol, rExactParse},
+  Module[{genCol, fieldCol, rChargeCol, fTermCol, rExactParse, fTermColNumb},
     rExactParse = If[Count[Expand@#, Root[__]^(_.) .., Infinity] > 10, 
         SpanFromLeft, RootReduce[#] ] &;
-    genCol = Keys@gen;
-    fieldCol = If[Length[#] > 1, Equal@@#, First@#] & /@ Values[gen];
-    rCol = List @@@ Keys[gen] // ReplaceAll[{x_^y_Integer :> Table[x, {y}]}] // 
-      Map[Total@*Map[charges]@*Flatten];
-    tdCol = Map[Transpose]@*(Subsets[#, {2}] &)@*IndexedList /@ Values[gen] // 
-      Map[ If[Length[#] == 0, {Undefined}, 
-        ApplyTo[#1 -> FEquationsTrivialQ[Subtract@@#2, W] &, {1}]@#] & ];
+    genCol = Keys[gen];
+    fieldCol = If[Length[#] > 1, TildeEqual@@#, First@#] & /@ Values[gen];
+    rChargeCol = Keys[gen] // Map@RightComposition[
+      Apply[List], ReplaceAll[{x_^y_Integer :> Table[x, {y}]}],
+      Flatten, ReplaceAll[charges], Total
+    ];
+    fTermCol = Values[gen] // Map@RightComposition[
+      Subsets[#, {2}] &,
+      Thread[# -> ApplyTo[FEquationsTrivialQ[W]@*Subtract, {1}]@#] &,
+      GroupBy[Last -> Apply[UndirectedEdge]@*First],
+      Lookup[#, True, {Undefined}, 
+        ApplyTo[Tilde, {1}]@*ConnectedComponents@*Graph] &
+    ];
+    fTermColNumb =
+      MapThread[#1/.Thread[#2->Range@Length@#2] &, {fTermCol, Values@gen}];
     Grid[Transpose[{
       Prepend[genCol, "Generators"], 
       Prepend[fieldCol, "Field generators"],
-      Prepend[N /@ rCol, "R-charge"],
-      Prepend[rExactParse /@ rCol, SpanFromLeft],
-      Prepend[Column /@ tdCol, "Trivial differences"]
+      Prepend[N /@ rChargeCol, "R-charge"],
+      Prepend[rExactParse /@ rChargeCol, SpanFromLeft],
+      Prepend[Column@*Sort /@ fTermColNumb, "F-term equiv. GIOs"]
     } // MapAt[If[StringQ[#], Item[#, ItemSize->{Automatic,1.7}], #] &, {All, 1}]
     ], Frame -> All]
   ];

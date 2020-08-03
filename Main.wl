@@ -118,12 +118,10 @@ ToricPotentialQ[W_] :=
 
 SyntaxInformation[FEquationsTrivialQ] = {"ArgumentsPattern" -> {_, _.}};
 
-FEquationsTrivialQ[W_?PotentialQ] :=
-  FEquationsTrivialQ[#, W] &;
 FEquationsTrivialQ[diff_,  W_?PotentialQ] :=
-  PossibleZeroQ@Simplify[diff, 
-    Assumptions -> Thread[FTerms@W==0]
-  ];
+  PossibleZeroQ@Last@PolynomialReduce[diff, FTerms@W, FieldsInPotential@W];
+FEquationsTrivialQ[W_?PotentialQ][diff_] :=
+  FEquationsTrivialQ[diff, W];
 
 
 SyntaxInformation[ChangeGroupIndices] = {"ArgumentsPattern" -> {_, ___}};
