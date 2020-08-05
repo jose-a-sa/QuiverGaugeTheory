@@ -90,9 +90,10 @@ MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] :=
 SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_, _., _.}};
 
 GeneratorsTable[W_?ToricPotentialQ, gen_Association, charges_Association] :=
-  Module[{genCol, fieldCol, rChargeCol, fTermCol, rExactParse, fTermColNumb},
+  Module[{genCol, fieldCol, rChargeCol, fTermCol, rExactParse, fTermColNumb, feqTrivialQ},
     rExactParse = If[Count[Expand@#, Root[__]^(_.) .., Infinity] > 10, 
         SpanFromLeft, RootReduce[#] ] &;
+    feqTrivialQ = FEquationsTrivialQ[W];
     genCol = Keys[gen];
     fieldCol = If[Length[#] > 1, TildeEqual@@#, First@#] & /@ Values[gen];
     rChargeCol = Keys[gen] // Map@RightComposition[
@@ -101,7 +102,7 @@ GeneratorsTable[W_?ToricPotentialQ, gen_Association, charges_Association] :=
     ];
     fTermCol = Values[gen] // Map@RightComposition[
       Subsets[#, {2}] &,
-      Thread[# -> ApplyTo[FEquationsTrivialQ[W]@*Subtract, {1}]@#] &,
+      Thread[# -> ApplyTo[feqTrivialQ@*Subtract, {1}]@#] &,
       GroupBy[Last -> Apply[UndirectedEdge]@*First],
       Lookup[#, True, {Undefined}, 
         ApplyTo[Tilde, {1}]@*ConnectedComponents@*Graph] &

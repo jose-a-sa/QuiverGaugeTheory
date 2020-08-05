@@ -118,10 +118,14 @@ ToricPotentialQ[W_] :=
 
 SyntaxInformation[FEquationsTrivialQ] = {"ArgumentsPattern" -> {_, _.}};
 
-FEquationsTrivialQ[diff_,  W_?PotentialQ] :=
-  PossibleZeroQ@Last@PolynomialReduce[diff, FTerms@W, FieldsInPotential@W];
-FEquationsTrivialQ[W_?PotentialQ][diff_] :=
-  FEquationsTrivialQ[diff, W];
+FEquationsTrivialQ[diff_, W_?PotentialQ] :=
+  FEquationsTrivialQ[W][diff];
+FEquationsTrivialQ[W_?PotentialQ] := 
+  Module[{grB, vars},
+    vars = FieldsInPotential@W;
+    grB = GroebnerBasis[FTerms@W, vars];
+    (PossibleZeroQ@Last@PolynomialReduce[#, grB, vars] &)
+  ];
 
 
 SyntaxInformation[ChangeGroupIndices] = {"ArgumentsPattern" -> {_, ___}};
