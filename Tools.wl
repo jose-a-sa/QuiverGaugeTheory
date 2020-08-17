@@ -9,6 +9,9 @@ UsageForm::usage = "";
 ApplyTo::usage = "";
 
 
+UniqueCases::usage = "";
+
+
 IndexedList::usage = "";
 
 
@@ -59,6 +62,14 @@ SyntaxInformation[ApplyTo] = {"ArgumentsPattern" -> {_, _.}};
 
 ApplyTo[f_, levelspec_ : {0}] := 
   Apply[f, #, levelspec] &;
+
+
+SyntaxInformation[UniqueCases] = SyntaxInformation[Cases];
+
+UniqueCases[pattern_, opts : OptionsPattern[Cases] ][expr_] :=
+  UniqueCases[expr, pattern, opts]
+UniqueCases[expr_, pattern_, opts : OptionsPattern[Cases] ] :=
+  DeleteDuplicates@Cases[expr, pattern, Infinity, opts]
 
 
 SyntaxInformation[IndexedList] = {"ArgumentsPattern" -> {_, _., _.}};

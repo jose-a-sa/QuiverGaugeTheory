@@ -21,7 +21,10 @@ QuiverPathToFields::usage = "";
 QuiverLoops::usage = "";
 
 
-QuiverFromPotential::usage = "";
+QuiverFromFields::usage = "";
+
+
+GaugeInvariantMesons::usage = "";
 
 
 QuiverGraph::usage = "";
@@ -49,10 +52,10 @@ SyntaxInformation[EdgeListQ] = {"ArgumentsPattern" -> {_}};
 EdgeListQ = MatchQ[{ (DirectedEdge[__]|UndirectedEdge[__]) .. }];
 
 
-SyntaxInformation[QuiverFromPotential] = {"ArgumentsPattern" -> {_}};
+SyntaxInformation[QuiverFromFields] = {"ArgumentsPattern" -> {_}};
 
-QuiverFromPotential[W_] := 
-  ReplaceAll[{Subscript[X, _] -> DirectedEdge}]@FieldsInPotential[W];
+QuiverFromFields[W_] := 
+  ReplaceAll[{Subscript[X, _] -> DirectedEdge}]@Fields[W];
 
 
 SyntaxInformation[QuiverFields] = {"ArgumentsPattern" -> {_}};
@@ -94,7 +97,16 @@ QuiverPathToFields[paths: {__?EdgeListQ}, edges_?EdgeListQ] :=
   QuiverPathToFields[#, edges] & /@ paths;
 QuiverPathToFields[path_?EdgeListQ, edges_?EdgeListQ] := 
   path/.KeyValueMap[#1 -> Table[Subscript[X, i]@@#1, {i, Range@#2}] &, Counts@edges] //
-  Outer[Times, Sequence@@#1] & // Flatten;
+    Outer[Times, Sequence@@#1] & // Flatten;
+
+
+SyntaxInformation[GaugeInvariantMesons] = {"ArgumentsPattern" -> {_, _}};
+
+GaugeInvariantMesons[edges_?EdgeListQ, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] := 
+  Flatten@QuiverPathToFields[QuiverLoops[edges, degspec], edges];
+GaugeInvariantMesons[edges_?EdgeListQ, deg_] := 
+  Flatten@QuiverPathToFields[QuiverLoops[edges, deg], edges];
+
 
 
 parseVertexPositioning[v : {(_Integer | {__Integer}) ..}] :=
@@ -145,14 +157,14 @@ Options[QuiverGraph] = {
 };
 
 QuiverGraph[W_?PotentialQ, opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
-  QuiverGraph[Automatic, QuiverFromPotential@W, opts];
+  QuiverGraph[Automatic, QuiverFromFields@W, opts];
 QuiverGraph[Automatic, edges_?EdgeListQ, opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
   QuiverGraph[Sort@DeleteDuplicates@Flatten[List@@@edges], edges, opts];
 QuiverGraph[Automatic, W_?PotentialQ, opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
-  QuiverGraph[Automatic, QuiverFromPotential@W, opts];
+  QuiverGraph[Automatic, QuiverFromFields@W, opts];
 QuiverGraph[vertex: {(_Integer|{__Integer})..}, W_?PotentialQ, 
   opts: OptionsPattern[{QuiverGraph, Graph}] ] :=
-    QuiverGraph[vertex, QuiverFromPotential@W, opts];
+    QuiverGraph[vertex, QuiverFromFields@W, opts];
 QuiverGraph[vertex: {(_Integer | {__Integer}) ..}, edges_?EdgeListQ, 
   opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
     Graph[
@@ -180,7 +192,7 @@ QuiverGraph[vertex: {(_Integer | {__Integer}) ..}, edges_?EdgeListQ,
 SyntaxInformation[QuiverIncidenceMatrix] = {"ArgumentsPattern" -> {_}};
 
 QuiverIncidenceMatrix[W_] := 
-  QuiverIncidenceMatrix[QuiverFromPotential@W];
+  QuiverIncidenceMatrix[QuiverFromFields@W];
 QuiverIncidenceMatrix[edges_?EdgeListQ] :=
   TableForm[
     Transpose@Normal@IncidenceMatrix[edges], 

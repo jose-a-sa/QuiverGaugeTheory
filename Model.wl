@@ -85,7 +85,7 @@ GetModelData[key : (_String | {_String, _String}), old_Association,
         "Graphics" -> PolytopePlot,
         "Coordinates" -> Identity}, True],
       modelDataRowList["Quiver", "Potential", {
-        "Edges" -> QuiverFromPotential,
+        "Edges" -> QuiverFromFields,
         "Graph" -> (QuiverGraph[Lookup[opts,"QuiverPositioning"], #] &),
         "Positioning" -> (Lookup[opts,"QuiverPositioning"] &)}, True],
       modelDataRow["RCharges", "RCharges"],
@@ -167,7 +167,7 @@ Model /: MakeBoxes[q : Model[key : (_String | {_String, _String})],
       toricQBox = ExpandableBoxItem[{"ToricPotentialQ: ", 
           QueryWithPhase[key, {"ToricPotentialQ"}, {}]}];
       noFieldsBox = ExpandableBoxItem[{"No. Fields: ", 
-          QueryWithPhase[key, {"Potential"}, {}, Length@*FieldsInPotential]}];
+          QueryWithPhase[key, {"Potential"}, {}, Length@*Fields]}];
       header = StringRiffle[Flatten@{key}, " "];
       grid = ReplaceAll[{Repeated[SpanFromLeft, 5]} -> Nothing]@{
         {ExpandableBoxItem[{"Key: ", key}],
@@ -200,7 +200,7 @@ Quiver[ Model[key : (_String | {_String, _String})] ] :=
 
 
 QuiverFields[ Model[key : (_String | {_String, _String})] ] :=
-  QueryWithPhase[key, {"Potential"}, {}, FieldsInPotential];
+  QueryWithPhase[key, {"Potential"}, {}, Fields];
 
 
 QuiverFields[ Model[key : (_String | {_String, _String})] ] :=
