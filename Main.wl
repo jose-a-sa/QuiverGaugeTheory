@@ -5,6 +5,10 @@ BeginPackage["QuiverGaugeTheory`Main`", {
 }]
 
 
+$RedefinitionVars = Alternatives@@
+  ToExpression@CharacterRange["\[FormalAlpha]", "\[FormalOmega]"];
+
+
 X::usage = "";
 U::usage = "";
 
@@ -43,19 +47,6 @@ ToricPotentialTeXForm::usage = "";
 
 
 Begin["`Private`"]
-
-
-formalVars = {
-  \[FormalAlpha], \[FormalBeta], \[FormalGamma], \[FormalDelta],
-  \[FormalCurlyEpsilon], \[FormalZeta], \[FormalEta], \[FormalTheta],
-  \[FormalIota], \[FormalKappa], \[FormalLambda], \[FormalMu],
-  \[FormalNu], \[FormalXi], \[FormalOmicron], \[FormalPi],
-  \[FormalRho], \[FormalFinalSigma], \[FormalSigma], \[FormalTau],
-  \[FormalUpsilon], \[FormalCurlyPhi], \[FormalChi], \[FormalPsi],
-  \[FormalOmega], \[FormalCurlyTheta], \[FormalPhi], \[FormalCurlyPi],
-  \[FormalStigma], \[FormalDigamma], \[FormalKoppa], \[FormalSampi],
-  \[FormalCurlyKappa], \[FormalCurlyRho], \[FormalEpsilon]
-};
 
 
 SyntaxInformation[X] = {"ArgumentsPattern" -> {_, _, _.}};
@@ -138,7 +129,7 @@ ChangeGroupIndices[i_Integer, j_Integer] :=
   ChangeGroupIndices[{i->j,j->i}];
 ChangeGroupIndices[{rules__Rule}] := 
   Subscript[symb_, c_][a_, b_] :> Subscript[symb, c] @@ ({a, b} /. {rules}) /; 
-    MatchQ[symb, X | Alternatives@@formalVars ];
+    MatchQ[symb, X | Alternatives@@$RedefinitionVars ];
 
 
 SyntaxInformation[ToricPotentialTeXForm] = {"ArgumentsPattern" -> {_, _.}};

@@ -9,6 +9,9 @@ ClearAll["QuiverGaugeTheory`Main`*"];
 Unprotect["QuiverGaugeTheory`Quiver`*"];
 ClearAll["QuiverGaugeTheory`Quiver`*"];
 
+Unprotect["QuiverGaugeTheory`MesonicBranch`*"];
+ClearAll["QuiverGaugeTheory`MesonicBranch`*"];
+
 Unprotect["QuiverGaugeTheory`Polytope`*"];
 ClearAll["QuiverGaugeTheory`Polytope`*"];
 
@@ -22,6 +25,7 @@ ClearAll["QuiverGaugeTheory`Model`*"];
 Get["QuiverGaugeTheory`Tools`"]
 Get["QuiverGaugeTheory`Main`"]
 Get["QuiverGaugeTheory`Quiver`"]
+Get["QuiverGaugeTheory`MesonicBranch`"]
 Get["QuiverGaugeTheory`Polytope`"]
 Get["QuiverGaugeTheory`Perturbations`"]
 Get["QuiverGaugeTheory`Model`"]
@@ -41,6 +45,10 @@ With[{syms = Names["QuiverGaugeTheory`Main`*"]},
 ];
 
 With[{syms = Names["QuiverGaugeTheory`Quiver`*"]},
+  SetAttributes[syms, {Protected, ReadProtected}]
+];
+
+With[{syms = Names["QuiverGaugeTheory`MesonicBranch`*"]},
   SetAttributes[syms, {Protected, ReadProtected}]
 ];
 

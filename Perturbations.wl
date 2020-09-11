@@ -7,6 +7,10 @@ BeginPackage["QuiverGaugeTheory`Perturbations`", {
 }]
 
 
+$RedefinitionVars = Alternatives@@
+  ToExpression@CharacterRange["\[FormalAlpha]", "\[FormalOmega]"];
+
+
 FieldRedefinition::usage = "";
 
 
@@ -20,19 +24,6 @@ GeneratorsTable::usage = "";
 
 
 Begin["`Private`"]
-
-
-formalVars = {
-  \[FormalAlpha], \[FormalBeta], \[FormalGamma], \[FormalDelta],
-  \[FormalCurlyEpsilon], \[FormalZeta], \[FormalEta], \[FormalTheta],
-  \[FormalIota], \[FormalKappa], \[FormalLambda], \[FormalMu],
-  \[FormalNu], \[FormalXi], \[FormalOmicron], \[FormalPi],
-  \[FormalRho], \[FormalFinalSigma], \[FormalSigma], \[FormalTau],
-  \[FormalUpsilon], \[FormalCurlyPhi], \[FormalChi], \[FormalPsi],
-  \[FormalOmega], \[FormalCurlyTheta], \[FormalPhi], \[FormalCurlyPi],
-  \[FormalStigma], \[FormalDigamma], \[FormalKoppa], \[FormalSampi],
-  \[FormalCurlyKappa], \[FormalCurlyRho], \[FormalEpsilon]
-};
 
 
 Options[FieldRedefinition] = {ExcludePureRescalings -> True};
@@ -51,8 +42,8 @@ FieldRedefinition[Subscript[X, f_][i_, j_], edges_?EdgeListQ, deg_, OptionsPatte
       _, Null];
     fieldList = FindQuiverPaths[edges, i, j, deg] // QuiverPathToFields[edges] // 
       Flatten // DeleteCases[ Subscript[X, f][i, j] ];
-    redef = Subscript[X, f][i, j] -> Subscript[First@formalVars, f][i, j] Subscript[X, f][i, j] 
-      + fieldList.Table[Subscript[formalVars[[k+1]], f][i, j], {k, Length@fieldList}];
+    redef = Subscript[X, f][i, j] -> Subscript[First@$RedefinitionVars, f][i, j] Subscript[X, f][i, j] 
+      + fieldList.Table[Subscript[$RedefinitionVars[[k+1]], f][i, j], {k, Length@fieldList}];
     If[And[OptionValue["ExcludePureRescalings"], fieldList == {}], Nothing, redef]
   ]
 
