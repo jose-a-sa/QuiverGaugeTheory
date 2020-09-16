@@ -37,6 +37,27 @@ ReduceGenerators[W_ ?PotentialQ,
 ReduceGenerators[W_ ?PotentialQ, 
     gios : {HoldPattern[Times][Subscript[X, _][__] ..] ..}, 
     genRules: ({__Rule} | _Association | Automatic) : Automatic ] :=
+  Module[{grB, fields, sol, genDecomp, remDenom},
+    fields = Fields@W;
+    grB = GroebnerBasis[FTerms@W, fields];
+    genDecomp = Reverse@NestWhileList[
+      Map[(FirstCase[First@#, _?(Not@*PossibleZeroQ), 1] &)
+        ]@PolynomialReduce[#, Keys@genRules, fields] &,   
+      Last /@ PolynomialReduce[gios, grB, fields], 
+      (Not@*MatchQ[{1 .. }])
+    ] // Map[Ratios]@*Transpose // ReplaceAll[genRules] // 
+      ApplyTo[Times, {1}];
+    remDenom = First@Solve@Cases[
+      Thread[Values@KeyTake[gios]@genRules == (Together/@genDecomp)], 
+      HoldPattern[Equal][x_,y_] /; UnsameQ[Denominator@y,1]
+    ];
+    sol = Values@KeyTake[gios]@genRules -> (genDecomp/.remDenom) //
+      Thread // Expand // DeleteCases[ HoldPattern[Rule][x_,x_] ];
+    Thread[gios -> Expand@(genDecomp/.Echo[sol])]
+  ]
+(* ReduceGenerators[W_ ?PotentialQ, 
+    gios : {HoldPattern[Times][Subscript[X, _][__] ..] ..}, 
+    genRules: ({__Rule} | _Association | Automatic) : Automatic ] :=
   Module[{grB, fields, result, resultNL, sol, removeDenom},
     fields = Fields@W;
     grB = GroebnerBasis[FTerms@W, fields];
@@ -53,7 +74,7 @@ ReduceGenerators[W_ ?PotentialQ,
       HoldPattern[Rule][_, y_] /; 
         (Not@FreeQ[Denominator[y], Alternatives@@$GeneratorVars]) ];
     DeleteCases[sol /. removeDenom, HoldPattern[Rule][x_, x_] ]
-  ];
+  ]; *)
 
 
 End[]
