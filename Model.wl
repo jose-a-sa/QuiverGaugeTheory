@@ -5,7 +5,8 @@ BeginPackage["QuiverGaugeTheory`Model`", {
   "QuiverGaugeTheory`Main`",
   "QuiverGaugeTheory`Quiver`",
   "QuiverGaugeTheory`Polytope`",
-  "QuiverGaugeTheory`Perturbations`"
+  "QuiverGaugeTheory`Perturbations`",
+  "QuiverGaugeTheory`ExpandableBox`"
 }]
 
 
@@ -62,7 +63,7 @@ GetModelData[key : (_String | {_String, _String}), old_Association,
       n -> handlePhase[pFlag]@g@Lookup[k]@opts,
       Nothing
     ];
-    modelDataRowList[n_String, k_String, gList_:{Rule[_String, _]..}, 
+    modelDataRowList[n_String, k_String, gList_:{Rule[_String, _]..},
       pFlag_:False] := If[
         KeyExistsQ[k]@opts,
         n -> handlePhase[pFlag]@Association@DeleteCases[

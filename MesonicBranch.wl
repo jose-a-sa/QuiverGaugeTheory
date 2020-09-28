@@ -17,6 +17,9 @@ ToGeneratorVariableRules::usage = "";
 ReduceGenerators::usage = "";
 
 
+SimplifyToricEquations::usage = "";
+
+
 Begin["`Private`"]
 
 
@@ -31,9 +34,12 @@ ToGeneratorVariableRules[l : {HoldPattern[Times][Subscript[X, _][__] ..] ..}] :=
 SyntaxInformation[ReduceGenerators] = {"ArgumentsPattern" -> {_, _, _.}};
 
 ReduceGenerators[W_ ?PotentialQ, 
+    gios : {HoldPattern[Times][Subscript[X, _][__] ..] ..}
+  ] := ReduceGenerators[W, gios, Automatic];
+ReduceGenerators[W_ ?PotentialQ, 
     gios : {HoldPattern[Times][Subscript[X, _][__] ..] ..}, 
-    Automatic ] :=
-  ReduceGenerators[W, gios, ToGeneratorVariableRules@gios];
+    Automatic
+  ] := ReduceGenerators[W, gios, ToGeneratorVariableRules@gios];
 ReduceGenerators[W_ ?PotentialQ, 
     gios : {HoldPattern[Times][Subscript[X, _][__] ..] ..}, 
     genRules: ({__Rule} | _Association | Automatic) : Automatic ] :=
@@ -55,26 +61,27 @@ ReduceGenerators[W_ ?PotentialQ,
       Thread // Expand // DeleteCases[ HoldPattern[Rule][x_,x_] ];
     Thread[gios -> Expand@(genDecomp/.Echo[sol])]
   ]
-(* ReduceGenerators[W_ ?PotentialQ, 
-    gios : {HoldPattern[Times][Subscript[X, _][__] ..] ..}, 
-    genRules: ({__Rule} | _Association | Automatic) : Automatic ] :=
-  Module[{grB, fields, result, resultNL, sol, removeDenom},
-    fields = Fields@W;
-    grB = GroebnerBasis[FTerms@W, fields];
-    result = Subtract @@@ Subsets[gios, {2}] // 
-      Map[# == Last@PolynomialReduce[#, grB, fields] &] // 
-      DeleteCases[True] // ReplaceAll[genRules]@*Expand // 
-      Simplify // GroupBy[ FreeQ[ Subscript[X, _][__] ] ];
-    resultNL = ( Eliminate[# && And@@Equal@@@
-      Select[genRules, ContainsOnly[Fields@#]@*Fields], Fields@#] &) /@ 
-      If[KeyExistsQ[result, False], result[False], {}];
-    sol = Solve[result[True]~Join~resultNL] //
-      DeleteCases[{___, HoldPattern[Rule][_, 0], ___}] // Last;
-    removeDenom = Map[First]@GroupBy[Last -> First]@Cases[ sol, 
-      HoldPattern[Rule][_, y_] /; 
-        (Not@FreeQ[Denominator[y], Alternatives@@$GeneratorVars]) ];
-    DeleteCases[sol /. removeDenom, HoldPattern[Rule][x_, x_] ]
-  ]; *)
+
+
+SyntaxInformation[SimplifyToricEquations] = {"ArgumentsPattern" -> {_}};
+
+SimplifyToricEquations[expr : (_List | _And)] := 
+  Module[{selF, monPatt, l, res},
+    l = (If[Equal === Head[#1], #1, Simplify[#1 == 0] ] &) /@ 
+      (List @@ expr);
+    selF = If[
+      SameQ[#2, True] || (LeafCount[#2] > LeafCount[#1]),
+      #1, #2 ] &;
+    monPatt = Alternatives[
+      HoldPattern[Equal][(_Times | _Power), (_Times | _Power)],
+      HoldPattern[Equal][ OrderlessPatternSequence[ 0,
+        HoldPattern[Plus][(_Times | _Power), (_Times | _Power)] ] ]
+    ];
+    FixedPoint[
+      MapThread[selF, {#, Simplify[#, Select[MatchQ@monPatt]@#]}] &, 
+      Expand@l
+    ]
+ ];
 
 
 End[]

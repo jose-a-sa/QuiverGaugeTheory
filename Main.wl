@@ -38,9 +38,8 @@ FEquationsTrivialQ::usage = "";
 
 
 ToricPotentialQ::usage = "\
-\!\(\*RowBox[{\"ToricPotentialQ\", \"[\", StyleBox[\"W\", \"TI\"], \"]\"}]\) \
-yields True if the F-terms for the superpotential \!\(\*StyleBox[\"W\", \"TI\"]\) result in \
-exactly 2 monominals with opposite coefficients \[PlusMinus]1.";
+ToricPotentialQ[W] yields True if the F-terms for the superpotential W result\ 
+in exactly 2 monominals with opposite coefficients \[PlusMinus]1.";
 
 
 ToricPotentialTeXForm::usage = "";

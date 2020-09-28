@@ -33,18 +33,11 @@ QuiverGraph::usage = "";
 QuiverIncidenceMatrix::usage = "";
 
 
+$QuiverRotationByDegree = {3 -> Pi/2, 4 -> Pi/4, 5 -> Pi/10, 7 -> 3 Pi/14};
+$QuiverVertexGroupingSpread = Pi/20;
+
+
 Begin["`Private`"]
-
-
-graphOpts = Sequence[
-  VertexSize -> {"Scaled", 0.04},
-  VertexStyle -> Directive[EdgeForm[{Black}], FaceForm[{Hue[0.15, 0.2, 1]}] ],
-  VertexLabels -> Placed[Automatic, {0.52,0.48}],
-  VertexLabelStyle -> Directive[Bold, FontSize -> Scaled[0.04] ],
-  EdgeStyle -> Directive[Opacity[1], Hue[0, 1, 0.5] ],
-  EdgeShapeFunction -> GraphElementData[{"FilledArrow"}],
-  ImageSize -> Medium
-];
 
 
 SyntaxInformation[EdgeListQ] = {"ArgumentsPattern" -> {_}};
@@ -96,7 +89,7 @@ QuiverPathToFields[edges_?EdgeListQ] :=
 QuiverPathToFields[paths: {__?EdgeListQ}, edges_?EdgeListQ] :=
   QuiverPathToFields[#, edges] & /@ paths;
 QuiverPathToFields[path_?EdgeListQ, edges_?EdgeListQ] := 
-  path/.KeyValueMap[#1 -> Table[Subscript[X, i]@@#1, {i, Range@#2}] &, Counts@edges] //
+  path/.KeyValueMap[#1 -> Table[Subscript[X, i]@@#1, {i, #2}] &, Counts@edges] //
     Outer[Times, Sequence@@#1] & // Flatten;
 
 
@@ -110,11 +103,11 @@ GaugeInvariantMesons[edges_?EdgeListQ, deg_] :=
 
 
 parseVertexPositioning[v : {(_Integer | {__Integer}) ..}] :=
-  Module[{spread = Pi/20, shifts, parsedV, polyV, nV = Length@v},
-    shifts = <| 3 -> Pi/2, 4 -> Pi/4, 5 -> Pi/10, 7 -> 3 Pi/14 |>;
+  Module[{spread, shifts, parsedV, polyV, nV = Length@v},
+    spread = $QuiverVertexGroupingSpread;
+    shifts = SparseArray[$QuiverRotationByDegree, 100];
     parsedV = Map[Flatten@*List, v];
-    polyV = Thread[parsedV -> Exp[2 Pi I Range[0,nV-1]/nV +
-      If[KeyExistsQ[shifts, nV], I shifts@nV, 0] ] ];
+    polyV = Thread[ parsedV -> Exp[2 Pi I Range[0,nV-1]/nV + I shifts[[nV]] ] ];
     (Thread[#1 -> ReIm[#2 Exp[ I spread Range[-Length@#1 + 1, Length@#1 - 1, 2]/2] ]
       ] &) @@@ polyV // Flatten
   ];
@@ -191,16 +184,11 @@ QuiverGraph[vertex: {(_Integer | {__Integer}) ..}, edges_?EdgeListQ,
 
 SyntaxInformation[QuiverIncidenceMatrix] = {"ArgumentsPattern" -> {_}};
 
-QuiverIncidenceMatrix[W_] := 
+QuiverIncidenceMatrix[W_?PotentialQ] := 
   QuiverIncidenceMatrix[QuiverFromFields@W];
 QuiverIncidenceMatrix[edges_?EdgeListQ] :=
-  TableForm[
-    Transpose@Normal@IncidenceMatrix[edges], 
-    TableHeadings -> {
-      QuiverFields@edges, 
-      Thread@Subscript[U[1], Range@Length@QuiverFields@edges]
-    }
-  ];
+  Graph[Sort@DeleteDuplicates@Flatten[List@@@edges], edges] //
+    IncidenceMatrix // Normal[-#] &;
 
 
 End[]
