@@ -4,26 +4,12 @@ BeginPackage["QuiverGaugeTheory`Tools`"]
 
 
 UsageForm::usage = "";
-
-
 ApplyTo::usage = "";
-
-
 UniqueCases::usage = "";
-
-
 IndexedList::usage = "";
-
-
 ColinearQ::usage = "";
-
-
 CoplanarQ::usage = "";
-
-
 NormalizeGCD::usage = "";
-
-
 GridRulesGraphics::usage = "";
 
 
@@ -31,32 +17,29 @@ Begin["`Private`"]
 
 
 SyntaxInformation[NormalizeGCD] = {"ArgumentsPattern" -> {_}};
-
 NormalizeGCD[p: {0 ..}] := p; 
 NormalizeGCD[p: {__?ExactNumberQ}] := p / (GCD @@ p);
 NormalizeGCD[p: {__}] := p;
 
 
 SyntaxInformation[ColinearQ] = {"ArgumentsPattern" -> {_}};
-
 ColinearQ[pts_?MatrixQ] := 
   MatrixRank@Rest[(# - First@pts &) /@ pts] <= 1;
+ColinearQ[expr_] := False;
 
 
 SyntaxInformation[CoplanarQ] = {"ArgumentsPattern" -> {_}};
-
 CoplanarQ[pts_?MatrixQ] := 
   MatrixRank@Rest[(# - First@pts &) /@ pts] <= 2;
+ColinearQ[expr_] := False;
 
 
 SyntaxInformation[ApplyTo] = {"ArgumentsPattern" -> {_, _.}};
-
 ApplyTo[f_, levelspec_ : {0}] := 
   Apply[f, #, levelspec] &;
 
 
 SyntaxInformation[UniqueCases] = SyntaxInformation[Cases];
-
 UniqueCases[pattern_, opts : OptionsPattern[Cases] ][expr_] :=
   UniqueCases[expr, pattern, opts]
 UniqueCases[expr_, pattern_, opts : OptionsPattern[Cases] ] :=
@@ -64,7 +47,6 @@ UniqueCases[expr_, pattern_, opts : OptionsPattern[Cases] ] :=
 
 
 SyntaxInformation[IndexedList] = {"ArgumentsPattern" -> {_, _., _.}};
-
 IndexedList[l_List] := Transpose[{Range@Length@l, l}]
 IndexedList[l_List, n0_] := 
   Transpose[{Range[n0, Length[l] + (n0 - 1)], l}]
@@ -73,7 +55,6 @@ IndexedList[l_List, n0_, di_] :=
 
 
 SyntaxInformation[GridRulesGraphics] = {"ArgumentsPattern" -> {_}};
-
 GridRulesGraphics[{{bx_Integer, by_Integer}, {tx_Integer, ty_Integer}}] :=
   Graphics[{GrayLevel[1/3, 1/3],
     Line /@ Join[
@@ -84,7 +65,6 @@ GridRulesGraphics[{{bx_Integer, by_Integer}, {tx_Integer, ty_Integer}}] :=
 
 
 SyntaxInformation[UsageForm] = {"ArgumentsPattern" -> {_, _.}};
-
 UsageForm[u: {__String}, a: ({__String} | HoldPattern[Alternatives][__String] | Automatic): Automatic] := 
   Map[UsageForm[#, a] &, u];
 UsageForm[u_String, a: ({__String} | HoldPattern[Alternatives][__String] | Automatic): Automatic] :=

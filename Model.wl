@@ -2,7 +2,7 @@
 
 BeginPackage["QuiverGaugeTheory`Model`", {
   "QuiverGaugeTheory`Tools`",
-  "QuiverGaugeTheory`Main`",
+  "QuiverGaugeTheory`Core`",
   "QuiverGaugeTheory`Quiver`",
   "QuiverGaugeTheory`Polytope`",
   "QuiverGaugeTheory`Perturbations`",
@@ -11,14 +11,8 @@ BeginPackage["QuiverGaugeTheory`Model`", {
 
 
 Model::usage = "";
-
-
 W::usage = "";
-
-
 Quiver::usage = "";
-
-
 ToricDiagram::usage = "";
 
 

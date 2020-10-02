@@ -1,6 +1,6 @@
 (* ::Package:: *)
 
-BeginPackage["QuiverGaugeTheory`Main`", {
+BeginPackage["QuiverGaugeTheory`Core`", {
   "QuiverGaugeTheory`Tools`"
 }]
 
@@ -10,38 +10,17 @@ $RedefinitionVars = Alternatives@@
 
 
 X::usage = "";
-U::usage = "";
-
-
 Fields::usage = "";
-
-
 FTerms::usage = "";
-
-
 FTermsConstraint::usage = "";
-
-
 FTermsTable::usage = "";
-
-
 ChangeGroupIndices::usage = "";
-
-
 PotentialCoefficientTestQ::usage = "";
-
-
 PotentialQ::usage = "";
-
-
 FEquationsTrivialQ::usage = "";
-
-
 ToricPotentialQ::usage = "\
 ToricPotentialQ[W] yields True if the F-terms for the superpotential W result\ 
 in exactly 2 monominals with opposite coefficients \[PlusMinus]1.";
-
-
 ToricPotentialTeXForm::usage = "";
 
 
@@ -49,29 +28,24 @@ Begin["`Private`"]
 
 
 SyntaxInformation[X] = {"ArgumentsPattern" -> {_, _, _.}};
-
 X[i_Integer, j_Integer, k_Integer : 1] := Subscript[X, k][i, j]
 
 
 SyntaxInformation[Fields] = {"ArgumentsPattern" -> {_, _.}};
-
 Fields[W_] := Sort@UniqueCases[ Expand@W, Subscript[X, _][__] ];
 
 
 SyntaxInformation[FTerms] = {"ArgumentsPattern" -> {_, _.}};
-
 FTerms[W_, f_: Identity] :=
   Expand@Collect[Expand@D[W, {Fields@W}], Subscript[X, _][__] .., f@*Simplify];
 
 
 SyntaxInformation[FTermsConstraint] = {"ArgumentsPattern" -> {_, _., _.}};
-
 FTermsConstraint[W_, f_: Identity, g_: Plus] := 
   g @@@ ReplaceAll[List @@@ FTerms[W, f], Subscript[X, _][__] -> 1];
 
 
 SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_}};
-
 FTermsTable[W_] := 
   Grid[Transpose[{
     FTerms[W, Highlighted],
@@ -81,7 +55,6 @@ FTermsTable[W_] :=
 
 
 SyntaxInformation[PotentialCoefficientTestQ] = {"ArgumentsPattern" -> {_, _.}};
-
 PotentialCoefficientTestQ[coefPatt_] := 
   PotentialCoefficientTestQ[#, coefPatt] &;
 PotentialCoefficientTestQ[W_, coefPatt_] := MatchQ[Expand@W,
@@ -91,12 +64,10 @@ PotentialCoefficientTestQ[W_, coefPatt_] := MatchQ[Expand@W,
 
 
 SyntaxInformation[PotentialQ] = {"ArgumentsPattern" -> {_}};
-
 PotentialQ[W_] := PotentialCoefficientTestQ[__][Expand@W];
 
 
 SyntaxInformation[ToricPotentialQ] = {"ArgumentsPattern" -> {_}};
-
 ToricPotentialQ[W_] := 
   Simplify@And[
     And @@ Thread[FTermsConstraint[W] == 0],
@@ -105,7 +76,6 @@ ToricPotentialQ[W_] :=
 
 
 SyntaxInformation[FEquationsTrivialQ] = {"ArgumentsPattern" -> {_, _.}};
-
 FEquationsTrivialQ[diff_, W_?PotentialQ] :=
   FEquationsTrivialQ[W][diff];
 FEquationsTrivialQ[W_?PotentialQ] := 
@@ -117,7 +87,6 @@ FEquationsTrivialQ[W_?PotentialQ] :=
 
 
 SyntaxInformation[ChangeGroupIndices] = {"ArgumentsPattern" -> {_, ___}};
-
 ChangeGroupIndices[list:{__Integer}] := 
   ChangeGroupIndices@Thread[Range@Length[list] -> list];
 ChangeGroupIndices[rules : {__Rule} ..] :=
@@ -132,7 +101,6 @@ ChangeGroupIndices[{rules__Rule}] :=
 
 
 SyntaxInformation[ToricPotentialTeXForm] = {"ArgumentsPattern" -> {_, _.}};
-
 ToricPotentialTeXForm[W_?ToricPotentialQ, perline : (_Integer?NonNegative) : 3] := 
   Module[{texStr, terms, gather, sorted},
     texStr = ToString[

@@ -2,25 +2,18 @@
 
 BeginPackage["QuiverGaugeTheory`Perturbations`", {
   "QuiverGaugeTheory`Tools`",
-  "QuiverGaugeTheory`Main`", 
+  "QuiverGaugeTheory`Core`", 
   "QuiverGaugeTheory`Quiver`"
 }]
 
 
-$RedefinitionVars = Alternatives@@
-  ToExpression@CharacterRange["\[FormalAlpha]", "\[FormalOmega]"];
-
-
 FieldRedefinition::usage = "";
-
-
 RedefinitionMinMonomialCount::usage = "";
-
-
 MassShiftRules::usage = "";
 
 
-GeneratorsTable::usage = "";
+$RedefinitionVars = Alternatives@@
+  ToExpression@CharacterRange["\[FormalAlpha]", "\[FormalOmega]"];
 
 
 Begin["`Private`"]
@@ -77,39 +70,6 @@ MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] :=
     rule/.sol // DeleteCases[f_ -> f_]
   ];
 
-
-SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_, _., _.}};
-
-GeneratorsTable[W_?ToricPotentialQ, gen_Association, charges_Association] :=
-  Module[{genCol, fieldCol, rChargeCol, fTermCol, rExactParse, fTermColNumb, feqTrivialQ},
-    rExactParse = If[Count[Expand@#, Root[__]^(_.) .., Infinity] > 10, 
-        SpanFromLeft, RootReduce[#] ] &;
-    feqTrivialQ = FEquationsTrivialQ[W];
-    genCol = Keys[gen];
-    fieldCol = If[Length[#] > 1, TildeEqual@@#, First@#] & /@ Values[gen];
-    rChargeCol = Keys[gen] // Map@RightComposition[
-      Apply[List], ReplaceAll[{x_^y_Integer :> Table[x, {y}]}],
-      Flatten, ReplaceAll[charges], Total
-    ];
-    fTermCol = Values[gen] // Map@RightComposition[
-      Subsets[#, {2}] &,
-      Thread[# -> ApplyTo[feqTrivialQ@*Subtract, {1}]@#] &,
-      GroupBy[Last -> Apply[UndirectedEdge]@*First],
-      Lookup[#, True, {Undefined}, 
-        ApplyTo[Tilde, {1}]@*ConnectedComponents@*Graph] &
-    ];
-    fTermColNumb =
-      MapThread[#1/.Thread[#2->Range@Length@#2] &, {fTermCol, Values@gen}];
-    Grid[Transpose[{
-      Prepend[genCol, "Generators"], 
-      Prepend[fieldCol, "Field generators"],
-      Prepend[N /@ rChargeCol, "R-charge"],
-      Prepend[rExactParse /@ rChargeCol, SpanFromLeft],
-      Prepend[Column@*Sort /@ fTermColNumb, "F-term equiv. GIOs"]
-    } // MapAt[If[StringQ[#], Item[#, ItemSize->{Automatic,1.7}], #] &, {All, 1}]
-    ], Frame -> All]
-  ];
-  
 
 End[]
  

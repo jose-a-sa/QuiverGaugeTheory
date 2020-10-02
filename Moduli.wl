@@ -1,30 +1,26 @@
 (* ::Package:: *)
 
-BeginPackage["QuiverGaugeTheory`MesonicBranch`", {
+BeginPackage["QuiverGaugeTheory`Moduli`", {
   "QuiverGaugeTheory`Tools`",
-  "QuiverGaugeTheory`Main`", 
+  "QuiverGaugeTheory`Core`", 
   "QuiverGaugeTheory`Quiver`"
 }]
 
 
-$GeneratorVars = Alternatives@@
-  ToExpression@CharacterRange["\[FormalCapitalA]", "\[FormalCapitalV]"]
-
-
 ToGeneratorVariableRules::usage = "";
-
-
 ReduceGenerators::usage = "";
-
-
 SimplifyToricEquations::usage = "";
+GeneratorsTable::usage = "";
+
+
+$GeneratorVars = Alternatives@@
+  ToExpression@CharacterRange["\[FormalCapitalA]", "\[FormalCapitalT]"];
 
 
 Begin["`Private`"]
 
 
 SyntaxInformation[ToGeneratorVariableRules] = {"ArgumentsPattern" -> {_}};
-
 ToGeneratorVariableRules[l : {HoldPattern[Times][Subscript[X, _][__] ..] ..}] :=
   GroupBy[l, Count[ Subscript[X, _][__] ] ] //
     KeyValueMap[Thread[ #2 -> $GeneratorVars[[#1 - 1]] /@ Range[Length@#2] ] &] // 
@@ -32,7 +28,6 @@ ToGeneratorVariableRules[l : {HoldPattern[Times][Subscript[X, _][__] ..] ..}] :=
 
 
 SyntaxInformation[ReduceGenerators] = {"ArgumentsPattern" -> {_, _, _.}};
-
 ReduceGenerators[W_ ?PotentialQ, 
     gios : {HoldPattern[Times][Subscript[X, _][__] ..] ..}
   ] := ReduceGenerators[W, gios, Automatic];
@@ -64,7 +59,6 @@ ReduceGenerators[W_ ?PotentialQ,
 
 
 SyntaxInformation[SimplifyToricEquations] = {"ArgumentsPattern" -> {_}};
-
 SimplifyToricEquations[expr : (_List | _And)] := 
   Module[{selF, monPatt, l, res},
     l = (If[Equal === Head[#1], #1, Simplify[#1 == 0] ] &) /@ 
@@ -82,6 +76,38 @@ SimplifyToricEquations[expr : (_List | _And)] :=
       Expand@l
     ]
  ];
+
+
+SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_, _., _.}};
+GeneratorsTable[W_?ToricPotentialQ, gen_Association, charges_Association] :=
+  Module[{genCol, fieldCol, rChargeCol, fTermCol, rExactParse, fTermColNumb, feqTrivialQ},
+    rExactParse = If[Count[Expand@#, Root[__]^(_.) .., Infinity] > 10, 
+        SpanFromLeft, RootReduce[#] ] &;
+    feqTrivialQ = FEquationsTrivialQ[W];
+    genCol = Keys[gen];
+    fieldCol = If[Length[#] > 1, TildeEqual@@#, First@#] & /@ Values[gen];
+    rChargeCol = Keys[gen] // Map@RightComposition[
+      Apply[List], ReplaceAll[{x_^y_Integer :> Table[x, {y}]}],
+      Flatten, ReplaceAll[charges], Total
+    ];
+    fTermCol = Values[gen] // Map@RightComposition[
+      Subsets[#, {2}] &,
+      Thread[# -> ApplyTo[feqTrivialQ@*Subtract, {1}]@#] &,
+      GroupBy[Last -> Apply[UndirectedEdge]@*First],
+      Lookup[#, True, {Undefined}, 
+        ApplyTo[Tilde, {1}]@*ConnectedComponents@*Graph] &
+    ];
+    fTermColNumb =
+      MapThread[#1/.Thread[#2->Range@Length@#2] &, {fTermCol, Values@gen}];
+    Grid[Transpose[{
+      Prepend[genCol, "Generators"], 
+      Prepend[fieldCol, "Field generators"],
+      Prepend[N /@ rChargeCol, "R-charge"],
+      Prepend[rExactParse /@ rChargeCol, SpanFromLeft],
+      Prepend[Column@*Sort /@ fTermColNumb, "F-term equiv. GIOs"]
+    } // MapAt[If[StringQ[#], Item[#, ItemSize->{Automatic,1.7}], #] &, {All, 1}]
+    ], Frame -> All]
+  ];
 
 
 End[]

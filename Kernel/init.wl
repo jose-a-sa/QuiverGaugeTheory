@@ -6,14 +6,14 @@ ClearAll["QuiverGaugeTheory`Tools`*"];
 Unprotect["QuiverGaugeTheory`ExpandableBox`*"];
 ClearAll["QuiverGaugeTheory`ExpandableBox`*"];
 
-Unprotect["QuiverGaugeTheory`Main`*"];
-ClearAll["QuiverGaugeTheory`Main`*"];
+Unprotect["QuiverGaugeTheory`Core`*"];
+ClearAll["QuiverGaugeTheory`Core`*"];
 
 Unprotect["QuiverGaugeTheory`Quiver`*"];
 ClearAll["QuiverGaugeTheory`Quiver`*"];
 
-Unprotect["QuiverGaugeTheory`MesonicBranch`*"];
-ClearAll["QuiverGaugeTheory`MesonicBranch`*"];
+Unprotect["QuiverGaugeTheory`Moduli`*"];
+ClearAll["QuiverGaugeTheory`Moduli`*"];
 
 Unprotect["QuiverGaugeTheory`Polytope`*"];
 ClearAll["QuiverGaugeTheory`Polytope`*"];
@@ -28,9 +28,9 @@ ClearAll["QuiverGaugeTheory`Model`*"];
 Get["QuiverGaugeTheory`Tools`"]
 Get["QuiverGaugeTheory`ExpandableBox`"]
 
-Get["QuiverGaugeTheory`Main`"]
+Get["QuiverGaugeTheory`Core`"]
 Get["QuiverGaugeTheory`Quiver`"]
-Get["QuiverGaugeTheory`MesonicBranch`"]
+Get["QuiverGaugeTheory`Moduli`"]
 Get["QuiverGaugeTheory`Polytope`"]
 Get["QuiverGaugeTheory`Perturbations`"]
 Get["QuiverGaugeTheory`Model`"]
@@ -49,7 +49,7 @@ With[{syms = Names["QuiverGaugeTheory`ExpandableBox`*"]},
   SetAttributes[syms, {ReadProtected}]
 ];
 
-With[{syms = Names["QuiverGaugeTheory`Main`*"]},
+With[{syms = Names["QuiverGaugeTheory`Core`*"]},
   SetAttributes[syms, {Protected, ReadProtected}]
 ];
 
@@ -57,7 +57,7 @@ With[{syms = Names["QuiverGaugeTheory`Quiver`*"]},
   SetAttributes[syms, {Protected, ReadProtected}]
 ];
 
-With[{syms = Names["QuiverGaugeTheory`MesonicBranch`*"]},
+With[{syms = Names["QuiverGaugeTheory`Moduli`*"]},
   SetAttributes[syms, {Protected, ReadProtected}]
 ];
 

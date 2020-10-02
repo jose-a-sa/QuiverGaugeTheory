@@ -2,50 +2,32 @@
 
 BeginPackage["QuiverGaugeTheory`Polytope`", {
   "QuiverGaugeTheory`Tools`",
-  "QuiverGaugeTheory`Main`"
+  "QuiverGaugeTheory`Core`"
 }]
 
 
 PolytopeQ::usage = "";
-
-
+ReflexivePolytopeQ::usage = "";
 DualPolytope::usage = "";
-
-
 PolytopeVertices::usage = "";
-
-
 PolytopePlot::usage = "";
-
-
 PolytopeArea::usage = "";
-
-
 pqWeb::usage = "";
-
-
 pqWebQ::usage = "";
-
-
 pqWebPlot::usage = "";
-
-
 MixedBoundaryInternalMesh::usage = "";
-
 
 
 Begin["`Private`"]
 
 
 SyntaxInformation[PolytopeQ] = {"ArgumentsPattern" -> {_}};
-
 PolytopeQ[pts_?MatrixQ] := 
   MatchQ[pts, {{__?ExactNumberQ} ..}];
 PolytopeQ[_] := False;
 
 
 SyntaxInformation[PolytopeVertices] = {"ArgumentsPattern" -> {_}};
-
 PolytopeVertices[pts_?PolytopeQ] :=
   Module[{boundary, hull, sortF, extremal},
     sortF[{x_, y_}] := Apply[N@ArcTan[#1 - x, #2 - y] &];
@@ -59,13 +41,11 @@ PolytopeVertices[pts_?PolytopeQ] :=
 
 
 SyntaxInformation[ReflexivePolytopeQ] = {"ArgumentsPattern" -> {_}};
-
 ReflexivePolytopeQ[pts_?PolytopeQ] := 
   Length[ PolytopeVertices[pts][[2]] ] == 1;
 
 
 SyntaxInformation[DualPolytope] = {"ArgumentsPattern" -> {_}};
-
 DualPolytope[pts_?PolytopeQ] := 
   Module[{x, c0, p},
     c0 = PolytopeVertices[pts][[2, 1]];
@@ -75,7 +55,6 @@ DualPolytope[pts_?PolytopeQ] :=
 
 
 SyntaxInformation[PolytopePlot] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
-
 PolytopePlot[pts_?PolytopeQ, opts: OptionsPattern[Graphics] ] := 
   Module[{extremal, internal, boundary},
     {extremal, internal, boundary} = PolytopeVertices[pts];
@@ -91,7 +70,6 @@ PolytopePlot[pts_?PolytopeQ, opts: OptionsPattern[Graphics] ] :=
 
 
 SyntaxInformation[PolytopeArea] = {"ArgumentsPattern" -> {_}};
-
 PolytopeArea[pts_?PolytopeQ] := 
   Module[{boundary, areas},
     boundary = Last@PolytopeVertices[pts];
@@ -103,12 +81,11 @@ PolytopeArea[pts_?PolytopeQ] :=
 
 
 SyntaxInformation[pqWeb] = {"ArgumentsPattern" -> {_, _.}};
-
 pqWeb[pts_?PolytopeQ, meshF_ : DelaunayMesh] :=
   Module[{V, B, l, trig, rotateLines, coordRules, edgeRules, 
       edgeFaceConnectivity, bdEdgesVectorsRules, intEdgesVectorsRules, eqs,
       basePtsRules, sol, loopEqs, loopVars, loopSol, baseSol, finalSol},
-    {V, B, l} = {\[FormalCapitalV], \[FormalCapitalB], \[FormalL]};
+    {V, B, l} = {\[FormalV], \[FormalB], \[FormalL]};
     trig = meshF[pts];
     rotateLines = NormalizeGCD@*RotationTransform[-Pi/2]@*Apply[Subtract];
     coordRules = Rule @@@ IndexedList[ Rationalize@MeshCoordinates@trig ];
@@ -149,17 +126,16 @@ pqWeb[pts_?PolytopeQ, meshF_ : DelaunayMesh] :=
 
 
 SyntaxInformation[pqWebQ] = {"ArgumentsPattern" -> {_}};
-
-pqWebQ[expr_] := 
+pqWebQ[expr : {_, _}] := 
   MatchQ[expr, {
-    {(UndirectedEdge[\[FormalCapitalB][_], \[FormalCapitalB][_] ] |
-      DirectedEdge[\[FormalCapitalB][_], \[FormalCapitalV][_] ]) .. },
-    {HoldPattern[Rule][(\[FormalCapitalB]|\[FormalCapitalV])[_], _] ..}
+    {(UndirectedEdge[\[FormalB][_], \[FormalB][_] ] |
+      DirectedEdge[\[FormalB][_], \[FormalV][_] ]) .. },
+    {HoldPattern[Rule][(\[FormalB]|\[FormalV])[_], _] ..}
   }];
+pqWebQ[expr_] := False;
 
 
 SyntaxInformation[pqWebPlot] = {"ArgumentsPattern" -> {_, _.}};
-
 pqWebPlot[pts_?PolytopeQ, meshF_ : DelaunayMesh] :=
   pqWebPlot[ pqWeb[pts, meshF], meshF];
 pqWebPlot[pq_?pqWebQ, meshF_ : DelaunayMesh] :=
@@ -172,6 +148,7 @@ pqWebPlot[pq_?pqWebQ, meshF_ : DelaunayMesh] :=
  ];
 
 
+SyntaxInformation[MixedBoundaryInternalMesh] = {"ArgumentsPattern" -> {_, _.}};
 MixedBoundaryInternalMesh[pts_?PolytopeQ, internalMeshF_ : DelaunayMesh] := 
   Module[{extremal, boundary, internal, 
       intLines0, intLines, emptyIntersectionQ, cells0, cells1, cells2}, 
@@ -203,6 +180,7 @@ MixedBoundaryInternalMesh[pts_?PolytopeQ, internalMeshF_ : DelaunayMesh] :=
       ReplaceAll@Thread[pts->Range@Length@pts] 
     ]
   ]
+
 
 End[]
 

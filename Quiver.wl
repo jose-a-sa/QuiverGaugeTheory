@@ -2,34 +2,18 @@
 
 BeginPackage["QuiverGaugeTheory`Quiver`", {
   "QuiverGaugeTheory`Tools`",
-  "QuiverGaugeTheory`Main`"
+  "QuiverGaugeTheory`Core`"
 }]
 
 
 EdgeListQ::usage = "";
-
-
 QuiverFields::usage = "";
-
-
 FindQuiverPaths::usage = "";
-
-
 QuiverPathToFields::usage = "";
-
-
 QuiverLoops::usage = "";
-
-
 QuiverFromFields::usage = "";
-
-
 GaugeInvariantMesons::usage = "";
-
-
 QuiverGraph::usage = "";
-
-
 QuiverIncidenceMatrix::usage = "";
 
 
@@ -42,7 +26,8 @@ Begin["`Private`"]
 
 SyntaxInformation[EdgeListQ] = {"ArgumentsPattern" -> {_}};
 
-EdgeListQ = MatchQ[{ (DirectedEdge[__]|UndirectedEdge[__]) .. }];
+EdgeListQ[expr_] := 
+  MatchQ[expr, { (DirectedEdge[__]|UndirectedEdge[__]) .. }];
 
 
 SyntaxInformation[QuiverFromFields] = {"ArgumentsPattern" -> {_}};
