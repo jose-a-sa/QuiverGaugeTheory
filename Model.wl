@@ -4,6 +4,7 @@ BeginPackage["QuiverGaugeTheory`Model`", {
   "QuiverGaugeTheory`Tools`",
   "QuiverGaugeTheory`Core`",
   "QuiverGaugeTheory`Quiver`",
+  "QuiverGaugeTheory`Moduli`",
   "QuiverGaugeTheory`Polytope`",
   "QuiverGaugeTheory`Perturbations`",
   "QuiverGaugeTheory`ExpandableBox`"
