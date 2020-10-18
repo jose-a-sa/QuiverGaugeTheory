@@ -28,7 +28,7 @@ SyntaxInformation[FieldRedefinition] = {
 FieldRedefinition[fields: { Subscript[X, _][__] .. }, edges_?EdgeListQ, deg_, opts:OptionsPattern[] ] := 
   (FieldRedefinition[#, edges, deg, opts] & /@ fields);
 FieldRedefinition[Subscript[X, f_][i_, j_], edges_?EdgeListQ, deg_, OptionsPattern[] ] :=
-  Module[{path, fieldList, redef},
+  Module[{fieldList, redef},
     Switch[edges,
       _?(FreeQ[i]), Return@Missing["QuiverVertexAbsent", i],
       _?(FreeQ[j]), Return@Missing["QuiverVertexAbsent", j],
@@ -65,9 +65,9 @@ MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] :=
     vars = fields/.{X -> q};
     rule = Thread[fields -> Power[coef,vars]*fields];
     sol = Last@FindInstance[ And[
-      And @@ Thread[Cases[W/.rule // Expand, _. Power[coef, a_] :> a] == 0],
+      And @@ Thread[Cases[W/.rule // Expand, Times[_., Power[coef, a_] ] :> a] == 0],
       And @@ (restriction /@ vars) ], Evaluate[vars], Integers];
-    rule/.sol // DeleteCases[f_ -> f_]
+    rule/.sol // DeleteCases[ HoldPattern[Rule][f_, f_] ]
   ];
 
 

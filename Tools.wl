@@ -11,9 +11,17 @@ ColinearQ::usage = "";
 CoplanarQ::usage = "";
 NormalizeGCD::usage = "";
 GridRulesGraphics::usage = "";
+ToSubtractList::usage = "";
 
 
 Begin["`Private`"]
+
+
+SyntaxInformation[ToSubtractList] = {"ArgumentsPattern" -> {_}};
+ToSubtractList[ expr : (List|And)[Except[_List]..] ] := 
+  Map[ Through@*If[MatchQ[_Equal], Apply[Subtract], Identity],
+    List @@ expr
+  ];
 
 
 SyntaxInformation[NormalizeGCD] = {"ArgumentsPattern" -> {_}};
@@ -82,10 +90,10 @@ UsageForm[u_String, a: ({__String} | HoldPattern[Alternatives][__String] | Autom
     varPatt = (WordBoundary ~~ Pattern[#, __] ~~ WordBoundary /;
       StringMatchQ[#, Alternatives @@ vars]) &;
     TIrule = (varPatt[vv] :> StringJoin["Style[", vv, ",\"TI\"]"]);
-    handleV = ReleaseHold@Map[uf, ToExpression[
+    handleV = (ReleaseHold@Map[uf, ToExpression[
       StringReplace[StringJoin[##], TIrule], 
       StandardForm, Hold], {1}
-    ] &;
+    ] &);
     StringReplace[u, {
       q : funcPatt[foo, args] :> handleV[q],
       varPatt[arg] :> handleV["Style[", arg, ",\"TI\"]"]

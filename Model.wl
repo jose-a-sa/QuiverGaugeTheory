@@ -38,7 +38,7 @@ EmptyModel = Dataset[<|
 
 GetPhaseData[data_Dataset, phaseKey_String] := 
   Query[
-    {"Key" -> Replace[x_ -> {x, phaseKey}]}
+    {"Key" -> Replace[x_ :> {x, phaseKey}]}
   ]@Query[
     {"Phases" -> Replace[ x_ -> Missing["KeyAbsent", "Phases"] ]},
     If[MissingQ@Query[phaseKey]@#, #, Query[phaseKey]@#] &
@@ -58,7 +58,7 @@ GetModelData[key : (_String | {_String, _String}), old_Association,
       n -> handlePhase[pFlag]@g@Lookup[k]@opts,
       Nothing
     ];
-    modelDataRowList[n_String, k_String, gList_:{Rule[_String, _]..},
+    modelDataRowList[n_String, k_String, gList : {Rule[_String, _]..},
       pFlag_:False] := If[
         KeyExistsQ[k]@opts,
         n -> handlePhase[pFlag]@Association@DeleteCases[
@@ -217,7 +217,7 @@ ToricDiagram[ Model[key : (_String | {_String, _String})], opts: OptionsPattern[
 
 
 GeneratorsTable[ Model[key : (_String | {_String, _String})] ] :=
-  Module[{genTable},
+  Module[{genTableF},
     genTableF = GeneratorsTable[
       Query["Potential"]@#, 
       Query["Generators"]@#,

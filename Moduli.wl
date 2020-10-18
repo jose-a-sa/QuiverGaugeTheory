@@ -8,7 +8,9 @@ BeginPackage["QuiverGaugeTheory`Moduli`", {
 
 
 ToGeneratorVariableRules::usage = "";
+GeneratorLinearRelations::usage = "";
 ReduceGenerators::usage = "";
+SingularLocus::usage = "";
 SimplifyToricEquations::usage = "";
 GeneratorsTable::usage = "";
 
@@ -27,40 +29,91 @@ ToGeneratorVariableRules[l : {HoldPattern[Times][Subscript[X, _][__] ..] ..}] :=
     Flatten;
 
 
-SyntaxInformation[ReduceGenerators] = {"ArgumentsPattern" -> {_, _, _.}};
-ReduceGenerators[W_ ?PotentialQ, 
-    gios : {HoldPattern[Times][Subscript[X, _][__] ..] ..}
-  ] := ReduceGenerators[W, gios, Automatic];
-ReduceGenerators[W_ ?PotentialQ, 
-    gios : {HoldPattern[Times][Subscript[X, _][__] ..] ..}, 
-    Automatic
-  ] := ReduceGenerators[W, gios, ToGeneratorVariableRules@gios];
-ReduceGenerators[W_ ?PotentialQ, 
-    gios : {HoldPattern[Times][Subscript[X, _][__] ..] ..}, 
-    genRules: ({__Rule} | _Association | Automatic) : Automatic ] :=
-  Module[{grB, fields, sol, genDecomp, remDenom},
-    fields = Fields@W;
-    grB = GroebnerBasis[FTerms@W, fields];
-    genDecomp = Reverse@NestWhileList[
-      Map[(FirstCase[First@#, _?(Not@*PossibleZeroQ), 1] &)
-        ]@PolynomialReduce[#, Keys@genRules, fields] &,   
-      Last /@ PolynomialReduce[gios, grB, fields], 
-      (Not@*MatchQ[{1 .. }])
-    ] // Map[Ratios]@*Transpose // ReplaceAll[genRules] // 
-      ApplyTo[Times, {1}];
-    remDenom = First@Solve@Cases[
-      Thread[Values@KeyTake[gios]@genRules == (Together/@genDecomp)], 
-      HoldPattern[Equal][x_,y_] /; UnsameQ[Denominator@y,1]
+SyntaxInformation[GeneratorLinearRelations] = {"ArgumentsPattern" -> {_, _}};
+GeneratorLinearRelations[W_?PotentialQ, genRules : ({__Rule} | _Association)] :=
+  Module[{rel},
+    rel = ReplaceAll[genRules]@Expand@Outer[Times, FTerms@W, Fields@W, 1];
+    Select[ Flatten@rel, FreeQ[ Subscript[X, _][__] ] ]
+  ];
+
+
+SyntaxInformation[ReduceGenerators] = {
+  "ArgumentsPattern" -> {_, _, _, OptionsPattern[]},
+  "OptionsName" -> {"RemoveDenominators", "GroebnerBasisMethod"}
+};
+Options[ReduceGenerators] = {
+  "RemoveDenominators" -> False,
+  "GroebnerBasisMethod" -> Automatic
+}
+ReduceGenerators[
+    Wgb : (_?PotentialQ | { Except[_List].. }), 
+    ops : { Except[_List].. } | Except[_List], 
+    Automatic,
+    opts : OptionsPattern[] ] :=
+  ReduceGenerators[Wgb, ops, ToGeneratorVariableRules@Flatten@{ops}, opts];
+ReduceGenerators[
+    Wgb : (_?PotentialQ | { Except[_List].. }), 
+    ops : Except[_List], 
+    genRules : ({__Rule} | _Association),
+    opts : OptionsPattern[] ] :=
+  First@ReduceGenerators[Wgb, {ops}, genRules, opts];
+ReduceGenerators[
+    W : _?PotentialQ, 
+    ops : { Except[_List].. }, 
+    genRules : ({__Rule} | _Association),
+    opts : OptionsPattern[] ] :=
+  ReduceGenerators[ GroebnerBasis[ FTerms@W, Fields@W, 
+      Method -> OptionValue["GroebnerBasisMethod"] ], 
+    ops, genRules, opts];
+ReduceGenerators[
+    gb : { Except[_List].. }, 
+    ops : { Except[_List].. }, 
+    genRules : ({__Rule} | _Association),
+    opts : OptionsPattern[] ] :=
+  Module[{dotPR, gens, fields, genDecomp, res, matching, remDenom, sol},
+    dotPR[x : {{{__}, _} ..}, l0_List] := Map[dotPR[#, l0] &, x];
+    dotPR[{l : {__}, n_?(Not@*MatchQ[_List])}, l0_List] := l0.l + n;
+    gens = Association[genRules];
+    fields = Fields@gb;
+    genDecomp = NestWhile[
+      dotPR[PolynomialReduce[#, Keys@gens, fields], Values@gens] &,
+      Map[Last]@PolynomialReduce[ops, gb, fields],
+      Not@*FreeQ[ Subscript[X,_][__] ]
     ];
-    sol = Values@KeyTake[gios]@genRules -> (genDecomp/.remDenom) //
-      Thread // Expand // DeleteCases[ HoldPattern[Rule][x_,x_] ];
-    Thread[gios -> Expand@(genDecomp/.Echo[sol])]
+    res = Association@Thread[ops -> Expand@genDecomp];
+    If[ OptionValue["RemoveDenominators"],
+      matching = KeySelect[ res, MatchQ[Alternatives@@Keys@gens] ];
+      sol = If[Length[matching] > 0,
+        remDenom = First@Solve@Cases[
+          KeyValueMap[gens[#1] == Together[#2] &, matching],
+          HoldPattern[Equal][x_, y_] /; UnsameQ[Denominator@y, 1]
+        ];
+        KeyValueMap[gens[#1] -> Together[#2 /. remDenom] &, matching] // 
+          DeleteCases[ HoldPattern[Rule][x_, x_] ] // Echo,
+        {}
+      ];
+      KeyValueMap[#1 -> Expand[ #2/.sol ] &, res],
+      KeyValueMap[Rule]@res
+    ]
   ]
 
 
+SyntaxInformation[SingularLocus] = {"ArgumentsPattern" -> {_, _}};
+SingularLocus[expr : (List|And)[Except[_List]..], v_] :=
+  Module[{vars, ideal, jac},
+    vars = Flatten[{v}];
+    ideal = ToSubtractList[expr];
+    jac = D[ideal, {vars}];
+    Join[
+      DeleteCases[0]@Flatten@Minors[jac, Min@Dimensions@jac], 
+      ideal
+    ]
+  ];
+
+
 SyntaxInformation[SimplifyToricEquations] = {"ArgumentsPattern" -> {_}};
-SimplifyToricEquations[expr : (_List | _And)] := 
-  Module[{selF, monPatt, l, res},
+SimplifyToricEquations[expr : (List|And)[Except[_List]..] ] := 
+  Module[{selF, monPatt, l},
     l = (If[Equal === Head[#1], #1, Simplify[#1 == 0] ] &) /@ 
       (List @@ expr);
     selF = If[

@@ -116,12 +116,13 @@ parseArrowheads[edges_, s: (_?NumericQ): 0.04, p: (_?NumericQ | {_?NumericQ,_?Nu
 
 
 SyntaxInformation[QuiverGraph] = {
-  "ArgumentsPattern" -> {_, _., OptionsPattern[]},
+  "ArgumentsPattern" -> {_, ___},
   "OptionsName" -> {
     "MultiplicityAsEdges", 
     "ArrowsPosition",
     "ArrowSize"}
   };
+
 
 Options[QuiverGraph] = {
   VertexSize -> {"Scaled", 0.04},

@@ -110,7 +110,7 @@ ToricPotentialTeXForm[W_?ToricPotentialQ, perline : (_Integer?NonNegative) : 3] 
         Subscript[ X, Row[{i, j}] ],  Subsuperscript[ X, Row[{i, j}], Row[{k}] ] 
       ]},
       TeXForm];
-    terms = StringSplit[texStr, c : {"+", "-"} -> c] // 
+    terms = StringSplit[texStr, c : {"+", "-"} :> c] // 
       Partition[If[First[#] != "-", Prepend[#, "+"], #], 2] &;
     gather = SortBy[StringCount[Last[#], "X"] &] /@ GatherBy[terms, First];
     sorted = (StringJoin[" ", #1, " ", #2] &) @@@ Join @@ Reverse@SortBy[First@*First]@gather;
