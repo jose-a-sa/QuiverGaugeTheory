@@ -12,9 +12,18 @@ CoplanarQ::usage = "";
 NormalizeGCD::usage = "";
 GridRulesGraphics::usage = "";
 ToSubtractList::usage = "";
+MinMaxExponent::usage = "";
 
 
 Begin["`Private`"]
+
+
+SyntaxInformation[MinMaxExponent] = {"ArgumentsPattern" -> {_, _.}};
+MinMaxExponent[patt_][expr_] := MinMaxExponent[expr, patt];
+MinMaxExponent[expr_, patt_] := MinMax@Exponent[
+    MonomialList@Expand[expr /. {x: patt :> \[FormalLambda] x}], 
+    \[FormalLambda]
+  ]
 
 
 SyntaxInformation[ToSubtractList] = {"ArgumentsPattern" -> {_}};
