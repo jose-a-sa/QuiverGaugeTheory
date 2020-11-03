@@ -85,7 +85,7 @@ pqWeb[pts_?PolytopeQ, meshF_ : DelaunayMesh] :=
   Module[{V, B, l, trig, rotateLines, coordRules, edgeRules, 
       edgeFaceConnectivity, bdEdgesVectorsRules, intEdgesVectorsRules, eqs,
       basePtsRules, sol, loopEqs, loopVars, loopSol, baseSol, finalSol},
-    {V, B, l} = {\[FormalV], \[FormalB], \[FormalL]};
+    {V, B, l} = {\[FormalCapitalV], \[FormalCapitalB], \[FormalL]};
     trig = meshF[pts];
     rotateLines = NormalizeGCD@*RotationTransform[-Pi/2]@*Apply[Subtract];
     coordRules = Rule @@@ IndexedList[ Rationalize@MeshCoordinates@trig ];
@@ -128,9 +128,9 @@ pqWeb[pts_?PolytopeQ, meshF_ : DelaunayMesh] :=
 SyntaxInformation[pqWebQ] = {"ArgumentsPattern" -> {_}};
 pqWebQ[expr : {_, _}] := 
   MatchQ[expr, {
-    {(UndirectedEdge[\[FormalB][_], \[FormalB][_] ] |
-      DirectedEdge[\[FormalB][_], \[FormalV][_] ]) .. },
-    {HoldPattern[Rule][(\[FormalB]|\[FormalV])[_], _] ..}
+    {(UndirectedEdge[\[FormalCapitalB][_], \[FormalCapitalB][_] ] |
+      DirectedEdge[\[FormalCapitalB][_], \[FormalCapitalV][_] ]) .. },
+    {HoldPattern[Rule][(\[FormalCapitalB]|\[FormalCapitalV])[_], _] ..}
   }];
 pqWebQ[expr_] := False;
 
@@ -157,13 +157,15 @@ MixedBoundaryInternalMesh[pts_?PolytopeQ, internalMeshF_ : DelaunayMesh] :=
       Point[{(Alternatives @@ pts) ..}], 
       EmptyRegion[_] 
     ];
+    If[ Length@internal == 0, Return[internalMeshF@pts] ];
     intLines0 = Switch[Length@internal,
-      1, {}, 2, {internal},
+      1, {}, 
+      2, {internal},
       _, Identity @@@ MeshCells[internalMeshF@internal, 1] //
         ReplaceAll@Thread[Range@Length@internal -> internal]
     ];
     intLines = Fold[
-      If[emptyIntersectionQ@RegionIntersection[Line@#1, Line@#2],
+      If[#1 == {} || emptyIntersectionQ@RegionIntersection[Line@#1, Line@#2],
         Append[#1, #2], #1] &,
       intLines0,
       SortBy[ Tuples[{internal, boundary}], Norm@*Apply[Subtract] ]
