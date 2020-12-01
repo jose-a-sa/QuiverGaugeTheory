@@ -23,7 +23,10 @@ Begin["`Private`"]
 
 SyntaxInformation[PolytopeQ] = {"ArgumentsPattern" -> {_}};
 PolytopeQ[pts_?MatrixQ] := 
-  MatchQ[pts, {{__?ExactNumberQ} ..}];
+  MatchQ[pts, 
+    {{__?ExactNumberQ} ..} | 
+    (List|Association)[({__?ExactNumberQ} -> _)..] 
+  ];
 PolytopeQ[_] := False;
 
 
@@ -83,54 +86,72 @@ PolytopeArea[pts_?PolytopeQ] :=
 SyntaxInformation[pqWeb] = {"ArgumentsPattern" -> {_, _.}};
 pqWeb[pts_?PolytopeQ, meshF_ : DelaunayMesh] :=
   Module[{V, B, l, trig, rotateLines, coordRules, edgeRules, 
-      edgeFaceConnectivity, bdEdgesVectorsRules, intEdgesVectorsRules, eqs,
-      basePtsRules, sol, loopEqs, loopVars, loopSol, baseSol, finalSol},
+      faceVertConnectivity, edgeFaceConnectivity, bdEdgesVectorsRules, 
+      intEdgesVectorsRules, eqs, basePtsRules, sol, loopEqs, loopVars, 
+      loopSol, baseSol, finalSol, pqVertexCoord, cellVarAssoc}, 
     {V, B, l} = {\[FormalCapitalV], \[FormalCapitalB], \[FormalL]};
     trig = meshF[pts];
     rotateLines = NormalizeGCD@*RotationTransform[-Pi/2]@*Apply[Subtract];
-    coordRules = Rule @@@ IndexedList[ Rationalize@MeshCoordinates@trig ];
-    edgeRules = Rule @@@ IndexedList[ Identity @@@ MeshCells[trig, 1] ];
+    coordRules = Rule @@@ IndexedList[Rationalize@MeshCoordinates@trig];
+    edgeRules = Rule @@@ IndexedList[Identity @@@ MeshCells[trig, 1] ];
+    faceVertConnectivity = GroupBy[
+      EdgeList@MeshConnectivityGraph[trig, {2, 0}, 2], 
+      Last@*First -> Last@*Last
+    ];
     edgeFaceConnectivity = KeyValueMap[Rule]@GroupBy[
-      EdgeList@MeshConnectivityGraph[trig, {1, 2}, 1],
+      EdgeList@MeshConnectivityGraph[trig, {1, 2}, 1], 
       ReplaceAll[edgeRules]@*Last@*First -> Last@*Last
+    ];
+    cellVarAssoc = Association@Union[
+      KeyValueMap[B@#1 -> Triangle[#2/.coordRules] &, faceVertConnectivity], 
+      MapIndexed[V@First[#2] -> Line[First[#1]/.coordRules] &, 
+        Cases[edgeFaceConnectivity, HoldPattern[l_ -> {_}] ]
+      ]
     ];
     bdEdgesVectorsRules = Association@MapIndexed[
       DirectedEdge[First@#1, V@First@#2] -> rotateLines@Last@#1 &,
-      Cases[edgeFaceConnectivity,
-        HoldPattern[l_ -> {f_}] :> {B[f], Reverse[l]/.coordRules}]
+      Cases[edgeFaceConnectivity, 
+        HoldPattern[Rule][l_,{f_}] :> {B[f], Reverse[l]/.coordRules}
+      ]
     ];
     intEdgesVectorsRules = Association@Map[
-      (UndirectedEdge @@ First[#]) -> rotateLines@Last@# &,
+      (UndirectedEdge @@ First[#]) -> rotateLines@Last@# &, 
       Cases[edgeFaceConnectivity, 
-        HoldPattern[l_ -> {i_, f_}] :> {{B[i], B[f]}, (l/.coordRules)}]
+        HoldPattern[Rule][l_,{i_,f_}] :> {{B[i], B[f]}, (l/.coordRules)}
+      ]
     ];
     eqs = intEdgesVectorsRules // 
-      KeyValueMap[(Subtract @@ #1) == (Identity @@@ l @@ #1) #2 &];
-    basePtsRules = Array[ B[#] -> {B[#, 1], B[#, 2]} &, 
+      KeyValueMap[(Subtract @@ #1) == #2 (Identity @@@ l @@ #1) &];
+    basePtsRules = Array[B[#] -> {B[#, 1], B[#, 2]} &, 
       {Max@Values@edgeFaceConnectivity}];
-    sol = First@Solve[eqs /. basePtsRules];
-    loopEqs = Select[sol, MatchQ[ HoldPattern[Rule][ l[__], _] ] ];
-    loopVars = UniqueCases[loopEqs, l[__] ];
-    loopSol = If[ Length@loopEqs > 0, 
-      Last@Minimize[ {Plus @@ loopVars, 
-        Join[Equal @@@ loopEqs, Thread[loopVars > 0] ]},
-        loopVars, Integers], 
-      {}
-    ];
-    baseSol = Select[sol /. loopSol, MatchQ[ HoldPattern[Rule][B[__], _] ] ];
+    sol = First@Quiet@Solve[eqs/.basePtsRules];
+    loopEqs = Select[sol, MatchQ[ HoldPattern[Rule][l[__], _] ] ];
+    loopVars = UniqueCases[ loopEqs, l[__] ];
+    loopSol = If[Length@loopEqs > 0,
+      Last@Minimize[{
+        Plus @@ loopVars, 
+        Join[Equal @@@ loopEqs, Thread[loopVars>0] ]}, 
+      loopVars, Integers], 
+      {}];
+    baseSol = Select[sol/.loopSol, MatchQ[HoldPattern[Rule][B[__], _] ] ];
     finalSol = basePtsRules // ReplaceAll[baseSol] // 
-      ReplaceAll[{B[1, _] -> 0, l[__] -> 1}];
-    {Keys@Union[intEdgesVectorsRules, bdEdgesVectorsRules], 
-      Union[finalSol, KeyValueMap[Last@#1 -> #2 &]@bdEdgesVectorsRules]}
- ];
+      ReplaceAll[{B[_,_] -> 0, l[_,_] -> 1}];
+    pqVertexCoord = Association@Union[
+      finalSol, KeyValueMap[Last@#1 -> #2 &]@bdEdgesVectorsRules];
+    {
+      Graph@Keys@Union[intEdgesVectorsRules, bdEdgesVectorsRules], 
+      pqVertexCoord, 
+      cellVarAssoc
+    }
+  ];
 
 
 SyntaxInformation[pqWebQ] = {"ArgumentsPattern" -> {_}};
-pqWebQ[expr : {_, _}] := 
+pqWebQ[expr : {_, _, _}] := 
   MatchQ[expr, {
-    {(UndirectedEdge[\[FormalCapitalB][_], \[FormalCapitalB][_] ] |
-      DirectedEdge[\[FormalCapitalB][_], \[FormalCapitalV][_] ]) .. },
-    {HoldPattern[Rule][(\[FormalCapitalB]|\[FormalCapitalV])[_], _] ..}
+    _Graph, 
+    <|HoldPattern[Rule][(\[FormalCapitalB] | \[FormalCapitalV])[_], _] ..|>, 
+    <|HoldPattern[Rule][(\[FormalCapitalB] | \[FormalCapitalV])[_], _] ..|>
   }];
 pqWebQ[expr_] := False;
 
@@ -139,9 +160,9 @@ SyntaxInformation[pqWebPlot] = {"ArgumentsPattern" -> {_, _.}};
 pqWebPlot[pts_?PolytopeQ, meshF_ : DelaunayMesh] :=
   pqWebPlot[ pqWeb[pts, meshF], meshF];
 pqWebPlot[pq_?pqWebQ, meshF_ : DelaunayMesh] :=
-  Module[{pqWebGraph, rules},
-    {pqWebGraph, rules} = pq;
-    gr = pqWebGraph // ReplaceAll[rules] // 
+  Module[{pqWebGraph, rules, varPoly},
+    {pqWebGraph, rules, varPoly} = pq;
+    gr = EdgeList@pqWebGraph // ReplaceAll[rules] // 
       ReplaceAll[ UndirectedEdge[i_, j_] :> Line[{i,j}] ] //
       ReplaceAll[ DirectedEdge[i_, j_] :> HalfLine[i,j] ];
     Graphics[gr, PlotRangePadding -> 2, Frame -> True, FrameTicks -> None]
@@ -150,8 +171,8 @@ pqWebPlot[pq_?pqWebQ, meshF_ : DelaunayMesh] :=
 
 SyntaxInformation[MixedBoundaryInternalMesh] = {"ArgumentsPattern" -> {_, _.}};
 MixedBoundaryInternalMesh[pts_?PolytopeQ, internalMeshF_ : DelaunayMesh] := 
-  Module[{extremal, boundary, internal, 
-      intLines0, intLines, emptyIntersectionQ, cells0, cells1, cells2}, 
+  Module[{extremal, boundary, internal, intLines0, 
+      intLines, emptyIntersectionQ, cells0, cells1, cells2},
     {extremal, internal, boundary} = PolytopeVertices[pts];
     emptyIntersectionQ = MatchQ@Alternatives[
       Point[{(Alternatives @@ pts) ..}], 
@@ -168,16 +189,17 @@ MixedBoundaryInternalMesh[pts_?PolytopeQ, internalMeshF_ : DelaunayMesh] :=
       If[#1 == {} || emptyIntersectionQ@RegionIntersection[Line@#1, Line@#2],
         Append[#1, #2], #1] &,
       intLines0,
-      SortBy[ Tuples[{internal, boundary}], Norm@*Apply[Subtract] ]
+      SortBy[Tuples[{internal, boundary}], Norm@*Apply[Subtract] ]
     ];
     cells0 = Point /@ pts;
     cells1 = Line /@ Join[intLines, Partition[boundary, 2, 1, {1, 1}] ];
+    sbset1 = Subsets[cells1, {2}];
     cells2 = Flatten@Table[
-      SubsetCases[cells1,
-        {Line[{OrderlessPatternSequence[l[[1]], x_]}], 
-          Line[{OrderlessPatternSequence[l[[2]], x_]}]} :> 
-            Polygon[{l[[1]], x, l[[2]]}] /; ! ContainsAny[{x}, l] 
-      ], {l, First /@ cells1} ] // DeleteDuplicatesBy[RegionCentroid];
+      Polygon@*Apply[Union]@*ApplyTo[Identity, {1}] /@ Select[sbset1,
+        MatchQ[{Line[{y_,x_}|{x_, y_}], Line[{z_, x_}|{x_, z_}]} /; 
+          (FreeQ[l, x] && ContainsExactly[{z, y}, l])] ], 
+      {l, First /@ cells1}] // 
+        MinimalBy[Area] // DeleteDuplicatesBy[RegionCentroid] // DeleteDuplicates;
     MeshRegion[pts, {cells0, cells1, cells2} // 
       ReplaceAll@Thread[pts->Range@Length@pts] 
     ]

@@ -6,6 +6,7 @@ BeginPackage["QuiverGaugeTheory`Tools`"]
 UsageForm::usage = "";
 ApplyTo::usage = "";
 UniqueCases::usage = "";
+FirstLast::usage = "";
 IndexedList::usage = "";
 ColinearQ::usage = "";
 CoplanarQ::usage = "";
@@ -13,9 +14,21 @@ NormalizeGCD::usage = "";
 GridRulesGraphics::usage = "";
 ToSubtractList::usage = "";
 MinMaxExponent::usage = "";
+EdgeListQ::usage = "";
+FindPathWithCycles::usage = "";
 
 
 Begin["`Private`"]
+
+
+SyntaxInformation[FirstLast] = {"ArgumentsPattern" -> {_}};
+FirstLast[expr_] := 
+  {First@expr,Last@expr};
+
+
+SyntaxInformation[EdgeListQ] = {"ArgumentsPattern" -> {_}};
+EdgeListQ[expr_] := 
+  MatchQ[expr, { (DirectedEdge[__]|UndirectedEdge[__]) .. }];
 
 
 SyntaxInformation[MinMaxExponent] = {"ArgumentsPattern" -> {_, _.}};
@@ -71,14 +84,39 @@ IndexedList[l_List, n0_, di_] :=
   Transpose[{Range[n0, n0 + di (Length[l] - 1), di], l}]
 
 
-SyntaxInformation[GridRulesGraphics] = {"ArgumentsPattern" -> {_}};
-GridRulesGraphics[{{bx_Integer, by_Integer}, {tx_Integer, ty_Integer}}] :=
-  Graphics[{GrayLevel[1/3, 1/3],
+SyntaxInformation[GridRulesGraphics] = {"ArgumentsPattern" -> {_,_.}};
+GridRulesGraphics[
+    {{bx_Integer, by_Integer}, {tx_Integer, ty_Integer}}, 
+    color : (_?ColorQ) : GrayLevel[1/3, 1/3] ] :=
+  Graphics[{color,
     Line /@ Join[
       Table[{{x, by}, {x, ty}}, {x, bx, tx, 1}],
       Table[{{bx, y}, {tx, y}}, {y, by, ty, 1}]
     ]}
   ] /; (tx > bx) && (ty > by)
+
+
+
+SyntaxInformation[FindPathWithCycles] = {"ArgumentsPattern" -> {_,_,_,_}};
+FindPathWithCycles[edges_?EdgeListQ, s_, t_, k_Integer?Positive] :=
+  FindPathWithCycles[edges, s, t, {1, k}];
+FindPathWithCycles[edges_?EdgeListQ, s_, t_, {k_Integer?Positive}] :=
+  FindPathWithCycles[edges, s, t, {k, k}];
+FindPathWithCycles[edges_?EdgeListQ, s_, t_, 
+  {kmin_Integer?NonNegative, kmax_Integer?NonNegative}] :=
+    Module[{paths, cyc, combos},
+      cyc = GroupBy[FindCycle[edges, kmax - 1, All], 
+        Length -> ({Last[Last@#1] -> Splice@Join[First /@ #1, {Last@Last@#1}]} &)];
+      paths = GroupBy[FindPath[edges, s, t, {Min[kmin, kmax - Max@Keys@cyc], kmax}, All], 
+        (Length[#] - 1 &)];
+      combos = Select[Tuples[{Keys@paths, Keys@cyc}], kmin <= Total[#] <= kmax &];
+      DeleteDuplicates@DeleteCases[{}]@Join[
+        Join @@ Values@KeySelect[paths, kmin <= # <= kmax &], 
+        Join @@ MapThread[
+            Table[DeleteCases[p /. cyc[#2], p], {p, paths[#1]}] &, 
+          Transpose@combos]
+      ]
+    ]
 
 
 SyntaxInformation[UsageForm] = {"ArgumentsPattern" -> {_, _.}};

@@ -6,11 +6,11 @@ BeginPackage["QuiverGaugeTheory`Quiver`", {
 }]
 
 
-EdgeListQ::usage = "";
 QuiverFields::usage = "";
 FindQuiverPaths::usage = "";
+FindQuiverPathsWithCycles::usage = "";
 QuiverPathToFields::usage = "";
-QuiverLoops::usage = "";
+QuiverCycles::usage = "";
 QuiverFromFields::usage = "";
 GaugeInvariantMesons::usage = "";
 QuiverGraph::usage = "";
@@ -24,12 +24,6 @@ $QuiverVertexGroupingSpread = Pi/20;
 Begin["`Private`"]
 
 
-SyntaxInformation[EdgeListQ] = {"ArgumentsPattern" -> {_}};
-
-EdgeListQ[expr_] := 
-  MatchQ[expr, { (DirectedEdge[__]|UndirectedEdge[__]) .. }];
-
-
 SyntaxInformation[QuiverFromFields] = {"ArgumentsPattern" -> {_}};
 
 QuiverFromFields[W_] := 
@@ -39,7 +33,7 @@ QuiverFromFields[W_] :=
 SyntaxInformation[QuiverFields] = {"ArgumentsPattern" -> {_}};
 
 QuiverFields[edges_?EdgeListQ] := 
-  KeyValueMap[Table[Subscript[X, i] @@ #1, {i, Range[#2]}] &, Counts@edges] // Flatten;
+  Flatte@KeyValueMap[Table[Subscript[X, i] @@ #1, {i, Range[#2]}] &, Counts@edges] // Flatten;
 
 
 SyntaxInformation[FindQuiverPaths] = {"ArgumentsPattern" -> {_, _, _, _}};
@@ -48,7 +42,7 @@ FindQuiverPaths[edges_?EdgeListQ, i_, j_, degspec:{ ({_Integer, _Integer}|{_Inte
   Switch[edges,
     _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
     _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
-    _, Join @@ (FindQuiverPaths[edges, i, j, #] & /@ SortBy[First]@degspec);
+    _, Join @@ (FindQuiverPaths[edges, i, j, #, All] & /@ SortBy[First]@degspec);
   ]
 FindQuiverPaths[edges_?EdgeListQ, i_, j_, deg_] :=
   Switch[edges,
@@ -59,12 +53,40 @@ FindQuiverPaths[edges_?EdgeListQ, i_, j_, deg_] :=
   ]
 
 
-SyntaxInformation[QuiverLoops] = {"ArgumentsPattern" -> {_, _}};
+SyntaxInformation[FindQuiverPathsWithCycles] = {"ArgumentsPattern" -> {_, _, _, _}};
 
-QuiverLoops[edges_?EdgeListQ, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] := 
-  Join @@ (QuiverLoops[edges, #] & /@ SortBy[First]@degspec);
-QuiverLoops[edges_?EdgeListQ, deg_] := 
-  FindCycle[edges, deg, All];
+FindQuiverPathsWithCycles[edges_?EdgeListQ, i_, j_, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] :=
+  Switch[edges,
+    _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
+    _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
+    _, Join @@ (FindPathWithCycles[edges, i, j, #] & /@ SortBy[First]@degspec);
+  ]
+FindQuiverPathsWithCycles[edges_?EdgeListQ, i_, j_, deg_] :=
+  Switch[edges,
+    _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
+    _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
+    _, FindPathWithCycles[edges, i, j, deg] // 
+      Map[BlockMap[Apply[DirectedEdge], #, 2, 1] &]
+  ]
+
+
+SyntaxInformation[QuiverLoops] = {"ArgumentsPattern" -> {_, _}};
+QuiverCycles[edges_?EdgeListQ, 
+    kspec : {({_Integer, _Integer | Infinity} | {_Integer}) ..}] := 
+  Join @@ (QuiverCycles[edges, #] & /@ SortBy[First]@kspec);
+QuiverCycles[edges_?EdgeListQ, k_Integer] := 
+  QuiverCycles[edges, {1, k}]
+QuiverCycles[edges_?EdgeListQ, Infinity] := 
+  QuiverCycles[edges, {1, \[Infinity]}]
+QuiverCycles[edges_?EdgeListQ, {k_Integer}] := 
+  QuiverCycles[edges, {k, k}]
+QuiverCycles[edges_?EdgeListQ, {kmin : _Integer, kmax : _Integer | Infinity}] :=
+  Module[{cyc2up, cyc1},
+    cyc2up = FindCycle[edges, {kmin, kmax}, All];
+    cyc1 = Cases[edges, (DirectedEdge | UndirectedEdge)[i_, i_, ___] ] //
+      DeleteDuplicates // Map[List];
+    If[kmin <= 1 <= kmax, Join[cyc1, cyc2up], cyc2up]
+  ]
 
 
 SyntaxInformation[QuiverPathToFields] = {"ArgumentsPattern" -> {_, _.}};
@@ -81,9 +103,9 @@ QuiverPathToFields[path_?EdgeListQ, edges_?EdgeListQ] :=
 SyntaxInformation[GaugeInvariantMesons] = {"ArgumentsPattern" -> {_, _}};
 
 GaugeInvariantMesons[edges_?EdgeListQ, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] := 
-  Flatten@QuiverPathToFields[QuiverLoops[edges, degspec], edges];
+  Flatten@QuiverPathToFields[QuiverCycles[edges, degspec], edges];
 GaugeInvariantMesons[edges_?EdgeListQ, deg_] := 
-  Flatten@QuiverPathToFields[QuiverLoops[edges, deg], edges];
+  Flatten@QuiverPathToFields[QuiverCycles[edges, deg], edges];
 
 
 

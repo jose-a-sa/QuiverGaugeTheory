@@ -102,20 +102,28 @@ ChangeGroupIndices[{rules__Rule}] :=
 
 SyntaxInformation[ToricPotentialTeXForm] = {"ArgumentsPattern" -> {_, _.}};
 ToricPotentialTeXForm[W_?ToricPotentialQ, perline : (_Integer?NonNegative) : 3] := 
-  Module[{texStr, terms, gather, sorted},
-    texStr = ToString[
-      W /. {
-        Subscript[X, k_][i_, j_] :> If[ 
-        FreeQ[ W, Subscript[X, 2][i, j] ], 
-        Subscript[ X, Row[{i, j}] ],  Subsuperscript[ X, Row[{i, j}], Row[{k}] ] 
-      ]},
-      TeXForm];
+  Module[{texStr, terms, gather, sorted, sortF},
+    sortF = Composition[
+      StringRiffle,
+      ApplyTo[("X_{"<>#1<>If[StringLength[#1<>#2]>2,",",""]<>#2<>"}"<>#3 &), {1}],
+      First,
+      FindCycle[#, Infinity, All] &,
+      StringCases["X_{" ~~ (x : DigitCharacter ..) ~~ ("" | ",") ~~ 
+          (y : DigitCharacter ..) ~~ "}" ~~ (z : "" | ("^" ~~ (DigitCharacter ..))) :> 
+        DirectedEdge[x, y, z]
+      ]
+    ];
+    texStr = ToString[ W /. {Subscript[X, k_][i_, j_] :> 
+        If[ FreeQ[W, Subscript[X, 2][i, j] ], Subscript[X, Row[{i, j}] ],
+          Subsuperscript[ X, Row[{i, j}], Row[{k}] ] ]}, TeXForm];
     terms = StringSplit[texStr, c : {"+", "-"} :> c] // 
       Partition[If[First[#] != "-", Prepend[#, "+"], #], 2] &;
-    gather = SortBy[StringCount[Last[#], "X"] &] /@ GatherBy[terms, First];
-    sorted = (StringJoin[" ", #1, " ", #2] &) @@@ Join @@ Reverse@SortBy[First@*First]@gather;
-    "&= " <> StringReplace[
-      StringJoin @@ Riffle[sorted, " \\\\ \n & \\qquad", perline + 1], 
+    gather = SortBy[StringCount[Last[#], "X"] &] /@ 
+      GatherBy[MapAt[sortF, terms, {All, 2}], First];
+    sorted = (StringJoin[" ", #1, " ", #2] &) @@@ 
+      Join @@ Reverse@SortBy[First@*First]@gather;
+    "&= " <> StringReplace[ StringJoin @@ 
+        Riffle[sorted, " \\\\ \n & \\qquad", perline + 1], 
       StartOfLine ~~ " + " -> ""]
   ];
 
