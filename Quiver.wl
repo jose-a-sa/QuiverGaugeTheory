@@ -6,15 +6,21 @@ BeginPackage["QuiverGaugeTheory`Quiver`", {
 }]
 
 
-QuiverFields::usage = "";
-FindQuiverPaths::usage = "";
-FindQuiverPathsWithCycles::usage = "";
-QuiverPathToFields::usage = "";
-QuiverCycles::usage = "";
+FieldsToEdges::usage = "";
+FieldsToTaggedEdges::usage = "";
 QuiverFromFields::usage = "";
+QuiverFields::usage = "";
+QuiverCycles::usage = "";
+QuiverPathToFields::usage = "";
 GaugeInvariantMesons::usage = "";
-QuiverGraph::usage = "";
 QuiverIncidenceMatrix::usage = "";
+MesonQ::usage = "";
+OrderedMesonQ::usage = "";
+Mesons::usage = "";
+ReorderLoopEdges::usage = "";
+NonAbelianizeMesons::usage = "";
+FindQuiverPaths::usage = "";
+QuiverGraph::usage = "";
 
 
 $QuiverRotationByDegree = {3 -> Pi/2, 4 -> Pi/4, 5 -> Pi/10, 7 -> 3 Pi/14};
@@ -24,53 +30,27 @@ $QuiverVertexGroupingSpread = Pi/20;
 Begin["`Private`"]
 
 
-SyntaxInformation[QuiverFromFields] = {"ArgumentsPattern" -> {_}};
+SyntaxInformation[FieldsToEdges] = {"ArgumentsPattern" -> {_}};
+FieldsToEdges[expr_] :=
+  ReplaceAll[{Subscript[X, _] -> DirectedEdge}]@expr;
 
-QuiverFromFields[W_] := 
-  ReplaceAll[{Subscript[X, _] -> DirectedEdge}]@Fields[W];
+
+SyntaxInformation[FieldsToTaggedEdges] = {"ArgumentsPattern" -> {_}};
+FieldsToTaggedEdges[expr_] :=
+  ReplaceAll[{Subscript[X, k_][i_,j_] :> DirectedEdge[i, j, k]}]@expr;
+
+
+SyntaxInformation[QuiverFromFields] = {"ArgumentsPattern" -> {_}};
+QuiverFromFields[expr_] := 
+  ReplaceAll[{Subscript[X, _] -> DirectedEdge}]@Fields[expr];
 
 
 SyntaxInformation[QuiverFields] = {"ArgumentsPattern" -> {_}};
-
 QuiverFields[edges_?EdgeListQ] := 
-  Flatte@KeyValueMap[Table[Subscript[X, i] @@ #1, {i, Range[#2]}] &, Counts@edges] // Flatten;
+  Flatten@KeyValueMap[Table[Subscript[X, i] @@ #1, {i, Range[#2]}] &, Counts@edges];
 
 
-SyntaxInformation[FindQuiverPaths] = {"ArgumentsPattern" -> {_, _, _, _}};
-
-FindQuiverPaths[edges_?EdgeListQ, i_, j_, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] :=
-  Switch[edges,
-    _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
-    _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
-    _, Join @@ (FindQuiverPaths[edges, i, j, #, All] & /@ SortBy[First]@degspec);
-  ]
-FindQuiverPaths[edges_?EdgeListQ, i_, j_, deg_] :=
-  Switch[edges,
-    _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
-    _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
-    _, FindPath[edges, i, j, deg, All] // 
-      Map[BlockMap[Apply[DirectedEdge], #, 2, 1] &]
-  ]
-
-
-SyntaxInformation[FindQuiverPathsWithCycles] = {"ArgumentsPattern" -> {_, _, _, _}};
-
-FindQuiverPathsWithCycles[edges_?EdgeListQ, i_, j_, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] :=
-  Switch[edges,
-    _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
-    _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
-    _, Join @@ (FindPathWithCycles[edges, i, j, #] & /@ SortBy[First]@degspec);
-  ]
-FindQuiverPathsWithCycles[edges_?EdgeListQ, i_, j_, deg_] :=
-  Switch[edges,
-    _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
-    _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
-    _, FindPathWithCycles[edges, i, j, deg] // 
-      Map[BlockMap[Apply[DirectedEdge], #, 2, 1] &]
-  ]
-
-
-SyntaxInformation[QuiverLoops] = {"ArgumentsPattern" -> {_, _}};
+SyntaxInformation[QuiverCycles] = {"ArgumentsPattern" -> {_, _}};
 QuiverCycles[edges_?EdgeListQ, 
     kspec : {({_Integer, _Integer | Infinity} | {_Integer}) ..}] := 
   Join @@ (QuiverCycles[edges, #] & /@ SortBy[First]@kspec);
@@ -90,60 +70,143 @@ QuiverCycles[edges_?EdgeListQ, {kmin : _Integer, kmax : _Integer | Infinity}] :=
 
 
 SyntaxInformation[QuiverPathToFields] = {"ArgumentsPattern" -> {_, _.}};
-
 QuiverPathToFields[edges_?EdgeListQ] := 
   QuiverPathToFields[#, edges] &;
 QuiverPathToFields[paths: {__?EdgeListQ}, edges_?EdgeListQ] :=
   QuiverPathToFields[#, edges] & /@ paths;
 QuiverPathToFields[path_?EdgeListQ, edges_?EdgeListQ] := 
   path/.KeyValueMap[#1 -> Table[Subscript[X, i]@@#1, {i, #2}] &, Counts@edges] //
-    Outer[Times, Sequence@@#1] & // Flatten;
+    Outer[CenterDot, Sequence@@#1] & // Flatten;
 
 
 SyntaxInformation[GaugeInvariantMesons] = {"ArgumentsPattern" -> {_, _}};
-
 GaugeInvariantMesons[edges_?EdgeListQ, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] := 
   Flatten@QuiverPathToFields[QuiverCycles[edges, degspec], edges];
 GaugeInvariantMesons[edges_?EdgeListQ, deg_] := 
   Flatten@QuiverPathToFields[QuiverCycles[edges, deg], edges];
 
 
+SyntaxInformation[QuiverIncidenceMatrix] = {"ArgumentsPattern" -> {_}};
+QuiverIncidenceMatrix[W_?PotentialQ] := 
+  QuiverIncidenceMatrix[QuiverFromFields@W];
+QuiverIncidenceMatrix[edges_?EdgeListQ] :=
+  Graph[Sort@VertexList@edges, edges] // IncidenceMatrix // Normal[-#] &;
 
-parseVertexPositioning[v : {(_Integer | {__Integer}) ..}] :=
-  Module[{spread, shifts, parsedV, polyV, nV = Length@v},
-    spread = $QuiverVertexGroupingSpread;
-    shifts = SparseArray[$QuiverRotationByDegree, 100];
-    parsedV = Map[Flatten@*List, v];
-    polyV = Thread[ parsedV -> Exp[2 Pi I Range[0,nV-1]/nV + I shifts[[nV]] ] ];
-    (Thread[#1 -> ReIm[#2 Exp[ I spread Range[-Length@#1 + 1, Length@#1 - 1, 2]/2] ]
-      ] &) @@@ polyV // Flatten
+
+SyntaxInformation[MesonQ] = {"ArgumentsPattern" -> {_}};
+MesonQ[t : (_Times|_CenterDot)?FieldProductQ] :=
+  MesonQ@FieldsToTaggedEdges[
+    (List @@ t) /. {Power -> Splice@*ConstantArray}
+  ];
+MesonQ[e_?EdgeListQ] := AllTrue[
+   QuiverIncidenceMatrix[e],
+   (Count[#, 1] == Count[#, -1]) && (Count[#, 1] > 0) &
+   ];
+MesonQ[_] := False;
+
+
+SyntaxInformation[MesonQ] = {"ArgumentsPattern" -> {_}};
+OrderedMesonQ[c_CenterDot?FieldProductQ] :=
+  OrderedMesonQ@FieldsToTaggedEdges[
+    (List @@ c) /. {Power -> Splice@*ConstantArray}
+  ];
+OrderedMesonQ[e_?EdgeListQ] := 
+  (SameQ[#1, RotateRight@#2] &) @@ 
+    Transpose@Map[Take[List @@ #, 2] &, e];
+OrderedMesonQ[_] := False;
+
+
+SetOptions[Simplify, TransformationFunctions -> {Automatic, 
+  Replace[c_CenterDot?OrderedMesonQ :> RotateLeft@c]
+}];
+SetOptions[FullSimplify, TransformationFunctions -> {Automatic, 
+  Replace[c_CenterDot?OrderedMesonQ :> RotateLeft@c]
+}];
+
+
+SyntaxInformation[ReorderLoopEdges] = {"ArgumentsPattern" -> {_}};
+ReorderLoopEdges::noloop = "List of edges does not correspond to a cycle \
+of a composition of cycles.";
+ReorderLoopEdges::arg = "Argument does not correspond to a list of edges.";
+ReorderLoopEdges[e_List?MesonQ] :=
+  Module[{incM, eeM, n, tree},
+    n = Length[e];
+    incM = Transpose@QuiverIncidenceMatrix[e];
+    eeM = AssociationThread[
+      Range[n],
+      (Join @@ KeySelect[
+        PositionIndex@incM,
+        EqualTo[ FirstPosition[#,-1|2] ]@*FirstPosition[1|2]
+      ] &) /@ incM];
+    tree = Nest[
+      Map[Splice@Thread@Join[#, {eeM[Last@#]}] &], 
+      List /@ Range[n], 
+      n-1];
+    DeleteDuplicates[
+      (e[[#]] &) /@ Select[tree, EqualTo[Range@n]@*Sort ],
+      AnyTrue[ NestList[RotateLeft, #1, Length@#1], EqualTo@#2 ] &
+    ]
+  ];
+ReorderLoopEdges[e_List?EdgeListQ] := Message[ReorderLoopEdges::noloop];
+ReorderLoopEdges[_] := Message[ReorderLoopEdges::arg];
+
+
+SyntaxInformation[Mesons] = {"ArgumentsPattern" -> {_}};
+Mesons::fperr = "Field product `1` is not a meson.";
+Mesons::meserr = "Meson `1` cannot be written \
+as a unique single trace operator.";
+Mesons[expr_?(Not@*FreeQ[_?FieldQ])] :=
+  Module[{mesonfp, edgeL},
+    mesonfp = Select[MesonQ]@FieldProducts[expr];
+    edgeL = FieldsToTaggedEdges[
+      (List @@@ mesonfp) /. {Power -> Splice@*ConstantArray}
+    ];
+    AssociationThread[
+      mesonfp,
+      Map[CenterDot @@ X @@@ # &, 
+        ReorderLoopEdges /@ edgeL, 
+      {2}]
+    ]
   ];
 
 
-parseArrowheads[edges_, s: (_?NumericQ): 0.04, p: (_?NumericQ | {_?NumericQ,_?NumericQ}): 0.8] :=
-  Module[{shapeF, parsePos, f, b},
-    {f, b} = If[MatchQ[p, {_, _}], p, {p, 1 - p}];
-    parsePos[l_] := (# + {0, First@MaximalBy[
-      {-Min[MinimalBy[l,Last],0], -Max[MaximalBy[l,Last] - 1, 0]},
-        Abs]} &) /@ l;
-    shapeF[edge_, ah_] := edge -> ({ah, Arrow[#]} &);
-    GroupBy[edges, Sort -> (Signature[#] &)] //
-      Map[{Count[-1]@#, Count[+1]@#} &] //
-      ApplyTo[Arrowheads[Join @@ parsePos /@ {
-        Table[{-s,b+(2*k-#1+1)*2*s/3}, {k,0,#1-1}],
-        Table[{+s,f+(2*k-#2+1)*2*s/3}, {k,0,#2-1}]
-      }] &, {1}] //
-    KeyValueMap[shapeF]
-   ];
+SyntaxInformation[NonAbelianizeMesons] = {"ArgumentsPattern" -> {_}};
+NonAbelianizeMesons::argfree = "Expression does not contain any fields.";
+NonAbelianizeMesons[expr_?(Not@*FreeQ[_?FieldQ])] :=
+  Module[{fp, mes, newExpr},
+    fp = FieldProducts[expr];
+    If[ AnyTrue[fp, Not@*MesonQ],
+      Message[Mesons::fperr, SelectFirst[Not@*MesonQ]@fp];
+      Return[expr]
+    ];
+    newExpr = expr /. {Times -> CenterDot};
+    mes = Mesons[newExpr];
+    If[ AnyTrue[mes, Length[#] > 1 &],
+      Message[Mesons::meserr, First@SelectFirst[Length[#]>1&]@mes];
+      Return[expr]
+    ];
+    newExpr /. Map[First, mes]
+  ];
+NonAbelianizeMesons[expr_] := expr /; Message[NonAbelianizeMesons::argfree];
 
 
-SyntaxInformation[QuiverGraph] = {
-  "ArgumentsPattern" -> {_, ___},
-  "OptionsName" -> {
-    "MultiplicityAsEdges", 
-    "ArrowsPosition",
-    "ArrowSize"}
-  };
+SyntaxInformation[FindQuiverPaths] = {"ArgumentsPattern" -> {_, _, _, _}};
+FindQuiverPaths[e_?EdgeListQ, i_, j_, degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] :=
+  Switch[e,
+    _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
+    _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
+    _, Join @@ (FindQuiverPaths[e, i, j, #, All] & /@ SortBy[First]@degspec);
+  ]
+FindQuiverPaths[e_?EdgeListQ, i_, j_, deg_] :=
+  Switch[e,
+    _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
+    _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
+    _, FindPath[e, i, j, deg, All] // 
+      Map[BlockMap[Apply[DirectedEdge], #, 2, 1] &]
+  ]
+
+
+(* TODO: Complete FindQuiverPathsWithCycles *)
 
 
 Options[QuiverGraph] = {
@@ -156,47 +219,74 @@ Options[QuiverGraph] = {
   "ArrowSize" -> 0.04,
   "ArrowsPosition" -> {0.8, 0.16}
 };
-
+SyntaxInformation[QuiverGraph] = {
+  "ArgumentsPattern" -> {_, ___},
+  "OptionsName" -> {
+    "MultiplicityAsEdges", 
+    "ArrowsPosition",
+    "ArrowSize"}
+};
 QuiverGraph[W_?PotentialQ, opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
   QuiverGraph[Automatic, QuiverFromFields@W, opts];
-QuiverGraph[Automatic, edges_?EdgeListQ, opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
-  QuiverGraph[Sort@DeleteDuplicates@Flatten[List@@@edges], edges, opts];
-QuiverGraph[Automatic, W_?PotentialQ, opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
-  QuiverGraph[Automatic, QuiverFromFields@W, opts];
-QuiverGraph[vertex: {(_Integer|{__Integer})..}, W_?PotentialQ, 
-  opts: OptionsPattern[{QuiverGraph, Graph}] ] :=
-    QuiverGraph[vertex, QuiverFromFields@W, opts];
-QuiverGraph[vertex: {(_Integer | {__Integer}) ..}, edges_?EdgeListQ, 
-  opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
-    Graph[
-      Flatten@vertex,
-      If[OptionValue["MultiplicityAsEdges"],
-        Identity, Map[First]@*parseArrowheads]@edges,
-      Sequence @@ FilterRules[{opts}, Except[
-        Union[Options@QuiverGraph, {EdgeShapeFunction}], 
-        Options@Graph]
-      ],
-      VertexSize -> OptionValue["VertexSize"],
-      VertexStyle -> OptionValue["VertexStyle"],
-      VertexLabels -> OptionValue["VertexLabels"],
-      VertexLabelStyle -> OptionValue["VertexLabelStyle"],
-      VertexCoordinates -> parseVertexPositioning[vertex],
-      EdgeStyle -> OptionValue["EdgeStyle"],
-      EdgeShapeFunction -> If[
-        OptionValue["MultiplicityAsEdges"],
-        GraphElementData[{"FilledArrow", "ArrowSize" -> OptionValue["ArrowSize"]}],
-        parseArrowheads[edges, OptionValue["ArrowSize"], OptionValue["ArrowsPosition"] ]
-      ]
-    ];
+QuiverGraph[e_?EdgeListQ, opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
+  QuiverGraph[Automatic, e, opts];
+QuiverGraph[Automatic, e_?EdgeListQ, opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
+  QuiverGraph[
+    Values@PositionIndex@AssociationThread[VertexList@e, Normal@AdjacencyMatrix@e], 
+    e, 
+    opts
+  ];
+QuiverGraph[v: {(_Integer|{__Integer})..}, W_?PotentialQ, 
+    opts: OptionsPattern[{QuiverGraph, Graph}] ] :=
+  QuiverGraph[v, QuiverFromFields@W, opts];
+QuiverGraph[v: {(_Integer | {__Integer}) ..}, e_?EdgeListQ, 
+    opts: OptionsPattern[{QuiverGraph, Graph}] ] := 
+  Graph[
+    Flatten@v,
+    If[OptionValue["MultiplicityAsEdges"],
+      Identity, Map[First]@*parseArrowheads]@e,
+    Sequence @@ FilterRules[{opts}, Except[
+      Union[Options@QuiverGraph, {EdgeShapeFunction}], 
+      Options@Graph]
+    ],
+    VertexSize -> OptionValue["VertexSize"],
+    VertexStyle -> OptionValue["VertexStyle"],
+    VertexLabels -> OptionValue["VertexLabels"],
+    VertexLabelStyle -> OptionValue["VertexLabelStyle"],
+    VertexCoordinates -> parseVertexPositioning[v],
+    EdgeStyle -> OptionValue["EdgeStyle"],
+    EdgeShapeFunction -> If[
+      OptionValue["MultiplicityAsEdges"],
+      GraphElementData[{"FilledArrow", "ArrowSize" -> OptionValue["ArrowSize"]}],
+      parseArrowheads[e, OptionValue["ArrowSize"], OptionValue["ArrowsPosition"] ]
+    ]
+  ];
 
+parseVertexPositioning[v : {(_Integer | {__Integer}) ..}] :=
+  Module[{spread, shifts, parsedV, polyV, nV = Length@v},
+    spread = $QuiverVertexGroupingSpread;
+    shifts = SparseArray[$QuiverRotationByDegree, 100];
+    parsedV = Map[Flatten@*List, v];
+    polyV = Thread[ parsedV -> Exp[2 Pi I Range[0,nV-1]/nV + I shifts[[nV]] ] ];
+    (Thread[#1 -> ReIm[#2 Exp[ I spread Range[-Length@#1 + 1, Length@#1 - 1, 2]/2] ] 
+      ] &) @@@ polyV // Flatten
+  ];
 
-SyntaxInformation[QuiverIncidenceMatrix] = {"ArgumentsPattern" -> {_}};
-
-QuiverIncidenceMatrix[W_?PotentialQ] := 
-  QuiverIncidenceMatrix[QuiverFromFields@W];
-QuiverIncidenceMatrix[edges_?EdgeListQ] :=
-  Graph[Sort@DeleteDuplicates@Flatten[List@@@edges], edges] //
-    IncidenceMatrix // Normal[-#] &;
+parseArrowheads[edges_, s: (_?NumericQ): 0.04, p: (_?NumericQ | {_?NumericQ,_?NumericQ}): 0.8] :=
+  Module[{shapeF, parsePos, f, b},
+    {f, b} = If[MatchQ[p, {_, _}], p, {p, 1 - p}];
+    parsePos[l_] := (# + {0, First@MaximalBy[
+      {-Min[MinimalBy[l,Last],0], -Max[MaximalBy[l,Last] - 1, 0]},
+        Abs]} &) /@ l;
+    shapeF[edge_, ah_] := edge -> ({ah, Arrow[#]} &);
+    GroupBy[edges, Sort -> (Signature[#] &)] //
+      Map[{Count[-1]@#, Count[+1]@#} &] //
+      ApplyAt[Arrowheads[Join @@ parsePos /@ {
+        Table[{-s,b+(2*k-#1+1)*2*s/3}, {k,0,#1-1}],
+        Table[{+s,f+(2*k-#2+1)*2*s/3}, {k,0,#2-1}]
+      }] &, {1}] //
+    KeyValueMap[shapeF]
+  ];
 
 
 End[]

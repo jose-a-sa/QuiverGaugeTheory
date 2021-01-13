@@ -4,6 +4,7 @@ BeginPackage["QuiverGaugeTheory`Model`", {
   "QuiverGaugeTheory`Tools`",
   "QuiverGaugeTheory`Core`",
   "QuiverGaugeTheory`Quiver`",
+  "QuiverGaugeTheory`Tiling`",
   "QuiverGaugeTheory`Moduli`",
   "QuiverGaugeTheory`Polytope`",
   "QuiverGaugeTheory`Perturbations`",
@@ -11,221 +12,238 @@ BeginPackage["QuiverGaugeTheory`Model`", {
 }]
 
 
+ModelKeyQ::usage = "";
+ModelKeyExistsQ::usage = "";
+ModelQ::usage = "";
 Model::usage = "";
+ClearModel::usage = "";
+ClearAllModels::usage = "";
+(*ModelData::usage = "";*)
 W::usage = "";
 Quiver::usage = "";
-ToricDiagram::usage = "";
 
 
 Begin["`Private`"]
 
 
-phaseKeyQ = MatchQ[{_String, _String}];
+ModelKeyQ[_String | {_String, _String}] := True;
+ModelKeyQ[_] := False
 
 
-EmptyModel = Dataset[<|
-  "Key" -> Missing["KeyAbsent", "Key"],
+ModelKeyExistsQ[k_?ModelKeyQ] := 
+  AssociationQ@ModelData[k];
+ModelKeyExistsQ[_] := False
+
+
+SetAttributes[ModelData, {HoldFirst}]
+ModelData[q : Model[key_?ModelKeyQ] ] := ModelData[key];
+If[!MatchQ[ModelData[], _List],
+  ModelData[] = {}
+];
+
+
+SetAttributes[ClearModel, {HoldFirst}]
+ClearModel[ Model[key_?ModelKeyQ] ] := 
+  ClearModel[key]
+ClearModel[key_?ModelKeyQ] :=
+  Module[{},
+    ModelData[] = DeleteCases[ModelData[], Model[key] ];
+  ]
+
+
+ClearAllModels[] := 
+  Module[{},
+    Clear[ModelData];
+    ModelData[q : Model[key_?ModelKeyQ] ] := ModelData[key];
+    ModelData[] = {};
+  ]
+
+
+SetAttributes[updateModelDataList, {HoldFirst}]
+updateModelDataList[q : Model[key_?ModelKeyQ] ] :=
+  Module[{old},
+    old = If[ListQ@ModelData[],
+      DeleteCases[ModelData[], q],
+      {}
+    ];
+    ModelData[] = Join[old, {q}];
+    q
+  ];
+
+
+handlePotential[W_?PotentialQ, qPos : ({(_Integer|{__Integer})..}|Automatic) : Automatic] :=
+  Module[{quiver, new, td, P, fieldsPM},
+    quiver = QuiverFromFields[W];
+    new = Association[{
+      "Potential" -> W,
+      "ToricPotentialQ" -> ToricPotentialQ[W],
+      "Quiver" -> quiver,
+      "QuiverGraph" -> QuiverGraph[qPos, quiver],
+      "QuiverPositioning" -> qPos
+    }];
+    If[ToricPotentialQ@W,
+      td = ToricDiagram[W];
+      P = PerfectMatchingMatrix[W];
+      fieldsPM = Map[
+        (Times @@ Power[Keys@td, #] &),
+        AssociationThread[Fields@W, P]
+      ];
+      new = AssociateTo[new, {
+        "ToricDiagram" -> td,
+        "ToricDiagramGraph" -> PolytopePlot[Values@td],
+        "PerfectMatchings" -> Keys[td],
+        "FieldPMDecomposition" -> fieldsPM
+      }]
+    ];
+    Return@new
+  ]
+
+
+handleGenerators[data_Association] :=
+  Module[{pot, rchPM, rchF, pmDecomp, mes, redMes, gen},
+    pot = data["Potential"];
+    rchPM = Last@AMaximization[ data["ToricDiagram"] ];
+    pmDecomp = data["FieldPMDecomposition"];
+    rchF = Map[
+      RootReduce@*Total@*Select[NumericQ]@*ReplaceAll[rchPM]@*Apply[List],
+      pmDecomp
+    ];
+    mes = GaugeInvariantMesons[data["Quiver"], Infinity];
+    redMes = GroupBy[Last -> First]@DeleteCases[
+      ReduceGenerators[pot, mes, Automatic],
+      HoldPattern[Rule][_, _Times|_Power]
+    ];
+    gen = GroupBy[Join @@ Values@redMes, ReplaceAll@pmDecomp];
+    Association[
+      "ChiralMesons" -> redMes,
+      "MesonicGenerators" -> gen,
+      "RCharges" -> AppendTo[rchPM, rchF]
+    ]
+  ]
+
+
+Options[Model] = {
   "Descriptions" -> Missing["KeyAbsent", "Descriptions"],
-  "Phases" -> Missing["KeyAbsent", "Phases"],
+  "LaTeXDescriptions" -> Missing["KeyAbsent", "LaTeXDescriptions"],
   "Potential" -> Missing["KeyAbsent", "Potential"],
-  "ToricPotentialQ" -> Missing["KeyAbsent", "ToricPotentialQ"],
-  "ToricDiagram" -> Missing["KeyAbsent", "ToricDiagram"],
-  "Quiver" -> Missing["KeyAbsent", "Quiver"],
-  "RCharges" -> Missing["KeyAbsent", "RCharges"],
-  "Generators" -> Missing["KeyAbsent", "Generators"]
-|>];
-
-
-GetPhaseData[data_Dataset, phaseKey_String] := 
-  Query[
-    {"Key" -> Replace[x_ :> {x, phaseKey}]}
-  ]@Query[
-    {"Phases" -> Replace[ x_ -> Missing["KeyAbsent", "Phases"] ]},
-    If[MissingQ@Query[phaseKey]@#, #, Query[phaseKey]@#] &
-  ]@data;
-
-
-GetModelData[key : (_String | {_String, _String}), old_Association, 
-    opts_Association] :=
-  Module[{modelDataPhasesRow, new, handlePhase, modelDataRow, modelDataRowList},
-    handlePhase[pFlag_] := If[
-      pFlag && phaseKeyQ@key,
-      <|Last@key -> #|> &,
-      Identity
+  "QuiverPositioning" -> Automatic
+};
+Model[] := 
+  ModelData[];
+Model[key_?ModelKeyQ] :=
+  Missing["Undefined", key] /; Not@ModelKeyExistsQ[key];
+Model[key_?ModelKeyQ, k_String ] := 
+  If[ ModelKeyExistsQ[key],
+    Lookup[k]@ModelData[key],
+    Missing["Undefined", key]
+  ]
+Model[key_?ModelKeyQ, "Properties"] := 
+  If[ ModelKeyExistsQ[key],
+    Keys@ModelData[key],
+    Missing["Undefined", key]
+  ]
+Model[key_?ModelKeyQ, opts : OptionsPattern[Model] ] :=
+  Module[{modelKey, new},
+    modelKey = First@Flatten[{key}];
+    new = Association[{
+      "Key" -> modelKey,
+      "Descriptions" -> OptionValue["Descriptions"],
+      "LaTeXDescriptions" -> OptionValue["LaTeXDescriptions"]
+    }];
+    If[!PotentialQ@OptionValue["Potential"],
+      Message[Model::mssgpot]; Return[Null]
     ];
-    modelDataRow[n_String, k_String, g_:Identity, pFlag_:False] := If[
-      KeyExistsQ[k]@opts,
-      n -> handlePhase[pFlag]@g@Lookup[k]@opts,
-      Nothing
+    new = AssociateTo[new, 
+      handlePotential[
+        OptionValue["Potential"], 
+        OptionValue["QuiverPositioning"]
+      ]
     ];
-    modelDataRowList[n_String, k_String, gList : {Rule[_String, _]..},
-      pFlag_:False] := If[
-        KeyExistsQ[k]@opts,
-        n -> handlePhase[pFlag]@Association@DeleteCases[
-          (#1 -> #2[Lookup[k]@opts] &) @@@ gList, _ -> (_?MissingQ)],
-        Nothing
-      ];
-    modelDataPhasesRow = If[
-      phaseKeyQ@key,
-      "Phases" -> (If[ListQ@#, Union[#, {Last@key}], {Last@key}] &)@
-        Lookup["Phases"]@old,
-      Nothing
-    ];
-    new = <|
-      "Key" -> First@Flatten[{key}],
-      modelDataRow["Descriptions", "Descriptions"],
-      modelDataPhasesRow,
-      modelDataRow["Potential", "Potential", Expand, True],
-      modelDataRow["ToricPotentialQ", "Potential", ToricPotentialQ, True],
-      modelDataRowList["ToricDiagram", "ToricDiagram", {
-        "Graphics" -> PolytopePlot,
-        "Coordinates" -> Identity}, True],
-      modelDataRowList["Quiver", "Potential", {
-        "Edges" -> QuiverFromFields,
-        "Graph" -> (QuiverGraph[Lookup[opts,"QuiverPositioning"], #] &),
-        "Positioning" -> (Lookup[opts,"QuiverPositioning"] &)}, True],
-      modelDataRow["RCharges", "RCharges"],
-      modelDataRow["Generators", "Generators", Identity, True]
-    |>;
-    Merge[{old, new},
-      If[Length[#] == 1 || MissingQ@Last@#, 
-        First@#, 
-        If[AllTrue[ #, MatchQ[<|(_String -> _)..|>] ],
-          KeySort@Append[First@#, Last@#], Last@#] 
-      ] &
-    ]
+    ModelData[key] = DeleteMissing[new];
+    updateModelDataList[ Model[key] ]
+  ] /; UnsameQ[{opts}, {}];
+Model::mssgpot = "Valid superpotential not specified.";
+
+
+Model /: MakeBoxes[q : Model[key_?ModelKeyExistsQ], fmt : (StandardForm | TraditionalForm)] := 
+  Module[
+    {data, handleBox, keyBox, descriptionsBox, potentialBox, 
+      toricQBox, noFieldsBox, miniQuiver, quiverBox, scaleDownGraphics, 
+      diagramBox, header, grid},
+    data = ModelData[key];
+    handleBox[l_, v_, f_ : Identity, opts : OptionsPattern[] ] :=
+      If[MissingQ@v, SpanFromLeft, ExpandableBoxItem[{l, f@v}, opts] ];
+    keyBox = ExpandableBoxItem[{"Key: ", key}];
+    descriptionsBox = handleBox["Descriptions: ", Lookup["Descriptions"]@data];
+    potentialBox = handleBox["Potential: ", Lookup["Potential"]@data, Identity,
+      ImageSize -> UpTo[500] ];
+    toricQBox = handleBox["ToricPotentialQ: ", Lookup["Potential"]@data, ToricPotentialQ];
+    noFieldsBox = handleBox["No. Fields: ", Lookup["Potential"]@data, Length@*Fields];
+    miniQuiver = QuiverGraph[
+      Lookup["QuiverPositioning"]@data, Lookup["Quiver"]@data,
+      ImageSize -> UpTo[130], 
+      "ArrowSize" -> 0.07,
+      VertexSize -> {"Scaled", 0.07},
+      VertexLabelStyle -> Directive[Bold, 10]
+    ] &;
+    quiverBox = handleBox["Quiver: ", Lookup["QuiverGraph"]@data, miniQuiver];
+    scaleDownGraphics = ReplaceAll[{g_Graphics :> Graphics[First@g, ImageSize -> UpTo[90] ]}];
+    diagramBox = handleBox["ToricDiagram: ", Lookup["ToricDiagramGraph"]@data, scaleDownGraphics];
+    header = StringRiffle[Flatten@{key}, " "];
+    grid = ReplaceAll[{Repeated[SpanFromLeft, 5]} -> Nothing]@{
+      {keyBox, descriptionsBox, SpanFromLeft},
+      {potentialBox, SpanFromLeft, SpanFromLeft},
+      {toricQBox, noFieldsBox, SpanFromLeft},
+      {quiverBox, diagramBox, SpanFromLeft}};
+    ExpandableBox[q, header, grid, fmt]
   ];
 
 
-Model[key : (_String | {_String, _String})] := Missing["Undefined", key] /;
-  MissingQ@Query["Key"]@Model[key, "ModelData"]
-Model[key : (_String | {_String, _String}), 
-  q : PatternSequence[Except["ModelData"|_Rule|_RuleDelayed]..] ] := 
-    Query[q]@Model[key, "ModelData"] //
-      Switch[#, _Failure | _Missing, #, _, Normal@#] &;
-Model[key : (_String | {_String, _String}), 
-  opts : OptionsPattern[] /; UnsameQ[{opts}, {}] ] :=
-    Module[{current, modelKey, phaseKey, parsedOpts},
-      parsedOpts = Append[<|"QuiverPositioning"->Automatic|>, <|opts|>];
-      modelKey = First@Flatten[{key}];
-      current = Normal@If[
-        Head@Model[modelKey, "ModelData"] =!= Dataset,
-        EmptyModel, 
-        Model[modelKey, "ModelData"]
-      ];
-      If[phaseKeyQ[key],
-        phaseKey = Last@Flatten[{key}]; 
-        Model[modelKey, "ModelData"] =
-          Dataset@GetModelData[{modelKey, phaseKey}, current, parsedOpts];
-        Model[{modelKey, phaseKey}, "ModelData"] =
-          GetPhaseData[Model[modelKey, "ModelData"], phaseKey],
-        Model[modelKey, "ModelData"] =
-          Dataset@GetModelData[modelKey, current, parsedOpts]
-      ];
-      Model[key]
-    ];
-
-
-QueryWithPhase[k : (_String | {_String, _String}), {q1__}, {q2___}, f_:Identity] :=
-  Module[{pList, r1}, 
-    pList = Flatten@DeleteMissing@{Model[First@Flatten@{k}, "Phases"]};
-    r1 = Model[k, q1];
-    If[MissingQ@r1, Return@r1];
-    If[!AssociationQ[r1], Return[f@r1] ];
-    If[AnyTrue[pList, KeyExistsQ[r1, #] &], 
-      Map[f]@Query[All, q2]@r1, 
-      f@Query[q2]@r1
-    ]
-  ];
-
-
-Model /: MakeBoxes[q : Model[key : (_String | {_String, _String})],
-  fmt: (StandardForm|TraditionalForm)] :=
-    Module[{header, grid, scaleDownGraphics, scaledDownGraph, 
-        diagramBox, quiverBox, toricQBox, noFieldsBox, sizeB},
-      scaleDownGraphics = ReplaceAll[{
-        g_Graphics :> Graphics[First@g, 
-            ImageSize -> UpTo[90] 
-          ]
-      }];
-      sizeB = If[ MissingQ@Model[key, "Phases"], 500, 
-        425 + 75*Length@Model[key, "Phases"] ];
-      scaledDownGraph = QuiverGraph[Lookup[#, "Positioning"], Lookup[#, "Edges"], 
-        ImageSize -> UpTo[130], 
-        "ArrowSize" -> 0.07, 
-        VertexSize -> {"Scaled", 0.07},
-        VertexLabelStyle -> Directive[Bold, 10]
-      ] &;
-      diagramBox = ExpandableBoxItem[{"ToricDiagram: ", 
-        QueryWithPhase[key, {"ToricDiagram"}, {"Graphics"}, scaleDownGraphics]}];
-      quiverBox = ExpandableBoxItem[{"Quiver: ", 
-        QueryWithPhase[key, {"Quiver"}, {{"Edges", "Positioning"}}, scaledDownGraph]}];
-      toricQBox = ExpandableBoxItem[{"ToricPotentialQ: ", 
-          QueryWithPhase[key, {"ToricPotentialQ"}, {}]}];
-      noFieldsBox = ExpandableBoxItem[{"No. Fields: ", 
-          QueryWithPhase[key, {"Potential"}, {}, Length@*Fields]}];
-      header = StringRiffle[Flatten@{key}, " "];
-      grid = ReplaceAll[{Repeated[SpanFromLeft, 5]} -> Nothing]@{
-        {ExpandableBoxItem[{"Key: ", key}],
-        ExpandableBoxItem[{"Descriptions: ", Model[key, "Descriptions"]}],
-        ExpandableBoxItem[{"Phases: ", Model[key, "Phases"]}]},
-        {ExpandableBoxItem[{"Potential: ", 
-          QueryWithPhase[key, {"Potential"}, {}]}, ImageSize -> UpTo[sizeB] ], 
-        SpanFromLeft, SpanFromLeft},
-        Sequence @@ If[ MissingQ@Model[key, "Phases"], 
-          {{toricQBox, noFieldsBox, SpanFromLeft}}, 
-          {{toricQBox, SpanFromLeft, SpanFromLeft},
-           {noFieldsBox, SpanFromLeft, SpanFromLeft}}
-        ],
-        Sequence @@ If[ MissingQ@Model[key, "Phases"], 
-          {{diagramBox, quiverBox, SpanFromLeft}}, 
-          {{diagramBox, SpanFromLeft, SpanFromLeft},
-           {quiverBox, SpanFromLeft, SpanFromLeft}}
-        ]
-      };
-      ExpandableBox[q, header, grid, fmt]
-    ];
-
-
-W[ Model[key : (_String | {_String, _String})] ] :=
+W[ Model[key_?ModelKeyQ] ] :=
   Model[key, "Potential"];
 
 
-Quiver[ Model[key : (_String | {_String, _String})] ] :=
-  QueryWithPhase[key, {"Quiver"}, {"Edges"}];
+Quiver[ Model[key_?ModelKeyQ] ] :=
+  Model[key, "Quiver"];
 
 
-QuiverFields[ Model[key : (_String | {_String, _String})] ] :=
-  QueryWithPhase[key, {"Potential"}, {}, Fields];
+QuiverFields[ Model[key_?ModelKeyQ] ] :=
+  Fields@Model[key, "Potential"];
 
 
-QuiverFields[ Model[key : (_String | {_String, _String})] ] :=
-  QueryWithPhase[key, {"Quiver"}, {"Graph"}];
+QuiverGraph[ Model[key_?ModelKeyQ] ] := 
+  Model[key, "QuiverGraph"];
+QuiverGraph[ Model[key_?ModelKeyQ], opts: OptionsPattern[{QuiverGraph,Graph}] ] :=
+  If[MissingQ@Model[key, "QuiverGraph"],
+    Model[key, "QuiverGraph"],
+    QuiverGraph[Model[key, "QuiverPositioning"], Model[key, "Quiver"], opts]
+  ];
+QuiverGraph[vertex:{(_Integer|{__Integer})..}, Model[key_?ModelKeyQ], 
+  opts: OptionsPattern[{QuiverGraph,Graph}] ] :=
+  If[MissingQ@Model[key, "QuiverGraph"],
+    Model[key, "QuiverGraph"],
+    QuiverGraph[vertex, Model[key, "Quiver"], opts]
+  ];
 
 
-QuiverGraph[ Model[key : (_String | {_String, _String})] ] :=
-  QueryWithPhase[key, {"Quiver"}, {"Graph"}];
-QuiverGraph[Model[key : (_String | {_String, _String})], opts: OptionsPattern[Graph] ] := 
-  QueryWithPhase[key, {"Quiver"}, {"Edges"}, (QuiverGraph[Automatic, #, opts]&)];
-QuiverGraph[vertex:{(_Integer|{__Integer})..}, 
-  Model[key : (_String | {_String, _String})], opts: OptionsPattern[Graph] ] :=
-    QueryWithPhase[key, {"Quiver"}, {"Edges"}, (QuiverGraph[vertex, #, opts]&)];
+ToricDiagram[ Model[key_?ModelKeyQ] ] :=
+  Model[key, "ToricDiagram"]
 
 
-ToricDiagram[ Model[key : (_String | {_String, _String})], opts: OptionsPattern[Graphics] ] :=
-  QueryWithPhase[key, {"ToricDiagram"}, {"Coordinates"}, (PolytopePlot[#, opts]&)];
-
-
-GeneratorsTable[ Model[key : (_String | {_String, _String})] ] :=
-  Module[{genTableF},
-    genTableF = GeneratorsTable[
-      Query["Potential"]@#, 
-      Query["Generators"]@#,
-      Model[key, "RCharges"] ] &;
-    If[MissingQ@Model[key, "Phases"],
-      genTableF,
-      Map[genTableF]@*Transpose
-    ]@Model[key, {"Potential", "Generators"}]
+GeneratorsTable[ Model[key_?ModelKeyQ] ] :=
+  Module[{data, pot},
+    data = ModelData[key];
+    pot = data["Potential"];
+    If[! ToricPotentialQ@pot,
+      Message[GeneratorsTable::nontoric]; Return[Null]
+    ];
+    If[!KeyExistsQ[data, "RCharges"],
+      ModelData[key] = AppendTo[data,
+        handleGenerators[data]
+      ],
+      Message[Abelianize::warn]
+    ];
+    GeneratorsTable[data]
   ];
 
 

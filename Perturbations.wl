@@ -25,7 +25,7 @@ SyntaxInformation[FieldRedefinition] = {
   "OptionNames" -> {"ExcludePureRescalings"}
 };
 
-FieldRedefinition[fields: { Subscript[X, _][__] .. }, edges_?EdgeListQ, deg_, opts:OptionsPattern[] ] := 
+FieldRedefinition[fields: {__?FieldQ}, edges_?EdgeListQ, deg_, opts:OptionsPattern[] ] := 
   (FieldRedefinition[#, edges, deg, opts] & /@ fields);
 FieldRedefinition[Subscript[X, f_][i_, j_], edges_?EdgeListQ, deg_, OptionsPattern[] ] :=
   Module[{fieldList, redef},

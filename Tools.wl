@@ -3,27 +3,41 @@
 BeginPackage["QuiverGaugeTheory`Tools`"]
 
 
-UsageForm::usage = "";
-ApplyTo::usage = "";
-UniqueCases::usage = "";
+ApplyAt::usage = "";
 FirstLast::usage = "";
-IndexedList::usage = "";
-ColinearQ::usage = "";
-CoplanarQ::usage = "";
-NormalizeGCD::usage = "";
-GridRulesGraphics::usage = "";
-ToSubtractList::usage = "";
-MinMaxExponent::usage = "";
 EdgeListQ::usage = "";
-FindPathWithCycles::usage = "";
+MinMaxExponent::usage = "";
+CyclicRange::usage = "";
+CyclicPatternSequence::usage = "";
+ToCyclicPattern::usage = "";
+ToSubtractList::usage = "";
+NormalizeGCD::usage = "";
+CollinearQ::usage = "";
+StrictlyCollinearQ::usage = "";
+CoplanarQ::usage = "";
+StrictlyCoplanarQ::usage = "";
+UniqueCases::usage = "";
+IndexedList::usage = "";
+GridRulesGraphics::usage = "";
+
+FindNonSimplePaths::usage = "";
+SolveMatrixLeft::usage = "";
+
+UsageForm::usage = "";
+ReapMessages::usage = "";
+EchoUniqueMessages::usage = "";
 
 
 Begin["`Private`"]
 
 
+SyntaxInformation[ApplyAt] = {"ArgumentsPattern" -> {_, _.}};
+ApplyAt[f_, levelspec_ : {0}] := 
+  Apply[f, #, levelspec] &;
+
+
 SyntaxInformation[FirstLast] = {"ArgumentsPattern" -> {_}};
-FirstLast[expr_] := 
-  {First@expr,Last@expr};
+FirstLast[expr_] := {First@expr,Last@expr};
 
 
 SyntaxInformation[EdgeListQ] = {"ArgumentsPattern" -> {_}};
@@ -33,10 +47,33 @@ EdgeListQ[expr_] :=
 
 SyntaxInformation[MinMaxExponent] = {"ArgumentsPattern" -> {_, _.}};
 MinMaxExponent[patt_][expr_] := MinMaxExponent[expr, patt];
-MinMaxExponent[expr_, patt_] := MinMax@Exponent[
-    MonomialList@Expand[expr /. {x: patt :> \[FormalLambda] x}], 
+MinMaxExponent[expr_, patt_] := 
+  MinMax@Exponent[
+    MonomialList@ExpandAll[expr /. {x: patt :> \[FormalLambda] x}], 
     \[FormalLambda]
   ]
+
+
+SyntaxInformation[CyclicRange] = {"ArgumentsPattern" -> {_, _., _., _.}};
+CyclicRange[m_?Positive][i_Integer, f_Integer, s : _Integer?Positive : 1] := 
+  CyclicRange[i, f, s, m]
+CyclicRange[f_Integer, m_?Positive] := 
+  CyclicRange[1, f, 1, m];
+CyclicRange[i_Integer, f_Integer, m_Integer?Positive] :=
+  CyclicRange[i, f, 1, m];
+CyclicRange[i_Integer, f_Integer, s_Integer?Positive, m_Integer?Positive] := 
+  ReplaceAll[0 -> m]@Mod[Range[i, i + Mod[f - i, m], s], m]
+
+
+SyntaxInformation[CyclicPatternSequence] = {"ArgumentsPattern" -> {_.}};
+CyclicPatternSequence[patt__] := Alternatives @@ Nest[
+  RotateRight, PatternSequence[patt], Length[{patt}] - 1]
+CyclicPatternSequence[] := PatternSequence[];
+
+
+SyntaxInformation[ToCyclicPattern] = {"ArgumentsPattern" -> {_}};
+ToCyclicPattern[ x_ ] := 
+  Alternatives @@ NestList[RotateRight, x, Length@x -1]
 
 
 SyntaxInformation[ToSubtractList] = {"ArgumentsPattern" -> {_}};
@@ -52,21 +89,28 @@ NormalizeGCD[p: {__?ExactNumberQ}] := p / (GCD @@ p);
 NormalizeGCD[p: {__}] := p;
 
 
-SyntaxInformation[ColinearQ] = {"ArgumentsPattern" -> {_}};
-ColinearQ[pts_?MatrixQ] := 
+SyntaxInformation[CollinearQ] = {"ArgumentsPattern" -> {_}};
+CollinearQ[pts_?MatrixQ] := 
   MatrixRank@Rest[(# - First@pts &) /@ pts] <= 1;
-ColinearQ[expr_] := False;
+CollinearQ[expr_] := False;
+
+
+SyntaxInformation[StrictlyCollinearQ] = {"ArgumentsPattern" -> {_}};
+StrictlyCollinearQ[pts_?MatrixQ] := 
+  MatrixRank@Rest[(# - First@pts &) /@ pts] == 1;
+StrictlyCollinearQ[expr_] := False;
 
 
 SyntaxInformation[CoplanarQ] = {"ArgumentsPattern" -> {_}};
 CoplanarQ[pts_?MatrixQ] := 
   MatrixRank@Rest[(# - First@pts &) /@ pts] <= 2;
-ColinearQ[expr_] := False;
+CollinearQ[expr_] := False;
 
 
-SyntaxInformation[ApplyTo] = {"ArgumentsPattern" -> {_, _.}};
-ApplyTo[f_, levelspec_ : {0}] := 
-  Apply[f, #, levelspec] &;
+SyntaxInformation[StrictlyCoplanarQ] = {"ArgumentsPattern" -> {_}};
+StrictlyCoplanarQ[pts_?MatrixQ] := 
+  MatrixRank@Rest[(# - First@pts &) /@ pts] == 2;
+StrictlyCollinearQ[expr_] := False;
 
 
 SyntaxInformation[UniqueCases] = SyntaxInformation[Cases];
@@ -96,27 +140,86 @@ GridRulesGraphics[
   ] /; (tx > bx) && (ty > by)
 
 
-
-SyntaxInformation[FindPathWithCycles] = {"ArgumentsPattern" -> {_,_,_,_}};
-FindPathWithCycles[edges_?EdgeListQ, s_, t_, k_Integer?Positive] :=
-  FindPathWithCycles[edges, s, t, {1, k}];
-FindPathWithCycles[edges_?EdgeListQ, s_, t_, {k_Integer?Positive}] :=
-  FindPathWithCycles[edges, s, t, {k, k}];
-FindPathWithCycles[edges_?EdgeListQ, s_, t_, 
-  {kmin_Integer?NonNegative, kmax_Integer?NonNegative}] :=
-    Module[{paths, cyc, combos},
-      cyc = GroupBy[FindCycle[edges, kmax - 1, All], 
-        Length -> ({Last[Last@#1] -> Splice@Join[First /@ #1, {Last@Last@#1}]} &)];
-      paths = GroupBy[FindPath[edges, s, t, {Min[kmin, kmax - Max@Keys@cyc], kmax}, All], 
-        (Length[#] - 1 &)];
-      combos = Select[Tuples[{Keys@paths, Keys@cyc}], kmin <= Total[#] <= kmax &];
-      DeleteDuplicates@DeleteCases[{}]@Join[
-        Join @@ Values@KeySelect[paths, kmin <= # <= kmax &], 
-        Join @@ MapThread[
-            Table[DeleteCases[p /. cyc[#2], p], {p, paths[#1]}] &, 
-          Transpose@combos]
-      ]
+SyntaxInformation[FindNonSimplePaths] = {"ArgumentsPattern" -> {_,_}};
+FindNonSimplePaths::invgraph = "The argument `1` is not a valid graph.";
+FindNonSimplePaths::invvertex = "The argument `1` is not a valid vertex of `2`.";
+FindNonSimplePaths[e_?EdgeListQ, s_, t_, kspec_] :=
+  FindNonSimplePaths[Graph[e], s, t, kspec];
+FindNonSimplePaths[g_Graph, s_, t_, kmax_Integer] :=
+  FindNonSimplePaths[g, s, t, {1, kmax}] /; AllTrue[{s, t}, VertexQ[g, #] &];
+FindNonSimplePaths[g_Graph, s_, t_, {kmax_Integer}] :=
+  FindNonSimplePaths[g, s, t, {kmax, kmax}] /; AllTrue[{s, t}, VertexQ[g, #] &];
+FindNonSimplePaths[g_Graph, s_, t_, {kmin_Integer, kmax_Integer}] :=
+  Module[{adj, dist, step},
+    adj = GroupBy[EdgeList[g], First -> Last];
+    dist = Association[(# -> GraphDistance[g, #, t] &) /@ VertexList@g];
+    step[{m___, l_}] := (Join[{m, l}, {#}] &) /@
+      Select[adj[l], (dist[#] + Length[{m}] <= kmax &)];
+    Cases[
+      Join @@ NestList[ Apply[Join]@*Map[step], {{s}}, Max[1, kmax] ],
+      x:{s, ___, t} /; (kmin <= Length[x] - 1 <= kmax)
     ]
+  ] /; AllTrue[{s, t}, VertexQ[g, #] &];
+FindNonSimplePaths[g_, _, _, _] := 
+  Message[FindNonSimplePaths::invgraph, g];
+FindNonSimplePaths[g_Graph, s_, t_, _] := 
+  Message[FindNonSimplePaths::invvertex, s, EdgeList@g] /; (!VertexQ[g,s]);
+FindNonSimplePaths[g_Graph, s_, t_, _] :=
+  Message[FindNonSimplePaths::invvertex, t, EdgeList@g] /; (!VertexQ[g,t]);
+
+
+SyntaxInformation[SolveMatrixLeft] = {"ArgumentsPattern" -> {_,_}};
+SolveMatrixLeft::lslc = "Coefficient matrix and target matrix do not have matching dimensions.";
+SolveMatrixLeft::err = "An error occured while solving the system.";
+SolveMatrixLeft::argx = "Arguments provided are not matrices.";
+SolveMatrixLeft[a_?MatrixQ, b_?MatrixQ] :=
+  Module[{dimA, dimB, err, res},
+    {dimA, dimB} = Dimensions /@ {a, b};
+    If[ dimA[[2]] != dimB[[2]], 
+      Message[SolveMatrixLeft::lslc];Return[$Failed]
+    ];
+    {err, res} = ReapMessages[
+      (Check[LinearSolve[Transpose[a], #1], $Failed] &) /@ b
+    ];
+    If[err =!= {},
+      Message[SolveMatrixLeft::err];Return[$Failed],
+      Return[res]
+    ]
+  ];
+SolveMatrixLeft[a_, b_] := Message[SolveMatrixLeft::argx];
+
+
+SyntaxInformation[ReapMessages] = {"ArgumentsPattern" -> {_}};
+ReapMessages[eval_] :=
+  Module[{msgs, res},
+    msgs = {};
+    Internal`InheritedBlock[{Message, $InMsg},
+      $InMsg = False;
+      Unprotect[Message];
+      Message[msg_, vars___] /; !$InMsg :=
+        Block[{$InMsg = True},
+          AppendTo[msgs, {HoldForm[msg], vars}];
+          Message[msg, vars]
+        ];
+      res = eval
+    ];
+    Return[{msgs, res}];
+  ]
+SetAttributes[ReapMessages, HoldFirst]
+
+
+SyntaxInformation[EchoUniqueMessages] = {"ArgumentsPattern" -> {_}};
+EchoUniqueMessages[eval_] :=
+  Module[{msgs, res, uniqueMsgs},
+    {msgs, res} = Quiet@ReapMessages[eval];
+    uniqueMsgs = UniqueCases[msgs, {HoldForm[_MessageName], ___}];
+    Map[Apply[HoldForm@*Message], uniqueMsgs] // ReplaceAll[
+      HoldForm[ Message[HoldForm[m_], v___] ] :> 
+      HoldForm[ Message[m, v] ]
+    ] // ReleaseHold;
+    Return[res];
+  ]
+SetAttributes[EchoUniqueMessages, {HoldFirst}]
 
 
 SyntaxInformation[UsageForm] = {"ArgumentsPattern" -> {_, _.}};
@@ -131,16 +234,16 @@ UsageForm[u_String, a: ({__String} | HoldPattern[Alternatives][__String] | Autom
     vars = If[a =!= Automatic, a,
       Flatten@StringCases[u,
         funcPatt[foo, args] :> StringSplit[args, ("["|"]"|",")] 
-      ] ] // DeleteDuplicates@*Flatten //
+      ] 
+    ] // DeleteDuplicates@*Flatten //
       (StringCases[#, WordBoundary ~~ WordCharacter .. ~~ WordBoundary] &) // 
       DeleteCases[_?(StringMatchQ[DigitCharacter ..])];
     varPatt = (WordBoundary ~~ Pattern[#, __] ~~ WordBoundary /;
       StringMatchQ[#, Alternatives @@ vars]) &;
     TIrule = (varPatt[vv] :> StringJoin["Style[", vv, ",\"TI\"]"]);
-    handleV = (ReleaseHold@Map[uf, ToExpression[
-      StringReplace[StringJoin[##], TIrule], 
-      StandardForm, Hold], {1}
-    ] &);
+    handleV[x__] := ReleaseHold@Map[uf, ToExpression[
+      StringReplace[StringJoin[x], TIrule], 
+      StandardForm, Hold], {1}];
     StringReplace[u, {
       q : funcPatt[foo, args] :> handleV[q],
       varPatt[arg] :> handleV["Style[", arg, ",\"TI\"]"]

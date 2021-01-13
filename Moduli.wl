@@ -3,10 +3,14 @@
 BeginPackage["QuiverGaugeTheory`Moduli`", {
   "QuiverGaugeTheory`Tools`",
   "QuiverGaugeTheory`Core`", 
-  "QuiverGaugeTheory`Quiver`"
+  "QuiverGaugeTheory`Quiver`",
+  "QuiverGaugeTheory`Tiling`",
+  "QuiverGaugeTheory`Polytope`"
 }]
 
 
+GeneratorRulesQ::usage = "";
+ReplaceTraces::usage = "";
 ToGeneratorVariableRules::usage = "";
 GeneratorLinearRelations::usage = "";
 ReduceGenerators::usage = "";
@@ -16,24 +20,45 @@ GeneratorsTable::usage = "";
 
 
 $GeneratorVars = Alternatives@@
-  ToExpression@CharacterRange["\[FormalCapitalA]", "\[FormalCapitalT]"];
+  ToExpression@Join[
+    {"\[FormalCapitalPhi]"},
+    CharacterRange["\[FormalCapitalA]", "\[FormalCapitalT]"]
+  ];
 
 
 Begin["`Private`"]
 
 
+SyntaxInformation[GeneratorRulesQ] = {"ArgumentsPattern" -> {_}};
+GeneratorRulesQ[<|(HoldPattern[Times|CenterDot][__?FieldPowerQ] -> _)..|>] := True;
+GeneratorRulesQ[{(HoldPattern[Times|CenterDot][__?FieldPowerQ] -> _)..}] := True;
+GeneratorRulesQ[_] := False;
+
+
+SyntaxInformation[ReplaceTraces] = {"ArgumentsPattern" -> {_}};
+ReplaceTraces[gens_?GeneratorRulesQ][expr_] := 
+ ReplaceAll[
+   MapAt[Alternatives @@ 
+       Table[RotateLeft[#, i], {i, Length[#]}] &, {All, 1}]@
+    If[AssociationQ@gens, KeyValueMap[List, gens], gens]][expr]
+
+
 SyntaxInformation[ToGeneratorVariableRules] = {"ArgumentsPattern" -> {_}};
-ToGeneratorVariableRules[l : {HoldPattern[Times][Subscript[X, _][__] ..] ..}] :=
-  GroupBy[l, Count[ Subscript[X, _][__] ] ] //
-    KeyValueMap[Thread[ #2 -> $GeneratorVars[[#1 - 1]] /@ Range[Length@#2] ] &] // 
+ToGeneratorVariableRules[l : {HoldPattern[Times|CenterDot][__?FieldPowerQ] ..}] :=
+  GroupBy[l, Count[_?FieldQ] ] //
+    KeyValueMap[Thread[ #2 -> $GeneratorVars[[#1]] /@ Range[Length@#2] ] &] // 
     Flatten;
 
 
 SyntaxInformation[GeneratorLinearRelations] = {"ArgumentsPattern" -> {_, _}};
-GeneratorLinearRelations[W_?PotentialQ, genRules : ({__Rule} | _Association)] :=
-  Module[{rel},
-    rel = ReplaceAll[genRules]@Expand@Outer[Times, FTerms@W, Fields@W, 1];
-    Select[ Flatten@rel, FreeQ[ Subscript[X, _][__] ] ]
+GeneratorLinearRelations[W_?AbelianPotentialQ, genRules : KeyValuePattern[{}]] :=
+  Module[{rel, gens},
+    gens = If[AssociationQ@genRules, 
+      KeyValueMap[Abelianize@#1 -> #2 &, genRules],
+      MapAt[Abelianize, genRules, {All, 1}]
+    ];
+    rel = ReplaceAll[gens]@Expand@Outer[Times, FTerms@W, Fields@W, 1];
+    Select[ Flatten@rel, FreeQ[_?FieldQ] ]
   ];
 
 
@@ -53,47 +78,57 @@ ReduceGenerators[
   ReduceGenerators[Wgb, ops, ToGeneratorVariableRules@Flatten@{ops}, opts];
 ReduceGenerators[
     Wgb : (_?PotentialQ | { Except[_List].. }), 
+    ops : { Except[_List].. } | Except[_List], 
+    genRules : (List|Association)[(_ -> _List)..],
+    opts : OptionsPattern[] ] :=
+  ReduceGenerators[Wgb, ops, KeyValueMap[Splice@Thread[#2 -> #1] &]@genRules, opts];
+ReduceGenerators[
+    Wgb : (_?PotentialQ | { Except[_List].. }), 
     ops : Except[_List], 
-    genRules : ({__Rule} | _Association),
+    genRules : KeyValuePattern[{}],
     opts : OptionsPattern[] ] :=
   First@ReduceGenerators[Wgb, {ops}, genRules, opts];
 ReduceGenerators[
     W : _?PotentialQ, 
     ops : { Except[_List].. }, 
-    genRules : ({__Rule} | _Association),
+    genRules : KeyValuePattern[{}],
     opts : OptionsPattern[] ] :=
-  ReduceGenerators[ GroebnerBasis[ FTerms@W, Fields@W, 
+  ReduceGenerators[ 
+    GroebnerBasis[Abelianize@FTerms@W, Fields@W, 
       Method -> OptionValue["GroebnerBasisMethod"] ], 
     ops, genRules, opts];
 ReduceGenerators[
     gb : { Except[_List].. }, 
     ops : { Except[_List].. }, 
-    genRules : ({__Rule} | _Association),
+    genRules : KeyValuePattern[{}],
     opts : OptionsPattern[] ] :=
   Module[{dotPR, gens, fields, genDecomp, res, matching, remDenom, sol},
     dotPR[x : {{{__}, _} ..}, l0_List] := Map[dotPR[#, l0] &, x];
     dotPR[{l : {__}, n_?(Not@*MatchQ[_List])}, l0_List] := l0.l + n;
     gens = Association[genRules];
     fields = Fields@gb;
+    Message[Abelianize::warn];
     genDecomp = NestWhile[
-      dotPR[PolynomialReduce[#, Keys@gens, fields], Values@gens] &,
-      Map[Last]@PolynomialReduce[ops, gb, fields],
-      Not@*FreeQ[ Subscript[X,_][__] ]
+      dotPR[PolynomialReduce[#, Abelianize@Keys@gens, fields], Values@gens] &,
+      Map[Last]@PolynomialReduce[Abelianize@ops, Abelianize@gb, fields],
+      Not@*FreeQ[_?FieldQ]
     ];
-    res = Association@Thread[ops -> Expand@genDecomp];
+    res = AssociationThread[ops, Expand@genDecomp];
     If[ OptionValue["RemoveDenominators"],
-      matching = KeySelect[ res, MatchQ[Alternatives@@Keys@gens] ];
+      matching = KeySelect[res, 
+        MatchQ[#, Alternatives@@ Keys@gens] &
+      ];
       sol = If[Length[matching] > 0,
         remDenom = First@Solve@Cases[
           KeyValueMap[gens[#1] == Together[#2] &, matching],
           HoldPattern[Equal][x_, y_] /; UnsameQ[Denominator@y, 1]
         ];
         KeyValueMap[gens[#1] -> Together[#2 /. remDenom] &, matching] // 
-          DeleteCases[ HoldPattern[Rule][x_, x_] ] // Echo,
+          DeleteCases[ HoldPattern[Rule][x_, x_] ],
         {}
       ];
-      KeyValueMap[#1 -> Expand[ #2/.sol ] &, res],
-      KeyValueMap[Rule]@res
+      KeyValueMap[#1 -> Expand[#2/.sol] &, res],
+      Normal@res
     ]
   ]
 
@@ -131,36 +166,74 @@ SimplifyToricEquations[expr : (List|And)[Except[_List]..] ] :=
  ];
 
 
-SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_, _., _.}};
-GeneratorsTable[W_?ToricPotentialQ, gen_Association, charges_Association] :=
-  Module[{genCol, fieldCol, rChargeCol, fTermCol, rExactParse, fTermColNumb, feqTrivialQ},
-    rExactParse = If[Count[Expand@#, Root[__]^(_.) .., Infinity] > 10, 
-        SpanFromLeft, RootReduce[#] ] &;
-    feqTrivialQ = FEquationsTrivialQ[W];
-    genCol = Keys[gen];
-    fieldCol = If[Length[#] > 1, TildeEqual@@#, First@#] & /@ Values[gen];
-    rChargeCol = Keys[gen] // Map@RightComposition[
-      Apply[List], ReplaceAll[{x_^y_Integer :> Table[x, {y}]}],
-      Flatten, ReplaceAll[charges], Total
+GeneratorsTable::nontoric = "Superpotential or Model provided is not toric."
+GeneratorsTable::argw = "Argument provided is not a valid superpotential or Association."
+GeneratorsTable::misdata = "Association data provided does not contain all keys: \
+\"MesonicGenerators\", \"ChiralMesons\" and \"RCharges\".";
+SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_}};
+GeneratorsTable[W_?ToricPotentialQ] :=
+  Module[{td, P, pmDecomp, rchPM, mes, redMes, gen},
+    td = ToricDiagram[W];
+    P = PerfectMatchingMatrix[W];
+    pmDecomp = Map[
+      (Times @@ Power[Keys@td, #] &),
+      AssociationThread[Fields@W, P]
     ];
-    fTermCol = Values[gen] // Map@RightComposition[
-      Subsets[#, {2}] &,
-      Thread[# -> ApplyTo[feqTrivialQ@*Subtract, {1}]@#] &,
-      GroupBy[Last -> Apply[UndirectedEdge]@*First],
-      Lookup[#, True, {Undefined}, 
-        ApplyTo[Tilde, {1}]@*ConnectedComponents@*Graph] &
+    rchPM = Last@AMaximization[td];
+    mes = GaugeInvariantMesons[QuiverFromFields@W, Infinity];
+    redMes = GroupBy[Last -> First]@DeleteCases[
+      ReduceGenerators[W, mes, Automatic],
+      HoldPattern[Rule][_, _Times|_Power]
     ];
-    fTermColNumb =
-      MapThread[#1/.Thread[#2->Range@Length@#2] &, {fTermCol, Values@gen}];
-    Grid[Transpose[{
-      Prepend[genCol, "Generators"], 
-      Prepend[fieldCol, "Field generators"],
-      Prepend[N /@ rChargeCol, "R-charge"],
-      Prepend[rExactParse /@ rChargeCol, SpanFromLeft],
-      Prepend[Column@*Sort /@ fTermColNumb, "F-term equiv. GIOs"]
-    } // MapAt[If[StringQ[#], Item[#, ItemSize->{Automatic,1.7}], #] &, {All, 1}]
-    ], Frame -> All]
+    gen = GroupBy[Join @@ Values@redMes, ReplaceAll@pmDecomp];
+    GeneratorsTable@Association[
+      "ChiralMesons" -> redMes,
+      "MesonicGenerators" -> gen,
+      "RCharges" -> rchPM
+    ]
   ];
+GeneratorsTable[data_Association] :=
+  Module[{chiralMes, gen, rch, contractPM, 
+      genCol, fieldCol, rChargeCol, chiralCol, headings, sortF},
+    gen = data["MesonicGenerators"];
+    chiralMes = data["ChiralMesons"];
+    rch = data["RCharges"];
+    contractPM = ReplaceAll[ 
+      Subscript[x : Except[ \[FormalP] ], i_] :> If[i==1,x,1] 
+    ];
+    tildeF = (If[Length[#]>1, Tilde@@#, First@#] &);
+    genCol = contractPM /@ Keys[gen];
+    fieldCol = tildeF /@ Values[gen];
+    rChargeCol = List @@@ Keys[gen] // 
+      ReplaceAll[Power -> Splice@*ConstantArray] //
+      ReplaceAll[rch] // Map[ RootReduce@*Total@*Select[NumericQ] ];
+    (* chiralCol = Values@*Map[tildeF]@*PositionIndex /@ 
+      ReplaceAll[ KeyValueMap[Splice@Thread[#2->#1] &, chiralMes] ]@Values[gen]; *)
+    chiralCol = Column@*KeyValueMap[Reverse@*Rule]@*PositionIndex /@
+      ReplaceAll[ KeyValueMap[Splice@Thread[#2->#1] &, chiralMes] ]@Values[gen];
+    headings = {
+      "Perfect Matching", 
+      "Mesonic generators", 
+      "R-charge", 
+      "Chiral Ring relations"
+    };
+    sortF = Apply[{N[#3],-Length[#4]} &];
+    Grid[
+      Join[
+        {headings},
+        SortBy[sortF]@Transpose[
+          {genCol, fieldCol, rChargeCol, chiralCol}]
+      ],
+      ItemSize -> {{10, Automatic, 8, 10}, {4, {Automatic}}},
+      ItemStyle -> {Automatic, {Bold, {Automatic}}},
+      Alignment -> {Center, Center},
+      Spacings -> {Automatic, 1},
+      Frame -> All
+    ]
+  ] /; AllTrue[{"MesonicGenerators","ChiralMesons","RCharges"}, (KeyExistsQ[data,#]&)];
+GeneratorsTable[W_?PotentialQ] := Message[GeneratorsTable::nontoric];
+GeneratorsTable[a_Association] := Message[GeneratorsTable::misdata];
+GeneratorsTable[_] := Message[GeneratorsTable::argw];
 
 
 End[]
