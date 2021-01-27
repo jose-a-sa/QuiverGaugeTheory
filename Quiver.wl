@@ -206,9 +206,6 @@ FindQuiverPaths[e_?EdgeListQ, i_, j_, deg_] :=
   ]
 
 
-(* TODO: Complete FindQuiverPathsWithCycles *)
-
-
 Options[QuiverGraph] = {
   VertexSize -> {"Scaled", 0.04},
   VertexStyle -> Directive[ EdgeForm[{Black}], FaceForm[{Hue[0.15, 0.2, 1]}] ],

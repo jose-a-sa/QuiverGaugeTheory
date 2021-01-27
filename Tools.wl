@@ -140,7 +140,7 @@ GridRulesGraphics[
   ] /; (tx > bx) && (ty > by)
 
 
-SyntaxInformation[FindNonSimplePaths] = {"ArgumentsPattern" -> {_,_}};
+SyntaxInformation[FindNonSimplePaths] = {"ArgumentsPattern" -> {_,_,_,_}};
 FindNonSimplePaths::invgraph = "The argument `1` is not a valid graph.";
 FindNonSimplePaths::invvertex = "The argument `1` is not a valid vertex of `2`.";
 FindNonSimplePaths[e_?EdgeListQ, s_, t_, kspec_] :=

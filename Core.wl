@@ -162,6 +162,7 @@ FTermsConstraint[W_?PotentialQ, f_: Identity, g_: Plus] :=
 SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_}};
 FTermsTable[W_?PotentialQ] := 
   Grid[Transpose[{
+    Fields@W,
     FTerms[W, Highlighted],
     Simplify@FTermsConstraint[W], 
     Simplify@FTermsConstraint[W, Abs]
