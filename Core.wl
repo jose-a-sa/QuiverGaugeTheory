@@ -40,7 +40,7 @@ Begin["`Private`"]
 
 
 SyntaxInformation[X] = {"ArgumentsPattern" -> {_, _, _.}};
-X[i_Integer, j_Integer, k_Integer : 1] := Subscript[X, k][i, j]
+X[i_, j_, k_Integer : 1] := Subscript[X, k][i, j]
 
 
 SyntaxInformation[FieldQ] = {"ArgumentsPattern" -> {_}};
