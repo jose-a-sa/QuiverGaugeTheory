@@ -116,14 +116,6 @@ OrderedMesonQ[e_?EdgeListQ] :=
 OrderedMesonQ[_] := False;
 
 
-SetOptions[Simplify, TransformationFunctions -> {Automatic, 
-  Replace[c_CenterDot?OrderedMesonQ :> RotateLeft@c]
-}];
-SetOptions[FullSimplify, TransformationFunctions -> {Automatic, 
-  Replace[c_CenterDot?OrderedMesonQ :> RotateLeft@c]
-}];
-
-
 SyntaxInformation[ReorderLoopEdges] = {"ArgumentsPattern" -> {_}};
 ReorderLoopEdges::noloop = "List of edges does not correspond to a cycle \
 of a composition of cycles.";
@@ -287,5 +279,6 @@ parseArrowheads[edges_, s: (_?NumericQ): 0.04, p: (_?NumericQ | {_?NumericQ,_?Nu
 
 
 End[]
+
 
 EndPackage[]
