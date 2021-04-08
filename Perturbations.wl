@@ -1,7 +1,7 @@
 (* ::Package:: *)
 
 BeginPackage["QuiverGaugeTheory`Perturbations`", {
-  "QuiverGaugeTheory`Tools`",
+  "QuiverGaugeTheory`Utils`",
   "QuiverGaugeTheory`Core`", 
   "QuiverGaugeTheory`Quiver`"
 }]

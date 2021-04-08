@@ -1,6 +1,6 @@
 (* ::Package:: *)
 
-BeginPackage["QuiverGaugeTheory`Tools`"]
+BeginPackage["QuiverGaugeTheory`Utils`"]
 
 
 ApplyAt::usage = "";

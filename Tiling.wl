@@ -1,5 +1,5 @@
 BeginPackage["QuiverGaugeTheory`Tiling`", {
-  "QuiverGaugeTheory`Tools`",
+  "QuiverGaugeTheory`Utils`",
   "QuiverGaugeTheory`Core`", 
   "QuiverGaugeTheory`Quiver`"
 }]

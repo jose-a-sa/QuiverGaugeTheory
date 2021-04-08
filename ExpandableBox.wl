@@ -1,7 +1,7 @@
 (* ::Package:: *)
 
 BeginPackage["QuiverGaugeTheory`ExpandableBox`", {
-  "QuiverGaugeTheory`Tools`"
+  "QuiverGaugeTheory`Utils`"
 }]
 
 

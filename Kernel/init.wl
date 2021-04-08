@@ -5,8 +5,8 @@ With[{clearSyms = {CenterDot, NonCommutativeMultiply}},
   ClearAll /@ clearSyms;
 ];
 
-Unprotect["QuiverGaugeTheory`Tools`*"];
-ClearAll["QuiverGaugeTheory`Tools`*"];
+Unprotect["QuiverGaugeTheory`Utils`*"];
+ClearAll["QuiverGaugeTheory`Utils`*"];
 
 Unprotect["QuiverGaugeTheory`ExpandableBox`*"];
 ClearAll["QuiverGaugeTheory`ExpandableBox`*"];
@@ -44,7 +44,7 @@ ClearAll["QuiverGaugeTheory`Model`*"];
 ] *)
 
 
-Get["QuiverGaugeTheory`Tools`"]
+Get["QuiverGaugeTheory`Utils`"]
 Get["QuiverGaugeTheory`ExpandableBox`"]
 
 Get["QuiverGaugeTheory`Core`"]
@@ -64,7 +64,7 @@ SetOptions[FullSimplify, TransformationFunctions -> {Automatic,
 }];
 
 
-With[{syms = Names["QuiverGaugeTheory`Tools`*"]},
+With[{syms = Names["QuiverGaugeTheory`Utils`*"]},
   SetAttributes[syms, {Protected, ReadProtected}]
 ];
 
