@@ -56,12 +56,18 @@ Get["QuiverGaugeTheory`Perturbations`"]
 Get["QuiverGaugeTheory`Model`"]
 
 
-SetOptions[Simplify, TransformationFunctions -> {Automatic, 
-  Replace[c_CenterDot?OrderedMesonQ :> RotateLeft@c]
-}];
-SetOptions[FullSimplify, TransformationFunctions -> {Automatic, 
-  Replace[c_CenterDot?OrderedMesonQ :> RotateLeft@c]
-}];
+SetOptions[Simplify, 
+  TransformationFunctions -> {Automatic,
+    Replace[c_CenterDot?OrderedMesonQ :> RotateLeft[c, 
+      First@Ordering[c] - 1] 
+    ]}
+];
+SetOptions[FullSimplify, 
+  TransformationFunctions -> {Automatic,
+    Replace[c_CenterDot?OrderedMesonQ :> RotateLeft[c, 
+      First@Ordering[c] - 1] 
+    ]}
+];
 
 
 With[{syms = Names["QuiverGaugeTheory`Utils`*"]},

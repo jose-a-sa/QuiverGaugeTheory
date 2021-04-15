@@ -207,10 +207,6 @@ Quiver[ Model[key_?ModelKeyQ] ] :=
   Model[key, "Quiver"];
 
 
-QuiverFields[ Model[key_?ModelKeyQ] ] :=
-  Fields@Model[key, "Potential"];
-
-
 QuiverGraph[ Model[key_?ModelKeyQ] ] := 
   Model[key, "QuiverGraph"];
 QuiverGraph[ Model[key_?ModelKeyQ], opts: OptionsPattern[{QuiverGraph,Graph}] ] :=
@@ -226,6 +222,12 @@ QuiverGraph[vertex:{(_Integer|{__Integer})..}, Model[key_?ModelKeyQ],
   ];
 
 
+ToricDiagram[ Model[key_?ModelKeyQ], m_?MatrixQ] :=
+  Block[{mat},
+    mat = If[Dimensions@m =!= {2,2} || PossibleZeroQ@Det@m, 
+      IdentityMatrix[2], m];
+    Map[ mat.# &, ToricDiagram[ Model[key] ] ]
+  ];
 ToricDiagram[ Model[key_?ModelKeyQ] ] :=
   Model[key, "ToricDiagram"]
 

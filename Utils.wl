@@ -6,6 +6,7 @@ BeginPackage["QuiverGaugeTheory`Utils`"]
 ApplyAt::usage = "";
 FirstLast::usage = "";
 EdgeListQ::usage = "";
+KeysByValueLength::usage = "";
 MinMaxExponent::usage = "";
 CyclicRange::usage = "";
 CyclicPatternSequence::usage = "";
@@ -43,6 +44,11 @@ FirstLast[expr_] := {First@expr,Last@expr};
 SyntaxInformation[EdgeListQ] = {"ArgumentsPattern" -> {_}};
 EdgeListQ[expr_] := 
   MatchQ[expr, { (DirectedEdge[__]|UndirectedEdge[__]) .. }];
+
+
+SyntaxInformation[KeysByValueLength] = {"ArgumentsPattern" -> {_}};
+KeysByValueLength[a : KeyValuePattern[{}] ] :=
+  KeyValueMap[Splice@Table[#1, Length@#2] &, Association@a];
 
 
 SyntaxInformation[MinMaxExponent] = {"ArgumentsPattern" -> {_, _.}};

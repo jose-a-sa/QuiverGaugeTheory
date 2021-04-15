@@ -129,7 +129,7 @@ SyntaxInformation[FastForward] = {"ArgumentsPattern" -> {_}};
 FastForward[W_?ToricPotentialQ] :=
   Module[{d, P, nF, nPM, nG, barReduce, QDb, QD, QF, Q, Gt},
     P = PerfectMatchingMatrix[W];
-    d = QuiverIncidenceMatrix[W];
+    d = QuiverIncidenceMatrix[W]/.{2->0};
     {nF, nPM} = Dimensions[P];
     nG = First@Dimensions[d];
     QF = NullSpace[P];
@@ -151,10 +151,16 @@ FastForward::notcoplanar =
   "Resulting polytope is not strictly coplanar.";
 
 
-SyntaxInformation[ToricDiagram] = {"ArgumentsPattern" -> {_}};
+SyntaxInformation[ToricDiagram] = {"ArgumentsPattern" -> {_,_.}};
+ToricDiagram[W_?ToricPotentialQ, m_?MatrixQ ] :=
+  Block[{mat},
+    mat = If[Dimensions@m =!= {2,2} || PossibleZeroQ@Det@m, 
+      IdentityMatrix[2], m];
+    Map[ mat.# &, ToricDiagram[W] ]
+  ];
 ToricDiagram[W_?ToricPotentialQ] :=
-  Module[{ff, pt, ex, int, bd, nex, posEx, posInt, posNEx, vars,
-      exVar, intVarPos, intVar, nexVarPos, nexVar, sortedPM},
+  Module[{ff, pt, ex, int, bd, nex, posEx, posInt, posNEx, vars, mat,
+      exVar, intVarPos, intVar, nextStart, nexVarPos, nexVar, sortedPM},
     ff = FastForward[W];
     pt = NormalizePolytope@Transpose@Most@First@ff;
     {ex, int, bd} = PolytopeVertices[pt];
@@ -168,16 +174,17 @@ ToricDiagram[W_?ToricPotentialQ] :=
     intVarPos = Riffle[ Range@Ceiling[Length@int/2] - 1, -Range@Floor[Length@int/2] ] + 
       Position[vars, \[FormalS] ][[1, 1]];
     intVar = Extract[vars, List /@ intVarPos];
+    nextStart = If[Length@int > 0, Min@intVarPos, Position[vars, \[FormalS] ][[1, 1]] + 1];
     nexVarPos = Range[
-      Min@intVarPos, 
-      Min[Min@intVarPos + Length@nex - 1, Length@vars - Length@intVar]
-    ] // Join[#, Min@intVarPos - Range[Length@nex - Length@#] ] &;
+      nextStart, 
+      Min[nextStart + Length@nex - 1, Length@vars - Length@intVar]
+    ] // Join[#, nextStart - Range[Length@nex - Length@#] ] &;
     nexVar = Extract[ Delete[vars, List /@ intVarPos], List /@ nexVarPos];
     sortedPM = Values@Sort@Flatten@MapThread[
       MapThread[Rule, {#2, Thread@Subscript[#1, Range@Length@#2]}] &,
       {Join[{exVar}, nexVar, intVar], Join[{posEx}, posNEx, posInt]}
     ];
-    Association@MapThread[Rule, {sortedPM, pt}]
+    AssociationThread[sortedPM, pt]
   ];
 
 

@@ -40,7 +40,7 @@ Begin["`Private`"]
 
 
 SyntaxInformation[X] = {"ArgumentsPattern" -> {_, _, _.}};
-X[i_, j_, k_Integer : 1] := Subscript[X, k][i, j]
+X[i_, j_, k_ : 1] := Subscript[X, k][i, j]
 
 
 SyntaxInformation[FieldQ] = {"ArgumentsPattern" -> {_}};
@@ -75,7 +75,10 @@ AbelianQ[x_] := FreeQ[ExpandAll@x, _?NonAbelianFieldProductQ];
 
 
 SyntaxInformation[Fields] = {"ArgumentsPattern" -> {_}};
-Fields[W_] := Sort@UniqueCases[ ExpandAll@W, _?FieldQ ];
+Fields[W_] := SortBy[
+  UniqueCases[ ExpandAll@W, _?FieldQ ],
+  Apply[DirectedEdge]
+];
 
 
 SyntaxInformation[FieldProducts] = {"ArgumentsPattern" -> {_}};
@@ -94,7 +97,7 @@ CenterDot[l___, a_ + b_, r___] := CenterDot[l, a, r] + CenterDot[l, b, r]
 CenterDot[l___, a_*c_, r___] := c CenterDot[l, a, r] /; (FreeQ[c, _?FieldQ])
 CenterDot[l___, c : Except[Untrace], r___] := c CenterDot[l, r] /; (FreeQ[c, _?FieldQ])
 CenterDot[l___, Untrace, r___] := CenterDot[r, l]
-CenterDot[l___, a_^p_., a_^q_., r___] := CenterDot[l, a^(p + q), r]
+(* CenterDot[l___, a_^p_., a_^q_., r___] := CenterDot[l, a^(p + q), r] *)
 CenterDot[x_] := x
 CenterDot[ Sequence[] ] := 1
 SetAttributes[CenterDot, {Flat, OneIdentity}]
@@ -213,13 +216,15 @@ ToricPotentialTeXForm[W_?ToricPotentialQ, perline : (_Integer?NonNegative) : 3] 
       First,
       FindCycle[#, Infinity, All] &,
       StringCases["X_{" ~~ (x : DigitCharacter ..) ~~ ("" | ",") ~~ 
-          (y : DigitCharacter ..) ~~ "}" ~~ (z : "" | ("^" ~~ (DigitCharacter ..))) :> 
+          (y : DigitCharacter ..) ~~ "}" ~~ (z : "" | ("^" ~~ ((DigitCharacter|LetterCharacter) ..))) :> 
         DirectedEdge[x, y, z]
       ]
     ];
-    texStr = ToString[ W /. {Subscript[X, k_][i_, j_] :> 
-        If[ FreeQ[W, Subscript[X, 2][i, j] ], Subscript[X, Row[{i, j}] ],
-          Subsuperscript[ X, Row[{i, j}], Row[{k}] ] ]}, TeXForm];
+    texStr = ToString[ W /. {Subscript[X, 1][i_, j_] :> If[
+        MatchQ[UniqueCases[W, Subscript[X, _Integer][i, j] ], {Subscript[X, 1][i, j]}], 
+        Subscript[X, Row[{i, j}] ], Subsuperscript[ X, Row[{i, j}], Row[{1}] ] ],
+      Subscript[X, k:Except[1] ][i_, j_] :> Subsuperscript[ X, Row[{i, j}], Row[{k}] ]
+    }, TeXForm];
     terms = StringSplit[texStr, c : {"+", "-"} :> c] // 
       Partition[If[First[#] != "-", Prepend[#, "+"], #], 2] &;
     gather = SortBy[StringCount[Last[#], "X"] &] /@ 

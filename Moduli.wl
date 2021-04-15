@@ -44,8 +44,8 @@ ReplaceTraces[gens_?GeneratorRulesQ][expr_] :=
 
 
 SyntaxInformation[ToGeneratorVariableRules] = {"ArgumentsPattern" -> {_}};
-ToGeneratorVariableRules[l : {HoldPattern[Times|CenterDot][__?FieldPowerQ] ..}] :=
-  GroupBy[l, Count[_?FieldQ] ] //
+ToGeneratorVariableRules[l : {(_?FieldQ | HoldPattern[Times|CenterDot][__?FieldPowerQ]) ..}] :=
+  GroupBy[l, Count[#, _?FieldQ, {0, \[Infinity]}] & ] //
     KeyValueMap[Thread[ #2 -> $GeneratorVars[[#1]] /@ Range[Length@#2] ] &] // 
     Flatten;
 
