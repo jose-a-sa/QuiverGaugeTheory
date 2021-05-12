@@ -19,13 +19,14 @@ $RedefinitionVars = Alternatives@@
 Begin["`Private`"]
 
 
-Options[FieldRedefinition] = {ExcludePureRescalings -> True};
+
+Options[FieldRedefinition] = {
+  ExcludePureRescalings -> True
+};
 SyntaxInformation[FieldRedefinition] = {
   "ArgumentsPattern" -> {_, _, _, OptionsPattern[]},
   "OptionNames" -> {"ExcludePureRescalings"}
 };
-
-
 FieldRedefinition[fields: {__?FieldQ}, edges: (_?QuiverEdgesQ | _?EdgeListQ ), deg_, opts:OptionsPattern[] ] := 
   (FieldRedefinition[#, edges, deg, opts] & /@ fields);
 FieldRedefinition[Subscript[X, f_][i_, j_], edges_?QuiverEdgesQ, deg_, opts:OptionsPattern[] ] :=
@@ -45,7 +46,6 @@ FieldRedefinition[Subscript[X, f_][i_, j_], edges_?EdgeListQ, deg_, OptionsPatte
 
 
 SyntaxInformation[RedefinitionMinMonomialCount] = {"ArgumentsPattern" -> {_, _.}};
-
 RedefinitionMinMonomialCount[form_] :=
   RedefinitionMinMonomialCount[#, form] &;
 RedefinitionMinMonomialCount[W_, form_] :=

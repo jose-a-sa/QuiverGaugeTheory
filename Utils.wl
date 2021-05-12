@@ -5,6 +5,7 @@ BeginPackage["QuiverGaugeTheory`Utils`"]
 
 ApplyAt::usage = "";
 FirstLast::usage = "";
+SelectDelete::usage = "";
 EdgeListQ::usage = "";
 KeysByValueLength::usage = "";
 MinMaxExponent::usage = "";
@@ -39,6 +40,12 @@ ApplyAt[f_, levelspec_ : {0}] :=
 
 SyntaxInformation[FirstLast] = {"ArgumentsPattern" -> {_}};
 FirstLast[expr_] := {First@expr,Last@expr};
+
+
+SyntaxInformation[SelectDelete] = {"ArgumentsPattern" -> {_,_.,_.}};
+SelectDelete[crit_][list_] := SelectDelete[list, crit];
+SelectDelete[list_, crit_, n_ : Infinity] :=
+  {Select[list, crit, n], Select[list, Not@*crit, n]};
 
 
 SyntaxInformation[EdgeListQ] = {"ArgumentsPattern" -> {_}};

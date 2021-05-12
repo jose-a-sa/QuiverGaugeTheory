@@ -27,12 +27,12 @@ Begin["`Private`"]
 
 
 ModelKeyQ[_String | {_String, _String}] := True;
-ModelKeyQ[_] := False
+ModelKeyQ[_] := False;
 
 
 ModelKeyExistsQ[k_?ModelKeyQ] := 
   AssociationQ@ModelData[k];
-ModelKeyExistsQ[_] := False
+ModelKeyExistsQ[_] := False;
 
 
 SetAttributes[ModelData, {HoldFirst}]
@@ -48,7 +48,7 @@ ClearModel[ Model[key_?ModelKeyQ] ] :=
 ClearModel[key_?ModelKeyQ] :=
   Module[{},
     ModelData[] = DeleteCases[ModelData[], Model[key] ];
-  ]
+  ];
 
 
 ClearAllModels[] := 
@@ -56,7 +56,7 @@ ClearAllModels[] :=
     Clear[ModelData];
     ModelData[q : Model[key_?ModelKeyQ] ] := ModelData[key];
     ModelData[] = {};
-  ]
+  ];
 
 
 SetAttributes[updateModelDataList, {HoldFirst}]
@@ -96,7 +96,7 @@ handlePotential[W_?PotentialQ, qPos : ({(_Integer|{__Integer})..}|Automatic) : A
       }]
     ];
     Return@new
-  ]
+  ];
 
 
 handleGenerators[data_Association] :=
@@ -105,21 +105,26 @@ handleGenerators[data_Association] :=
     rchPM = Last@AMaximization[ data["ToricDiagram"] ];
     pmDecomp = data["FieldPMDecomposition"];
     rchF = Map[
-      RootReduce@*Total@*Select[NumericQ]@*ReplaceAll[rchPM]@*Apply[List],
+      RootReduce@*ReplaceAll[KeyMap[Log]@rchPM]@*PowerExpand@*Log,
       pmDecomp
     ];
+    latt = GeneratorsLattice[pot];
     mes = GaugeInvariantMesons[data["Quiver"], Infinity];
-    redMes = GroupBy[Last -> First]@DeleteCases[
-      ReduceGenerators[pot, mes, Automatic],
-      HoldPattern[Rule][_, _Times|_Power]
+    redMes = DeleteCases[
+      ReduceGenerators[pot, Join @@ Values@latt, ToGeneratorVariableRules@mes],
+      HoldPattern[Rule][_, _Times | _Power]
     ];
-    gen = GroupBy[Join @@ Values@redMes, ReplaceAll@pmDecomp];
+    gen = GroupBy[Keys@redMes, ReplaceAll@pmDecomp];
+    lattPM = Map[First]@GroupBy[
+      ReplaceAll[pmDecomp]@Normal@latt,
+      First@*Last -> First];
     Association[
       "ChiralMesons" -> redMes,
       "MesonicGenerators" -> gen,
-      "RCharges" -> AppendTo[rchPM, rchF]
+      "RCharges" -> AppendTo[rchPM, rchF],
+      "GeneratorsLattice" -> lattPM
     ]
-  ]
+  ];
 
 
 Options[Model] = {

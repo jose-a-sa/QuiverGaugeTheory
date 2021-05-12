@@ -103,7 +103,7 @@ NormalizePolytope[pt_?PolytopeQ] :=
       {
         Total[EuclideanDistance @@@ Partition[ex, 2, 1, {1, 1}] ], 
         Abs@Apply[Subtract]@MinMax@ang,
-        Total@Map[Function[z, z . z], #], 
+        Total@Map[z |-> z.z, #], 
         -Values@KeySort@CountsBy[bd, First], 
         -Values@KeySort@CountsBy[bd, Last]
       }
@@ -192,6 +192,7 @@ Options[PolytopePlot] = {
   ImageSize -> Small,
   PlotRange -> Automatic,
   GridLines -> None,
+  PlotRangePadding -> Scaled[0.1],
   GridLinesStyle -> Directive[ AbsoluteThickness[1], GrayLevel[0.75] ],
   "BoundaryStyle" -> Directive[ EdgeForm[{Thick, Black}], FaceForm[Transparent] ],
   "ExtremalStyle" -> Directive[ FaceForm[Black] ],
@@ -204,12 +205,12 @@ Options[PolytopePlot] = {
   "PerfectMatchingLabelStyle" -> Directive[FontSize -> 11],
   "PerfectMatchingLabelFunction" -> (Text[#1, #2 + 0.2 #3, -#3] &),
   "pqWeb" -> None,
-  "pqWebStyle" -> Directive[Black],
+  "pqWebStyle" -> Directive[Black, Thick, Arrowheads[0.085] ],
   "pqWebArrowFunction" -> (Arrow[{Mean[#2], Mean[#2] + Normalize[#1]}, {0.2, -0.2}] &)
 };
 SyntaxInformation[PolytopePlot] = {
   "ArgumentsPattern" -> {_, OptionsPattern[]},
-  "OptionsName" -> {"BoundaryStyle", "ExtremalStyle", "ExtremalPointFunction", 
+  "OptionsName" -> {"BoundaryStyle", "ExtremalStyle", "ExtremalPointFunction",
     "NonExtremalPointFunction", "InternalStyle", "InternalPointFunction", "PerfectMatchingLabel",
     "PerfectMatchingLabelStyle", "PerfectMatchingLabelFunction", "pqWebStyle", "pqWebArrowFunction"}
 };
@@ -237,6 +238,7 @@ PolytopePlot[td0_?ToricDiagramQ, opts : OptionsPattern[{PolytopePlot, Graphics}]
       GridLines -> (Range @@@ bounds),
       GridLinesStyle -> getOpt["GridLinesStyle"],
       PlotRange -> If[bounds === None, OptionValue["PlotRange"], bounds],
+      PlotRangePadding -> If[bounds === None, OptionValue["PlotRangePadding"], None],
       ImageSize -> OptionValue["ImageSize"]
     ]
   ];
@@ -291,7 +293,7 @@ polytopePlotpqWeb[pt_, opts : OptionsPattern[{PolytopePlot, Graphics}] ] :=
     defStyle = OptionValue[PolytopePlot, Options@PolytopePlot, "pqWebStyle"];
     style = getOpt["pqWebStyle"] // Switch[#,
       KeyValuePattern[{}],
-      KeyMap[remNeg]@Association@#,
+      Directive /@ KeyMap[remNeg]@Association@#,
       {(_Directive | {__}) ..}, 
       AssociationThread[Range@Length@#, Apply[Directive]@*Normal /@ #],
       _, AssociationThread[Range@n, Directive@#]
@@ -481,16 +483,16 @@ MixedBoundaryInternalMesh[pts_?PolytopeQ, internalMeshF_ : DelaunayMesh] :=
 
 SyntaxInformation[AMaximization] = {"ArgumentsPattern" -> {_}};
 AMaximization::arg = "Argument is not a valid potential or toric diagram."
-AMaximization[td : KeyValuePattern[{}]?ToricDiagramQ] :=
-  MapAt[
-    KeyMap[ Last@*ReplaceAll[PositionIndex@Association@td] ], 
-    AMaximization[Values@td], 
+AMaximization[td : KeyValuePattern[{}]?ToricDiagramQ] := MapAt[
+    Map[ReplaceAll[#], td] &, 
+    AMaximization@Values[td], 
     {2}
   ];
 AMaximization[pt_?PolytopeQ] :=
-  Module[{trialA, ex, int, bd, pqWex, a, charges, CC, maxTerm, condTerm, sol},
+  Module[{trialA, ex, int, bd, pqWex, a, charges, charges0, CC, maxTerm, condTerm, sol},
     {ex, int, bd} = PolytopeVertices[pt];
     charges = Association@MapIndexed[#1 -> a@First@#2 &, ex];
+    charges0 = Association[(#1 -> 0 &) /@ Join[int, Complement[bd,ex] ] ];
     pqWex = First /@ PositionIndex[
       RotationTransform[-Pi/2][#2 - #1] & @@@ Partition[ex, 2, 1, {1, 1}]
     ];
@@ -503,7 +505,7 @@ AMaximization[pt_?PolytopeQ] :=
     maxTerm = Total@KeyValueMap[trialA[Total@(a /@ #2), Det@#1] &, CC];
     condTerm = And[ Total[Values@charges] == 2, 0 < Values@charges < 1 ];
     sol = Maximize[{maxTerm, condTerm}, Values@charges];
-    {RootReduce@First@sol, ReplaceAll[RootReduce@Last@sol] /@ charges}
+    {RootReduce@First@sol, ReplaceAll[RootReduce@Last@sol] /@ Append[charges,charges0]}
   ];
 AMaximization[W_?PotentialQ] :=
   Module[{fs, fp, r, R, t, h, cond, linSol, trialA, maxF, sol},

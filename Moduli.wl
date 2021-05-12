@@ -16,6 +16,7 @@ GeneratorLinearRelations::usage = "";
 ReduceGenerators::usage = "";
 SingularLocus::usage = "";
 SimplifyToricEquations::usage = "";
+GeneratorsLattice::usage = "";
 GeneratorsTable::usage = "";
 
 
@@ -166,71 +167,91 @@ SimplifyToricEquations[expr : (List|And)[Except[_List]..] ] :=
  ];
 
 
+SyntaxInformation[GeneratorsLattice] = {"ArgumentsPattern" -> {_, _.}};
+GeneratorsLattice[W_?ToricPotentialQ] :=
+  Module[{P, pmDecomp, Pmes, Gm, mes, redMes, p, ks},
+    mes = GaugeInvariantMesons[QuiverFromFields@W, Infinity];
+    P = PerfectMatchingMatrix[W];
+    pmDecomp = Map[
+      (Times @@ Power[Array[p, Length@#], #] &), 
+      AssociationThread[Fields@W, P]
+    ];
+    ks = GroupBy[mes, ReplaceAll@pmDecomp];
+    redMes = Join @@ Values@KeyTake[ks, 
+      SortBy[GroebnerBasis@Keys@ks, LeafCount]
+    ];
+    Pmes = (Exponent[Abelianize@redMes, #] &) /@ Fields[W];
+    Gm = NullSpace@NullSpace[Transpose[P].Pmes];
+    GroupBy[ Thread[redMes -> If[CoplanarQ@Transpose@Gm, 
+        NormalizePolytope@Transpose@Most@Gm, Transpose@Gm]
+      ], Last -> First
+    ]
+  ];
+
+
 GeneratorsTable::nontoric = "Superpotential or Model provided is not toric."
 GeneratorsTable::argw = "Argument provided is not a valid superpotential or Association."
 GeneratorsTable::misdata = "Association data provided does not contain all keys: \
-\"MesonicGenerators\", \"ChiralMesons\" and \"RCharges\".";
+\"MesonicGenerators\", \"ChiralMesons\", \"RCharges\", \"GeneratorsLattice\".";
 SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_}};
 GeneratorsTable[W_?ToricPotentialQ] :=
-  Module[{td, P, pmDecomp, rchPM, mes, redMes, gen},
+  Module[{td, P, pmDecomp, rchPM, mes, redMes, gen, latt, lattPM},
     td = ToricDiagram[W];
     P = PerfectMatchingMatrix[W];
+    latt = GeneratorsLattice[W];
     pmDecomp = Map[
-      (Times @@ Power[Keys@td, #] &),
+      (Times @@ Power[Keys@td, #] &), 
       AssociationThread[Fields@W, P]
     ];
     rchPM = Last@AMaximization[td];
     mes = GaugeInvariantMesons[QuiverFromFields@W, Infinity];
-    redMes = GroupBy[Last -> First]@DeleteCases[
-      ReduceGenerators[W, mes, Automatic],
-      HoldPattern[Rule][_, _Times|_Power]
+    redMes = DeleteCases[
+      ReduceGenerators[W, Join @@ Values@latt, ToGeneratorVariableRules@mes],
+      HoldPattern[Rule][_, _Times | _Power]
     ];
-    gen = GroupBy[Join @@ Values@redMes, ReplaceAll@pmDecomp];
+    gen = GroupBy[Keys@redMes, ReplaceAll@pmDecomp];
+    lattPM = Map[First]@GroupBy[
+      ReplaceAll[pmDecomp]@Normal@latt,
+      First@*Last -> First];
     GeneratorsTable@Association[
       "ChiralMesons" -> redMes,
       "MesonicGenerators" -> gen,
-      "RCharges" -> rchPM
+      "RCharges" -> rchPM,
+      "GeneratorsLattice" -> lattPM
     ]
   ];
 GeneratorsTable[data_Association] :=
-  Module[{chiralMes, gen, rch, contractPM, 
-      genCol, fieldCol, rChargeCol, chiralCol, headings, sortF},
-    gen = data["MesonicGenerators"];
-    chiralMes = data["ChiralMesons"];
-    rch = data["RCharges"];
-    contractPM = ReplaceAll[ 
-      Subscript[x : Except[ \[FormalP] ], i_] :> If[i==1,x,1] 
+  Module[{genF, chiralVar, rch, pmColF, fieldColF, chiralColF, sortF,
+      latt, rawTable, headings},
+    genF = data["MesonicGenerators"];
+    chiralVar = Map[ReplaceAll@data["ChiralMesons"], genF];
+    rch = AssociationMap[ RootReduce@*ReplaceAll[ 
+        KeyMap[Log]@data["RCharges"] 
+      ]@*PowerExpand@*Log, Keys[genF]
     ];
-    tildeF = (If[Length[#]>1, Tilde@@#, First@#] &);
-    genCol = contractPM /@ Keys[gen];
-    fieldCol = tildeF /@ Values[gen];
-    rChargeCol = List @@@ Keys[gen] // 
-      ReplaceAll[Power -> Splice@*ConstantArray] //
-      ReplaceAll[rch] // Map[ RootReduce@*Total@*Select[NumericQ] ];
-    (* chiralCol = Values@*Map[tildeF]@*PositionIndex /@ 
-      ReplaceAll[ KeyValueMap[Splice@Thread[#2->#1] &, chiralMes] ]@Values[gen]; *)
-    chiralCol = Column@*KeyValueMap[Reverse@*Rule]@*PositionIndex /@
-      ReplaceAll[ KeyValueMap[Splice@Thread[#2->#1] &, chiralMes] ]@Values[gen];
-    headings = {
-      "Perfect Matching", 
-      "Mesonic generators", 
-      "R-charge", 
-      "Chiral Ring relations"
-    };
-    sortF = Apply[{N[#3],-Length[#4]} &];
-    Grid[
-      Join[
-        {headings},
-        SortBy[sortF]@Transpose[
-          {genCol, fieldCol, rChargeCol, chiralCol}]
-      ],
-      ItemSize -> {{10, Automatic, 8, 10}, {4, {Automatic}}},
+    latt = data["GeneratorsLattice"];
+    pmColF = ReplaceAll[
+      Subscript[x : Except[ \[FormalP] ], i_] :> If[i == 1, x, 1]
+    ];
+    fieldColF = (If[Length[#] > 1, Tilde @@ #, First@#] &);
+    chiralColF = (Column@If[SameQ @@ #, {All -> First[#]},
+      KeyValueMap[Reverse@*Rule]@PositionIndex[#]
+    ] &);
+    sortF = Apply[N@{#2, -Length[First@#4], Mod[ArcTan@@(#3[[{1,2}]] + $MachineEpsilon{-1,1}),2*Pi]} &];
+    rawTable = SortBy[sortF]@KeyMap[pmColF]@Merge[
+      {genF, rch, latt, chiralVar},
+      Apply[{fieldColF@#1, #2, #3, chiralColF@#4} &]
+    ];
+    headings = {"PM", "Mesonic generators", 
+      ToString[Subscript["U"[1], "R"], TraditionalForm], 
+      ToString[Superscript["U"[1], 2], TraditionalForm], 
+      "Chiral relations"};
+    Grid[Join[{headings}, KeyValueMap[{#1,Splice@#2}&]@rawTable],
+      ItemSize -> {Automatic, {4, {Automatic}}},
       ItemStyle -> {Automatic, {Bold, {Automatic}}},
       Alignment -> {Center, Center},
-      Spacings -> {Automatic, 1},
-      Frame -> All
-    ]
-  ] /; AllTrue[{"MesonicGenerators","ChiralMesons","RCharges"}, (KeyExistsQ[data,#]&)];
+      Spacings -> {Automatic, 1}, Frame -> All]
+ ] /; AllTrue[{"MesonicGenerators","ChiralMesons","RCharges","GeneratorsLattice"}, (KeyExistsQ[data,#]&)];
 GeneratorsTable[W_?PotentialQ] := Message[GeneratorsTable::nontoric];
 GeneratorsTable[a_Association] := Message[GeneratorsTable::misdata];
 GeneratorsTable[_] := Message[GeneratorsTable::argw];
