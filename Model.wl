@@ -72,30 +72,32 @@ updateModelDataList[q : Model[key_?ModelKeyQ] ] :=
 
 
 handlePotential[W_?PotentialQ, qPos : ({(_Integer|{__Integer})..}|Automatic) : Automatic] :=
-  Module[{quiver, new, td, P, fieldsPM},
+  Module[{quiver, new, td, tdPlot, P, fieldsPM, newToric},
     quiver = QuiverFromFields[W];
-    new = Association[{
+    new = {
       "Potential" -> W,
       "ToricPotentialQ" -> ToricPotentialQ[W],
       "Quiver" -> quiver,
       "QuiverGraph" -> QuiverGraph[qPos, quiver],
       "QuiverPositioning" -> qPos
-    }];
-    If[ToricPotentialQ@W,
+    };
+    newToric = If[ToricPotentialQ@W,
       td = ToricDiagram[W];
+      tdPlot = PolytopePlot[td];
       P = PerfectMatchingMatrix[W];
       fieldsPM = Map[
         (Times @@ Power[Keys@td, #] &),
         AssociationThread[Fields@W, P]
       ];
-      new = AssociateTo[new, {
+      {
         "ToricDiagram" -> td,
-        "ToricDiagramGraph" -> PolytopePlot[Values@td],
+        "ToricDiagramGraph" -> tdPlot,
         "PerfectMatchings" -> Keys[td],
         "FieldPMDecomposition" -> fieldsPM
-      }]
+      },
+      {}
     ];
-    Return@new
+    Association@Join[new, newToric]
   ];
 
 
@@ -214,13 +216,13 @@ Quiver[ Model[key_?ModelKeyQ] ] :=
 
 QuiverGraph[ Model[key_?ModelKeyQ] ] := 
   Model[key, "QuiverGraph"];
-QuiverGraph[ Model[key_?ModelKeyQ], opts: OptionsPattern[{QuiverGraph,Graph}] ] :=
+QuiverGraph[ Model[key_?ModelKeyQ], opts: OptionsPattern[QuiverGraph] ] :=
   If[MissingQ@Model[key, "QuiverGraph"],
     Model[key, "QuiverGraph"],
     QuiverGraph[Model[key, "QuiverPositioning"], Model[key, "Quiver"], opts]
   ];
 QuiverGraph[vertex:{(_Integer|{__Integer})..}, Model[key_?ModelKeyQ], 
-  opts: OptionsPattern[{QuiverGraph,Graph}] ] :=
+    opts: OptionsPattern[QuiverGraph] ] :=
   If[MissingQ@Model[key, "QuiverGraph"],
     Model[key, "QuiverGraph"],
     QuiverGraph[vertex, Model[key, "Quiver"], opts]

@@ -92,17 +92,18 @@ ExpandableBox[q_, header_, grid_, fmt_ : StandardForm] :=
 
 
 
-Options[ExpandableBoxItem] = {
+Options[ExpandableBoxItem] = Normal@Association@{
+  Splice@Options[Row],
   "ReplacementTest" -> MissingQ,
   "ReplacementValue" -> Nothing,
   BaseStyle -> {LineSpacing -> {1, 0}}
 };
 
 ExpandableBoxItem[{n_String, v_}, 
-  opts: OptionsPattern[{ExpandableBoxItem, Row}] ] :=
+  opts: OptionsPattern[ExpandableBoxItem] ] :=
   ExpandableBoxItem[{n, v}, Identity, opts];
 ExpandableBoxItem[{n_String, v_}, g_: Identity,
-  opts: OptionsPattern[{ExpandableBoxItem, Row}] ] := If[
+  opts: OptionsPattern[ExpandableBoxItem] ] := If[
     OptionValue["ReplacementTest"]@v, 
     OptionValue["ReplacementValue"],
     Row[{Style[ n, GrayLevel[0.5] ], g@v},

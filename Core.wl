@@ -150,16 +150,17 @@ NonAbelianPotentialQ[_] := False;
 
 
 SyntaxInformation[FTerms] = {"ArgumentsPattern" -> {_, _.}};
-FTerms[W_?PotentialQ, f_: Identity] := ExpandAll@Collect[
-  ExpandAll@DG[W, {Fields@W}], 
-    _?FieldProductQ | HoldPattern[Times][_., (__?FieldPowerQ)], 
-  f@*Simplify
-];
+FTerms[W_?PotentialQ, f_: Identity] := 
+  ExpandAll@Collect[
+    ExpandAll@DG[W, {Fields@W}], 
+    (_?FieldProductQ) | (_?FieldQ), 
+    f@*Simplify
+  ];
 
 
 SyntaxInformation[FTermsConstraint] = {"ArgumentsPattern" -> {_, _., _.}};
 FTermsConstraint[W_?PotentialQ, f_: Identity, g_: Plus] := 
-  g @@@ ReplaceAll[List @@@ FTerms[W, f], (_?FieldQ) -> 1];
+  g@@@ReplaceAll[(_?FieldQ) -> 1][ List @@@ FTerms[W, f] ];
 
 
 SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_}};

@@ -63,46 +63,45 @@ GeneratorLinearRelations[W_?AbelianPotentialQ, genRules : KeyValuePattern[{}]] :
   ];
 
 
-SyntaxInformation[ReduceGenerators] = {
-  "ArgumentsPattern" -> {_, _, _, OptionsPattern[]},
-  "OptionsName" -> {"RemoveDenominators", "GroebnerBasisMethod"}
-};
 Options[ReduceGenerators] = {
   "RemoveDenominators" -> False,
   "GroebnerBasisMethod" -> Automatic
 }
+SyntaxInformation[ReduceGenerators] = {
+  "ArgumentsPattern" -> {_, _, _, OptionsPattern[]}
+};
 ReduceGenerators[
     Wgb : (_?PotentialQ | { Except[_List].. }), 
     ops : { Except[_List].. } | Except[_List], 
     Automatic,
-    opts : OptionsPattern[] ] :=
+    opts : OptionsPattern[ReduceGenerators] ] :=
   ReduceGenerators[Wgb, ops, ToGeneratorVariableRules@Flatten@{ops}, opts];
 ReduceGenerators[
     Wgb : (_?PotentialQ | { Except[_List].. }), 
     ops : { Except[_List].. } | Except[_List], 
     genRules : (List|Association)[(_ -> _List)..],
-    opts : OptionsPattern[] ] :=
+    opts : OptionsPattern[ReduceGenerators] ] :=
   ReduceGenerators[Wgb, ops, KeyValueMap[Splice@Thread[#2 -> #1] &]@genRules, opts];
 ReduceGenerators[
     Wgb : (_?PotentialQ | { Except[_List].. }), 
     ops : Except[_List], 
     genRules : KeyValuePattern[{}],
-    opts : OptionsPattern[] ] :=
+    opts : OptionsPattern[ReduceGenerators] ] :=
   First@ReduceGenerators[Wgb, {ops}, genRules, opts];
 ReduceGenerators[
     W : _?PotentialQ, 
     ops : { Except[_List].. }, 
     genRules : KeyValuePattern[{}],
-    opts : OptionsPattern[] ] :=
+    opts : OptionsPattern[ReduceGenerators] ] :=
   ReduceGenerators[ 
     GroebnerBasis[Abelianize@FTerms@W, Fields@W, 
       Method -> OptionValue["GroebnerBasisMethod"] ], 
     ops, genRules, opts];
 ReduceGenerators[
-    gb : { Except[_List].. }, 
+    gb : { Except[_List]... }, 
     ops : { Except[_List].. }, 
     genRules : KeyValuePattern[{}],
-    opts : OptionsPattern[] ] :=
+    opts : OptionsPattern[ReduceGenerators] ] :=
   Module[{dotPR, gens, fields, genDecomp, res, matching, remDenom, sol},
     dotPR[x : {{{__}, _} ..}, l0_List] := Map[dotPR[#, l0] &, x];
     dotPR[{l : {__}, n_?(Not@*MatchQ[_List])}, l0_List] := l0.l + n;

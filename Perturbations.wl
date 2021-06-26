@@ -21,17 +21,19 @@ Begin["`Private`"]
 
 
 Options[FieldRedefinition] = {
-  ExcludePureRescalings -> True
+  "ExcludePureRescalings" -> True
 };
 SyntaxInformation[FieldRedefinition] = {
-  "ArgumentsPattern" -> {_, _, _, OptionsPattern[]},
-  "OptionNames" -> {"ExcludePureRescalings"}
+  "ArgumentsPattern" -> {_, _, _, OptionsPattern[]}
 };
-FieldRedefinition[fields: {__?FieldQ}, edges: (_?QuiverEdgesQ | _?EdgeListQ ), deg_, opts:OptionsPattern[] ] := 
+FieldRedefinition[fields: {__?FieldQ}, edges: (_?QuiverEdgesQ | _?EdgeListQ ), 
+    deg_, opts:OptionsPattern[FieldRedefinition] ] := 
   (FieldRedefinition[#, edges, deg, opts] & /@ fields);
-FieldRedefinition[Subscript[X, f_][i_, j_], edges_?QuiverEdgesQ, deg_, opts:OptionsPattern[] ] :=
-  FieldRedefinition[Subscript[X, f][i, j], KeysByValueLength@edges, deg, opts]
-FieldRedefinition[Subscript[X, f_][i_, j_], edges_?EdgeListQ, deg_, OptionsPattern[] ] :=
+FieldRedefinition[Subscript[X, f_][i_, j_], edges_?QuiverEdgesQ, 
+    deg_, opts:OptionsPattern[FieldRedefinition] ] :=
+  FieldRedefinition[Subscript[X, f][i, j], Values@edges, deg, opts]
+FieldRedefinition[Subscript[X, f_][i_, j_], edges_?EdgeListQ, 
+    deg_, OptionsPattern[FieldRedefinition] ] :=
   Module[{fieldList, redef},
     Switch[edges,
       _?(FreeQ[i]), Return@Missing["QuiverVertexAbsent", i],
