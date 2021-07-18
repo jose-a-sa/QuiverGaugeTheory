@@ -30,8 +30,9 @@ PerfectMatchingMatrix[W_?ToricPotentialQ] :=
   Module[{k, fs, pmList, a = $a},
     fs = Fields[W];
     k = KasteleynMatrix[W, {1, 1}];
-    pmList = MonomialList[Expand@Permanent[k], a/@Fields@W] // 
-      ReplaceAll[a -> Identity]; 
+    pmList = ReplaceAll[a -> Identity]@MonomialList[
+      Expand@Permanent[k], a/@Fields@W];
+    If[Dimensions[k] == {1,1}, pmList = List /@ pmList];
     Boole@Outer[
       MemberQ[#2, #1] &, fs, (Alternatives @@@ pmList), 1
     ]
@@ -59,8 +60,8 @@ KasteleynMatrix[W_?ToricPotentialQ, {1|1., 1|1.}] :=
     Return[k];
   ];
 KasteleynMatrix[W_?ToricPotentialQ, {x0_, y0_}] :=
-  Module[{sp, terms, k, td, P, fieldPMwind, monExp, solH,
-      fs, a, x, y, hx, hy},
+  Module[{sp, terms, k, td, P, fieldPMwind, monExp, 
+      solH1, solH2, fs, a, x, y, hx, hy, kast, avgExp},
     {a, x, y}  = {$a, $x, $y};
     sp = ExpandAll@If[AbelianPotentialQ@W,
       NonAbelianizeMesons[W], W];
@@ -83,12 +84,14 @@ KasteleynMatrix[W_?ToricPotentialQ, {x0_, y0_}] :=
       MonomialList[Expand@Permanent[k], a/@Fields@W],
       Fields -> (Exponent[#,{x,y}]&)
     ];
-    solH = Last@FindInstance[
-      And@@KeyValueMap[(Sort[#1]/.fieldPMwind) == #2 &, monExp],
-      Variables[Values@monExp],
-      Integers
-    ];
-    k/.solH/.{x->x0,y->y0}
+    solH1 = Last@Solve@KeyValueMap[(Sort[#1] /. fieldPMwind) == #2 &, monExp];
+    solH2 = Last@FindInstance[
+      -1 <= (Join[hx/@fs, hy/@fs] /. solH1) <= 1, 
+      Variables@Map[Last, solH1], Integers];
+    kast = k /. solH1 /. solH2;
+    avgExp := Round@Mean@Exponent[
+      DeleteCases[#1/.{a->1}, 0], #2] &;
+    Map[# x^(-avgExp[#, x]) y^(-avgExp[#, y]) &, kast]
   ];
 
 
@@ -178,19 +181,19 @@ transformTiling[tiling0_, opt_] :=
         "TransformMatrix", "ScaleTiling"}
     ];
     rot = Switch[optRot,
-      (_?NumberQ), RotationMatrix[optRot],
+      (_?NumericQ), RotationMatrix[optRot],
       _, IdentityMatrix[2] 
     ];
     skew = Switch[optSkew,
-      {(_?NumberQ), (_?NumberQ)}, {{1, optSkew[[1]]}, {optSkew[[2]], 1}},
+      {(_?NumericQ), (_?NumericQ)}, {{1, optSkew[[1]]}, {optSkew[[2]], 1}},
       _, IdentityMatrix[2] 
     ];
     scale = Switch[optSc,
-      {(_?NumberQ), (_?NumberQ)}, DiagonalMatrix[optSc],
+      {(_?NumericQ), (_?NumericQ)}, DiagonalMatrix[optSc],
       _, IdentityMatrix[2] 
     ];
     trans = Switch[optT,
-      {Repeated[{_?NumberQ, _?NumberQ}, {2}]}, optT,
+      {Repeated[{_?NumericQ, _?NumericQ}, {2}]}, optT,
       _, IdentityMatrix[2] 
     ];
     mat = Dot[trans, scale, skew, rot];
@@ -213,23 +216,34 @@ Options[BraneTiling] = {
   "RotateTiling" -> Automatic,
   "SkewTiling" -> Automatic,
   "ScaleTiling" -> Automatic,
-  "TransformMatrix" -> Automatic
+  "TransformMatrix" -> Automatic,
+  "Embedding" -> "SpringEmbedding",
+  "EmbeddingRange" -> Automatic
 };
 SyntaxInformation[BraneTiling] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
 BraneTiling[W_?ToricPotentialQ, opts: OptionsPattern[BraneTiling] ] :=
   BraneTiling[KasteleynMatrix@W, opts];
 BraneTiling[kast_?MatrixQ, opts: OptionsPattern[BraneTiling] ] :=
-  Module[{L, edges0, gr0, coordV, c0, fdL, 
-      xx, yy, tau, faceSelF, faces, potWTerm, tiling},
-    L = $grRng;
+  Module[{embRng, Imin, Imax, Jmin, Jmax, edges0, gr0, coordV, c0, fdL, xx,
+      yy, tau, faceSelF, faces, potWTerm, tiling},
+    embRng = OptionValue["EmbeddingRange"];
+    {{Imin,Imax},{Jmin,Jmax}} = Switch[embRng,
+      i_Integer?(GreaterThan[1]), {{-1,1},{-1,1}} embRng,
+      {m_Integer,M_Integer} /; m<=M,
+      {embRng,embRng},
+      {{Im_Integer,IM_Integer}/;(Im<IM), {Jm_Integer,JM_Integer}/;(Jm<JM)},
+      embRng,
+      _, {{-2,2},{-2,2}}
+    ];
     ndFDPatt = ($nW|$nB)[_, {0, 0}];
-    edges0 = Table[kasteleynToEdges[kast, {i,j}], {i,-L,L}, {j,-L,L}];
-
-    gr0 = Graph@Flatten@Map[Keys, edges0, {2}];
+    edges0 = Table[kasteleynToEdges[kast, {i,j}], 
+      {i,Imin,Imax}, {j,Jmin,Jmax}];
+    gr0 = Graph[Flatten@Map[Keys, edges0, {2}],
+      GraphLayout -> OptionValue["Embedding"] ];
     coordV = AssociationThread[VertexList@gr0, 
       VertexCoordinates/.AbsoluteOptions[gr0]
     ];
-    c0 = Values@KeySelect[coordV, MatchQ@ndFDPatt] // Mean;
+    c0 = Mean@Values@KeySelect[coordV, MatchQ@ndFDPatt];
     groupedV = KeySort /@ KeySelect[
       GroupBy[Normal@Map[#-c0 &, coordV], Last@*First], 
       MatchQ[{(-1|0|1) ..}]
@@ -240,9 +254,10 @@ BraneTiling[kast_?MatrixQ, opts: OptionsPattern[BraneTiling] ] :=
     tau = Inverse[Transpose[xx].xx].Transpose[xx].yy;
 
     faceSelF[i_] := Select[MatchQ[ Subscript[X,_][i,_] | Subscript[X,_][_,i] ] ];
+    edgeRng = Take[edges0, Sequence@@Map[#+{-1,1} &]@Ceiling[Dimensions[edges0]/2] ];
     faces = Association@Map[
       DeleteCases[_?AcyclicGraphQ]@ConnectedGraphComponents[
-        Keys@faceSelF[#]@Apply[Join]@Flatten[ edges0[[{0,1,2}+L,{0,1,2}+L]] ] 
+        Keys@faceSelF[#]@Apply[Join]@Flatten@edgeRng
       ] -> # &,
       Sort@DeleteDuplicates@Flatten[List @@@ Fields@kast]
     ] // KeyMap[ First@*FindCycle@*EdgeList@*Last@*SortBy[Count[ndFDPatt]@*VertexList] ];
@@ -250,14 +265,14 @@ BraneTiling[kast_?MatrixQ, opts: OptionsPattern[BraneTiling] ] :=
     potWTerm = QuiverFromFields@DeleteCases[First[kast]/.{$x|$y->1,$a->Identity}, 0] //
       ReplaceAll[KeyValueMap[Reverse@*Rule]@#]@First@ReorderLoopEdges@Values[#] &;
     tiling = normalizeFundDomain[
-      {groupedV[{0,0}], edges0[[L+1,L+1]], <|faces|>, tau},
+      {groupedV[{0,0}], edgeRng[[2,2]], <|faces|>, tau},
       potWTerm
     ];
     transformTiling[tiling, {opts}]
   ];
 
 
-SyntaxInformation[BraneTiling] = {"ArgumentsPattern" -> {_, _, _.}};
+SyntaxInformation[IntegrateOut] = {"ArgumentsPattern" -> {_, _, _.}};
 IntegrateOut[tiling0_, mterm : HoldPattern[CenterDot|List][_?FieldQ,_?FieldQ] ] :=
   Module[{nd, vx, fc, tau, toCoords, take1, termE, pos, centeredE, cP,
       newN, rule, tiling},
@@ -301,7 +316,9 @@ IntegrateOut[tiling_, mterm : HoldPattern[CenterDot|List][_?FieldQ,_?FieldQ], t0
   ];
 
 
-Options[BraneTilingGraph] = DeleteDuplicatesBy[First]@{
+Options[BraneTilingGraph] = Normal@Association@{
+  Splice@Options[Graphics],
+  Splice@Options[BraneTiling],
   ImageSize -> Automatic,
   PlotRange -> Automatic,
   EdgeStyle -> Directive[ Black, AbsoluteThickness[2] ],
@@ -314,17 +331,17 @@ Options[BraneTilingGraph] = DeleteDuplicatesBy[First]@{
   },
   "ZigZags" -> None,
   "ZigZagsStyle" -> Directive[AbsoluteThickness[1.35], Arrowheads[{{0.018, 0.33}, {0.018, 0.85}}] ],
-  "ZigZagsFunction" -> Arrow@*(TwistedZigZag[#,0.08]&),
-  Splice@Options[BraneTiling],
-  Splice@Options[Graphics]
+  "ZigZagsFunction" -> Arrow@*(TwistedZigZag[#,0.08]&)
 };
 SyntaxInformation[BraneTilingGraph] = {"ArgumentsPattern" -> {_, _., OptionsPattern[]}};
 BraneTilingGraph[arg : (_List| _?ToricPotentialQ), opts : OptionsPattern[BraneTilingGraph] ] :=
   BraneTilingGraph[arg, Automatic, opts];
 BraneTilingGraph[arg : (_List| _?ToricPotentialQ), Automatic, opts : OptionsPattern[BraneTilingGraph] ] :=
-  BraneTilingGraph[arg, {{-1,1},{-1,1}}, opts];
+  BraneTilingGraph[arg, {{-2,2},{-2,2}}, opts];
 BraneTilingGraph[W_?ToricPotentialQ, {{im_,iM_},{jm_,jM_}}, opts : OptionsPattern[BraneTilingGraph] ] :=
-  BraneTilingGraph[BraneTiling@W, {{im,iM},{jm,jM}}, opts];
+  BraneTilingGraph[
+    BraneTiling[W, Sequence @@ FilterRules[{opts}, {"Embedding", "EmbeddingRange"}] ], 
+    {{im,iM},{jm,jM}}, opts];
 BraneTilingGraph[tiling0 : {_,_,_,_}, {{im_,iM_},{jm_,jM_}}, opts : OptionsPattern[BraneTilingGraph] ] :=
   Module[{optsBT, optsBTG, optsGR, nodes0, edges0, faces0, tau0, toCoords, 
       nodes, edges, faces, FDrect, grRange, faceGr, faceLblGr, edgeGr, zigzagGr, nodeGr},
@@ -338,11 +355,11 @@ BraneTilingGraph[tiling0 : {_,_,_,_}, {{im_,iM_},{jm_,jM_}}, opts : OptionsPatte
     toCoords = ReplaceAll@toNodeCoordinates[nodes0, tau0];
 
     nodes = Flatten@Table[translateNodes[{i,j}]@Keys@nodes0, 
-      {i,Min[-1,im], Max[1,iM]}, {j,Min[-1,jm], Max[1,jM]}];
+      {i,Min[-2,im], Max[2,iM]}, {j,Min[-2,jm], Max[2,jM]}];
     edges = Join @@ Flatten@Table[KeyMap[translateNodes[{i,j}], edges0], 
-      {i,Min[-1,im], Max[1,iM]}, {j,Min[-1,jm], Max[1,jM]}];
+      {i,Min[-2,im], Max[2,iM]}, {j,Min[-2,jm], Max[2,jM]}];
     faces = Join @@ Flatten@Table[KeyMap[translateNodes[{i,j}], faces0], 
-      {i,Min[-1,im], Max[1,iM]}, {j,Min[-1,jm], Max[1,jM]}];
+      {i,Min[-2,im], Max[2,iM]}, {j,Min[-2,jm], Max[2,jM]}];
 
     FDrect = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}}/2;
     grRange = FDrect.(tau0 + 0.7*Min[Norm/@tau0]*Map[Normalize,tau0]);

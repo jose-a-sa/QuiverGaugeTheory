@@ -36,16 +36,20 @@ in exactly 2 monominals with opposite coefficients \[PlusMinus]1.";
 ToricPotentialTeXForm::usage = "";
 
 
+
 Begin["`Private`"]
+
 
 
 SyntaxInformation[X] = {"ArgumentsPattern" -> {_, _, _.}};
 X[i_, j_, k_ : 1] := Subscript[X, k][i, j]
 
 
+
 SyntaxInformation[FieldQ] = {"ArgumentsPattern" -> {_}};
 FieldQ[ Subscript[X, _][_, _] ] := True;
 FieldQ[_] := False;
+
 
 
 SyntaxInformation[FieldPowerQ] = {"ArgumentsPattern" -> {_}};
@@ -54,14 +58,17 @@ FieldPowerQ[ (_?FieldQ) ] := True;
 FieldPowerQ[_] := False;
 
 
+
 SyntaxInformation[AbelianFieldProductQ] = {"ArgumentsPattern" -> {_}};
 AbelianFieldProductQ[ HoldPattern[Times][__?FieldPowerQ] ] := True;
 AbelianFieldProductQ[_] := False;
 
 
+
 SyntaxInformation[NonAbelianFieldProductQ] = {"ArgumentsPattern" -> {_}};
 NonAbelianFieldProductQ[ HoldPattern[CenterDot][__?FieldPowerQ] ] := True;
 NonAbelianFieldProductQ[_] := False;
+
 
 
 SyntaxInformation[FieldProductQ] = {"ArgumentsPattern" -> {_}};
@@ -70,8 +77,10 @@ FieldProductQ[_?NonAbelianFieldProductQ] := True;
 FieldProductQ[_] := False;
 
 
+
 SyntaxInformation[AbelianQ] = {"ArgumentsPattern" -> {_}};
 AbelianQ[x_] := FreeQ[ExpandAll@x, _?NonAbelianFieldProductQ];
+
 
 
 SyntaxInformation[Fields] = {"ArgumentsPattern" -> {_}};
@@ -81,6 +90,7 @@ Fields[W_] := SortBy[
 ];
 
 
+
 SyntaxInformation[FieldProducts] = {"ArgumentsPattern" -> {_}};
 FieldProducts[W_] := DeleteDuplicates@Map[
   ReplaceAll[HoldPattern[Times][l___, _?(FreeQ[_?FieldQ]), r___] :> l*r], 
@@ -88,9 +98,11 @@ FieldProducts[W_] := DeleteDuplicates@Map[
 ];
 
 
+
 SyntaxInformation[Abelianize] = {"ArgumentsPattern" -> {_}}
 Abelianize::warn = "Abelianization of the fields was done."
 Abelianize[x_] := ReplaceAll[CenterDot -> Times]@x;
+
 
 
 CenterDot[l___, a_ + b_, r___] := CenterDot[l, a, r] + CenterDot[l, b, r]
@@ -105,9 +117,11 @@ Default[CenterDot] = Default[Times];
 Untrace /: Times[l___, Untrace, r___] := Times[l, 1, r];
 
 
+
 SetAttributes[NonCommutativeMultiply, {Flat, Listable, OneIdentity}]
 NonCommutativeMultiply[x___] := CenterDot[x];
 Default[NonCommutativeMultiply] = Default[Times];
+
 
 
 SyntaxInformation[DG] = {"ArgumentsPattern" -> {_, _, _.}};
@@ -124,6 +138,7 @@ DG[var_, var_?FieldQ] := Untrace;
 DG[f_, var_?FieldQ] := D[f, var];
 
 
+
 SyntaxInformation[PotentialCoefficientTestQ] = {"ArgumentsPattern" -> {_, _.}};
 PotentialCoefficientTestQ[coefPatt_] := 
   PotentialCoefficientTestQ[#, coefPatt] &;
@@ -135,8 +150,10 @@ PotentialCoefficientTestQ[W_, coefPatt_] := MatchQ[ExpandAll@W,
 ];
 
 
+
 SyntaxInformation[PotentialQ] = {"ArgumentsPattern" -> {_}};
 PotentialQ[W_] := PotentialCoefficientTestQ[__][ExpandAll@W];
+
 
 
 SyntaxInformation[AbelianPotentialQ] = {"ArgumentsPattern" -> {_}};
@@ -144,9 +161,11 @@ AbelianPotentialQ[W_?PotentialQ] := AbelianQ@W;
 AbelianPotentialQ[_] := False;
 
 
+
 SyntaxInformation[NonAbelianPotentialQ] = {"ArgumentsPattern" -> {_}};
 NonAbelianPotentialQ[W_?PotentialQ] := Not@AbelianQ@W;
 NonAbelianPotentialQ[_] := False;
+
 
 
 SyntaxInformation[FTerms] = {"ArgumentsPattern" -> {_, _.}};
@@ -158,9 +177,11 @@ FTerms[W_?PotentialQ, f_: Identity] :=
   ];
 
 
+
 SyntaxInformation[FTermsConstraint] = {"ArgumentsPattern" -> {_, _., _.}};
 FTermsConstraint[W_?PotentialQ, f_: Identity, g_: Plus] := 
   g@@@ReplaceAll[(_?FieldQ) -> 1][ List @@@ FTerms[W, f] ];
+
 
 
 SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_}};
@@ -173,6 +194,7 @@ FTermsTable[W_?PotentialQ] :=
   }], Frame -> All];
 
 
+
 SyntaxInformation[ToricPotentialQ] = {"ArgumentsPattern" -> {_}};
 ToricPotentialQ[W_?PotentialQ] := 
   Simplify@And[
@@ -180,6 +202,7 @@ ToricPotentialQ[W_?PotentialQ] :=
     SameQ @@ FTermsConstraint[W, Abs]
   ];
 ToricPotentialQ[_] := False
+
 
 
 SyntaxInformation[FEquationsTrivialQ] = {"ArgumentsPattern" -> {_, _.}};
@@ -194,6 +217,7 @@ FEquationsTrivialQ[diff_, W_?PotentialQ] :=
   ];
 
 
+
 SyntaxInformation[ChangeGroupIndices] = {"ArgumentsPattern" -> {_, ___}};
 ChangeGroupIndices[list:{__Integer}] := 
   ChangeGroupIndices@Thread[Range@Length[list] -> list];
@@ -206,6 +230,7 @@ ChangeGroupIndices[i_Integer, j_Integer] :=
 ChangeGroupIndices[{rules__Rule}] := 
   Subscript[symb_, c_][a_, b_] :> Subscript[symb, c] @@ ({a, b} /. {rules}) /; 
     MatchQ[symb, X | Alternatives@@$RedefinitionVars ];
+
 
 
 SyntaxInformation[ToricPotentialTeXForm] = {"ArgumentsPattern" -> {_, _.}};

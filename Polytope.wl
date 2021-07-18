@@ -19,34 +19,43 @@ DualPolytope::usage = "";
 NormalizePolytope::usage = "";
 FastForward::usage = "";
 ToricDiagram::usage = "";
+ZigZagPaths::usage = "";
 PolytopePlot::usage = "";
 PolytopeArea::usage = "";
 PolytopeCentroid::usage = "";
+TriangulationFlips::usage = "";
 PolytopeTriangulationsGraph::usage = "";
 PolytopeTriangulations::usage = "";
 pqWeb::usage = "";
 pqWebReduced::usage = "";
 pqWebQ::usage = "";
 pqWebPlot::usage = "";
-MixedBoundaryInternalMesh::usage = "";
 AMaximization::usage = "";
-SubQuiverRepresentations::usage = "";
-KahlerChambers::usage = "";
-KahlerChambersCompatibility::usage = "";
-KahlerChambersFlowGraph::usage = "";
-(* ResolutionsFlowGraph::usage = ""; *)
+
+
+
+$ExtremalPerfectMatchingVar::usage = "";
+$BoundaryPerfectMatchingVars::usage = "";
+$InternalMatchingVars::usage = "";
+$PerfectMatchingVars::usage = "";
+$FayetIliopoulosVar::usage = "";
 
 
 Begin["`Private`"]
 
 
-$extremalPMVar = ToExpression["\[FormalP]"];
-$FIvar = ToExpression["\[FormalXi]"];
-$perfectMatchingVars = ToExpression@Delete[
-  CharacterRange["\[FormalA]", "\[FormalZ]"], 
-  {{1}, {5}, {9}, {15}, {21}}
-] // DeleteCases[$extremalPMVar];
-$pmVars = Alternatives @@ Join[{$extremalPMVar}, $perfectMatchingVars];
+$ExtremalPerfectMatchingVar = ToExpression["\[FormalP]"];
+$InternalMatchingVars =  
+  Alternatives @@ ToExpression@CharacterRange["\[FormalS]", "\[FormalZ]"];
+$BoundaryPerfectMatchingVars = 
+  Alternatives @@ ToExpression@CharacterRange["\[FormalF]", "\[FormalO]"];
+$FayetIliopoulosVar = ToExpression["\[FormalXi]"];
+
+$PerfectMatchingVars := Join[
+  Alternatives@$ExtremalPerfectMatchingVar, 
+  $InternalMatchingVars,
+  $BoundaryPerfectMatchingVars];
+
 
 
 SyntaxInformation[PolytopeQ] = {"ArgumentsPattern" -> {_}};
@@ -55,12 +64,14 @@ PolytopeQ[pts : {{_Integer,_Integer} ..}] :=
 PolytopeQ[_] := False;
 
 
+
 SyntaxInformation[ToricDiagramQ] = {"ArgumentsPattern" -> {_}};
 ToricDiagramQ[td : KeyValuePattern[{}] ] :=
   ToricDiagramQ[Values@Association@td];
 ToricDiagramQ[pts_?PolytopeQ] :=
   AllTrue[(Count[pts, #] &) /@ First@PolytopeVertices@pts, #1 === 1 &];
 ToricDiagramQ[_] := False;
+
 
 
 SyntaxInformation[PolytopeTriangulationQ] = {"ArgumentsPattern" -> {_}};
@@ -73,6 +84,7 @@ PolytopeTriangulationQ[m_MeshRegion] := And[
 PolytopeTriangulationQ[_] := False;
 
 
+
 SyntaxInformation[PolytopeTriangulationCellsQ] = {"ArgumentsPattern" -> {_}};
 PolytopeTriangulationCellsQ[
   {{Point[_Integer]...}, {Line[{__Integer}]...}, {Polygon[{__Integer}]...}}
@@ -80,11 +92,13 @@ PolytopeTriangulationCellsQ[
 PolytopeTriangulationCellsQ[_] := False;
 
 
+
 SyntaxInformation[PolytopeTriangulationEdgesQ] = {"ArgumentsPattern" -> {_}};
 PolytopeTriangulationEdgesQ[{Line[{_,_}]...}] := True;
 PolytopeTriangulationEdgesQ[{UndirectedEdge[_,_]...}] := True;
 PolytopeTriangulationEdgesQ[{List[_,_]...}] := True;
 PolytopeTriangulationEdgesQ[_] := False
+
 
 
 SyntaxInformation[PolytopeVertices] = {"ArgumentsPattern" -> {_}};
@@ -109,10 +123,12 @@ PolytopeVertices[pts_?PolytopeQ] :=
   ];
 
 
+
 SyntaxInformation[ReflexivePolytopeQ] = {"ArgumentsPattern" -> {_}};
 ReflexivePolytopeQ[pts_?PolytopeQ] := 
   Length[ PolytopeVertices[pts][[2]] ] == 1;
 ReflexivePolytopeQ[_] := False;
+
 
 
 SyntaxInformation[DualPolytope] = {"ArgumentsPattern" -> {_}};
@@ -122,6 +138,7 @@ DualPolytope[pts_?ReflexivePolytopeQ] :=
     p = Array[x, {Length@c0}];
     p /. Solve[And @@ (p.(#1 - c0) >= -1 &) /@ pts, p, Integers]
   ];
+
 
 
 SyntaxInformation[NormalizePolytope] = {"ArgumentsPattern" -> {_}};
@@ -160,6 +177,7 @@ NormalizePolytope[pt_?PolytopeQ] :=
   ];
 
 
+
 SyntaxInformation[FastForward] = {"ArgumentsPattern" -> {_}};
 FastForward[W_?ToricPotentialQ] :=
   Module[{d, P, nF, nPM, nG, barReduce, QDb, QD, QF, Q, Gt},
@@ -180,10 +198,11 @@ FastForward[W_?ToricPotentialQ] :=
       Gt = Join[Most@Gt, {Table[1, {nPM}]}],
       Message[FastForward::notcoplanar]
     ];
-    <|"Gt" -> Gt, "QF" -> QF, "QD" -> QD|>
+    <|"Gt" -> Gt, "QF" -> QF, "QD" -> QD, "QDb" -> QDb|>
   ];
 FastForward::notcoplanar = 
   "Resulting polytope is not strictly coplanar.";
+
 
 
 SyntaxInformation[ToricDiagram] = {"ArgumentsPattern" -> {_,_.}};
@@ -194,8 +213,8 @@ ToricDiagram[W_?ToricPotentialQ, m_?MatrixQ ] :=
     Map[ mat.# &, ToricDiagram[W] ]
   ];
 ToricDiagram[W_?ToricPotentialQ] :=
-  Module[{ff, pt, ex, int, bd, nex, posEx, posInt, posNEx, vars, mat,
-      exVar, intVarPos, intVar, nextStart, nexVarPos, nexVar, sortedPM},
+  Module[{ff, pt, ex, int, bd, nex, posEx, posInt, 
+      posNEx, exVar, intVar, nexVar, sortedPM},
     ff = FastForward[W];
     pt = NormalizePolytope@Transpose@Most@First@ff;
     {ex, int, bd} = PolytopeVertices[pt];
@@ -204,23 +223,41 @@ ToricDiagram[W_?ToricPotentialQ] :=
       FirstPosition[pt, #] & /@ ex,
       Position[pt, #] & /@ int,
       Position[pt, #] & /@ nex};
-    exVar = $extremalPMVar;
-    vars = $perfectMatchingVars;
-    intVarPos = Riffle[ Range@Ceiling[Length@int/2] - 1, -Range@Floor[Length@int/2] ] + 
-      Position[vars, \[FormalS] ][[1, 1]];
-    intVar = Extract[vars, List /@ intVarPos];
-    nextStart = If[Length@int > 0, Min@intVarPos, Position[vars, \[FormalS] ][[1, 1]] + 1];
-    nexVarPos = Range[
-      nextStart, 
-      Min[nextStart + Length@nex - 1, Length@vars - Length@intVar]
-    ] // Join[#, nextStart - Range[Length@nex - Length@#] ] &;
-    nexVar = Extract[ Delete[vars, List /@ intVarPos], List /@ nexVarPos];
+    exVar = $ExtremalPerfectMatchingVar;
+    intVar = Take[List @@ $InternalMatchingVars, Length@int];
+    nexVar = Take[List @@ $BoundaryPerfectMatchingVars, Length@nex];
     sortedPM = Values@Sort@Flatten@MapThread[
       MapThread[Rule, {#2, Thread@Subscript[#1, Range@Length@#2]}] &,
       {Join[{exVar}, nexVar, intVar], Join[{posEx}, posNEx, posInt]}
     ];
     AssociationThread[sortedPM, pt]
   ];
+
+
+
+SyntaxInformation[ZigZagPaths] = {"ArgumentsPattern" -> {_}};
+ZigZagPaths[W_?ToricPotentialQ] :=
+  Module[{td, P, pms, pmGroups, pmDiffs, altPatt, mesZZ},
+    td = ToricDiagram[W];
+    P = PerfectMatchingMatrix[W];
+    pms = AssociationThread[Keys[td], 
+      (DeleteCases[Fields[W]^#, 1] & /@ Transpose@P)];
+    pmGroups = Last@PolytopeVertices[Values@td] /. 
+      GroupBy[Normal@td, Last -> First];
+    pmDiffs = Splice@*Tuples /@ Partition[pmGroups, 2, 1, {1, 1}];
+    altPatt = Alternatives[{PatternSequence[1, -1] ..}, 
+      {PatternSequence[-1, 1] ..}, {1, PatternSequence[-1, 1] ...}, 
+      {PatternSequence[-1, 1] ..., -1}];
+    mesZZ = Select[
+      First@Values@Mesons[ CenterDot @@ SymmetricDifference[#1,#2] ],
+      MatchQ[altPatt]@*ReplaceAll[ Join[ Thread[#1->1], Thread[#2->-1] ] ]@*Apply[List]
+    ] & @@@ (pmDiffs /. pms);
+    GroupBy[
+      Normal@Select[AssociationThread[pmDiffs, mesZZ], Length[#] == 1 &],
+      First@*Last -> First
+    ]
+  ];
+
 
 
 Options[PolytopePlot] = Normal@Association@{
@@ -230,20 +267,21 @@ Options[PolytopePlot] = Normal@Association@{
   GridLines -> None,
   PlotRangePadding -> Scaled[0.1],
   GridLinesStyle -> Directive[ AbsoluteThickness[1], GrayLevel[0.75] ],
-  "BoundaryStyle" -> Directive[ EdgeForm[{Thick, Black}], FaceForm[Transparent] ],
-  "TriangulationStyle" -> Directive[{Black, Thickness[0.012]}],
+  "BoundaryStyle" -> Directive[ EdgeForm[{Thickness[0.015], Black}], FaceForm[Transparent] ],
   "ExtremalStyle" -> Directive[ FaceForm[Black] ],
-  "ExtremalPointFunction" -> (Disk[#, 0.15] &),
-  "NonExtremalStyle" -> Directive[EdgeForm[{Thick, Black}], FaceForm[Yellow] ],
-  "NonExtremalPointFunction" -> (Disk[#, 0.12] &),
-  "InternalStyle" -> Directive[ EdgeForm[{Thick, Black}], FaceForm@Lighter[Red, 0.6] ],
-  "InternalPointFunction" -> (Disk[#, 0.12] &),
+  "ExtremalPointFunction" -> (Disk[#, 0.12] &),
+  "NonExtremalStyle" -> Directive[EdgeForm[{Thickness[0.012], Black}], FaceForm[Yellow] ],
+  "NonExtremalPointFunction" -> (Disk[#, 0.10] &),
+  "InternalStyle" -> Directive[ EdgeForm[{Thickness[0.012], Black}], FaceForm@Lighter[Red, 0.6] ],
+  "InternalPointFunction" -> (Disk[#, 0.10] &),
+  "pqWeb" -> None,
+  "pqWebStyle" -> Directive[Black, Thick, Arrowheads[0.085] ],
+  "pqWebArrowFunction" -> (Arrow[{Mean[#2], Mean[#2] + Normalize[#1]}, {0.2, -0.2}] &),
   "Labels" -> None,
   "LabelsStyle" -> Directive[Background -> Directive[Opacity[3/4], White], FontSize -> 12],
   "LabelsFunction" -> (Text[#1, #2 + 0.2 #3, -#3] &),
-  "pqWeb" -> None,
-  "pqWebStyle" -> Directive[Black, Thick, Arrowheads[0.085] ],
-  "pqWebArrowFunction" -> (Arrow[{Mean[#2], Mean[#2] + Normalize[#1]}, {0.2, -0.2}] &)
+  "TriangulationStyle" -> Directive[{Black, Thickness[0.012]}],
+  "TriangulationLabelsStyle" -> Directive[Background -> Directive[Opacity[3/4], White], FontSize -> 12]
 };
 PolytopePlot[td0_?ToricDiagramQ, opts : OptionsPattern[PolytopePlot] ] :=
   PolytopePlot[td0, None, opts];
@@ -305,7 +343,8 @@ polytopePlotPMLabel[{ex_, int_, bd_}, opts : OptionsPattern[PolytopePlot] ] :=
       Automatic | "Count", DeleteCases[Length /@ td, 1],
       All | "CountAll", Length /@ td,
       "LastVariable" | "Last", Last /@ td,
-      "Variable", Replace[Subscript[x:Except[$extremalPMVar],_] :> x]@*Last /@ td,
+      "Variable", 
+      Replace[Subscript[x:Except[$ExtremalPerfectMatchingVar],_] :> x]@*Last /@ td,
       KeyValuePattern[{}],
       Union[
         KeyMap[ Keys[td][[#]]& ]@KeySelect[ Association@#,
@@ -316,7 +355,6 @@ polytopePlotPMLabel[{ex_, int_, bd_}, opts : OptionsPattern[PolytopePlot] ] :=
     ] &;
     normalsBd = RotationTransform[-Pi/2]@Normalize[ Normalize[#3-#2]+Normalize[#2-#1] ] & 
       @@@ Partition[RotateRight@Keys@bd, 3, 1, {1, 1}];
-    (* normalInt = ReIm@Exp[I(Round[Arg[{1, I}.PolytopeCentroid@Keys@ex]+Pi/4, Pi/2]-Pi/4)]; *)
     normalInt = Normalize@*RotationTransform[-Pi/2]@*Subtract @@  
       First@First@MinimalBy[N@*Last]@Flatten@Outer[#2 -> RegionDistance[Line@#2, #1] &, 
         Keys@int, Partition[Keys@ex, 2, 1, {1, 1}], 1];
@@ -382,12 +420,14 @@ polytopePlotBounds[gr_, opts : OptionsPattern[PolytopePlot] ] :=
   ];
 
 
+
 SyntaxInformation[PolytopeArea] = {"ArgumentsPattern" -> {_}};
 PolytopeArea[pt_?PolytopeQ] := 
   Module[{xs, ys},
     {xs, ys} = Transpose@First@PolytopeVertices[pt];
     Abs@Total[xs RotateLeft[ys] - RotateLeft[xs] ys]/2
   ];
+
 
 
 SyntaxInformation[PolytopeCentroid] = {"ArgumentsPattern" -> {_}};
@@ -401,18 +441,21 @@ PolytopeCentroid[pt_?PolytopeQ] :=
   ];
 
 
+
 SyntaxInformation[TriangulationFlips] = {"ArgumentsPattern" -> {_}};
 TriangulationFlips[trig_MeshRegion] :=
-  Module[{pts, edges, faces, fcPairs, fcPairsEdge, fcPairsEdgeNew,
-      facesFlipR, edgesFlitR, facesTree, edgesTree},
+  Module[{pts, edges, faces, flipablePairQ, fcPairs, fcPairsEdge, fcPairsEdgeNew,
+      facesFlipR, edgesFlipR, facesTree, edgesTree},
     pts = MapIndexed[First@#2 -> #1 &, Rationalize@MeshCoordinates@trig];
     edges = Map[Sort, MeshCells[trig, 1], {0, 2}];
     faces = MeshCells[trig, 2];
+    flipablePairQ[pair_] := 
+      (ContainsExactly[Rationalize@MeshCoordinates@ConvexHullMesh@#, #] &)[
+        Apply[Union]@Map[First, (faces[[pair]]/.pts)]
+      ];
     fcPairs = Select[
       List @@@ Map[Last, EdgeList@MeshConnectivityGraph[trig, 2], {2}],
-      Length@MeshCoordinates@ConvexHullMesh[ 
-        Union @@ First /@ (faces[[#]]/.pts) 
-      ] == 4 &
+      flipablePairQ
     ];
     fcPairsEdge = KeyMap[faces[[#]] &]@AssociationMap[
       Line[ Intersection @@ Map[First, faces[[#1]], {1}] ] &,
@@ -425,16 +468,17 @@ TriangulationFlips[trig_MeshRegion] :=
       fcPairsEdge
     ];
     facesFlipR = AssociationThread[Keys@fcPairsEdge, Keys@fcPairsEdgeNew];
-    edgesFlitR = AssociationThread[Values@fcPairsEdge, Values@fcPairsEdgeNew];
+    edgesFlipR = AssociationThread[Values@fcPairsEdge, Values@fcPairsEdgeNew];
     facesTree = Map[Sort, Union[DeleteCases[faces, Alternatives @@ #1], #2], 
       {0, 2}] & @@@ Normal@facesFlipR;
     edgesTree = Map[Sort, Union[DeleteCases[edges, #1], {#2}], 
-      {0, 2}] & @@@ Normal@edgesFlitR;
+      {0, 2}] & @@@ Normal@edgesFlipR;
     MapThread[
       MeshRegion[Values@pts, {Point /@ Keys@pts, #1, #2}] &,
       {edgesTree, facesTree}
     ]
   ];
+
 
 
 SyntaxInformation[PolytopeTriangulationsGraph] = {"ArgumentsPattern" -> {_}};
@@ -462,11 +506,13 @@ PolytopeTriangulationsGraph[pt_?PolytopeQ] :=
   ];
 
 
+
 SyntaxInformation[PolytopeTriangulations] = {"ArgumentsPattern" -> {_}};
 PolytopeTriangulations[td: KeyValuePattern[{}]?ToricDiagramQ] :=
   PolytopeTriangulations[Values@td];
 PolytopeTriangulations[pt_?PolytopeQ] :=
   VertexList@PolytopeTriangulationsGraph[pt];
+
 
 
 SyntaxInformation[pqWebReduced] = {"ArgumentsPattern" -> {_, _.}};
@@ -481,6 +527,7 @@ pqWebReduced[pts_?PolytopeQ] :=
     ];
     {Map[rotateLine, seg], seg}
   ];
+
 
 
 SyntaxInformation[pqWeb] = {"ArgumentsPattern" -> {_}};
@@ -538,6 +585,7 @@ pqWeb[trig_?PolytopeTriangulationQ] :=
   ];
 
 
+
 SyntaxInformation[pqWebQ] = {"ArgumentsPattern" -> {_}};
 pqWebQ[expr : {_, _, _}] := 
   MatchQ[expr, {
@@ -551,6 +599,7 @@ pqWebQ[expr : {_, _}] :=
     <|HoldPattern[Rule][(\[FormalCapitalV])[_], _] ..|>
   }];
 pqWebQ[expr_] := False;
+
 
 
 Options[pqWebPlot] = Normal@Association@{
@@ -576,6 +625,7 @@ pqWebPlot[ pq:{_,_,_}?pqWebQ, opts: OptionsPattern[pqWebPlot] ] :=
       FrameTicks -> None
     ]
  ];
+
 
 
 SyntaxInformation[AMaximization] = {"ArgumentsPattern" -> {_}};
@@ -631,180 +681,6 @@ AMaximization[W_?PotentialQ] :=
     {First@sol, RootReduce@*ReplaceAll[Last@sol]@*ReplaceAll[linSol] /@ R}
   ];
 AMaximization[_] := Message[AMaximization::arg];
-
-
-SyntaxInformation[SubQuiverRepresentations] = {"ArgumentsPattern" -> {_,_.}};
-SubQuiverRepresentations[W_?ToricPotentialQ] := 
-  SubQuiverRepresentations[W, Automatic];
-SubQuiverRepresentations[W_?ToricPotentialQ, pmPairs : {__} | Automatic] :=
-  Module[{td, P, pm, Q, properRep, F, allReps, pairs},
-    Q = QuiverFromFields@W;
-    td = ToricDiagram[W];
-    F = Sort@VertexList[Values@Q];
-    P = PerfectMatchingMatrix[W];
-    pm = AssociationThread[Keys@td, DeleteCases[Keys[Q]^#, 1] & /@ Transpose@P];
-    allReps = Subsets[F, {1, Length[F] - 1}];
-    properRep = g |-> Select[allReps, 
-      ContainsExactly[VertexOutComponent[g, #], #] &];
-    pairs = If[MatchQ[pmPairs, Automatic], List /@ Keys@td, List @@@ pmPairs];
-    AssociationMap[
-      properRep@Values@KeyDrop[ Q, Flatten[# /. pm] ] &, 
-      pairs
-    ]
-  ];
-
-
-
-SimplifyThetaCondition = Module[{vars, rule},
-  vars = Sort@UniqueCases[#, $FIvar[_] ];
-  rule = Last@vars -> -Total@Most@vars;
-  ReplaceAll[rule]@#
-] &;
-ToNonStrict = ReplaceAll[{Greater -> GreaterEqual, Less -> LessEqual}];
-ToStrict = ReplaceAll[{GreaterEqual -> Greater, LessEqual -> Less}];
-
-SyntaxInformation[KahlerChambers] = {"ArgumentsPattern" -> {_}};
-KahlerChambers[W_?ToricPotentialQ] :=
-  KahlerChambers[ToricDiagram@W];
-KahlerChambers[td: KeyValuePattern[{}]?ToricDiagramQ] :=
-  Module[{tdG},
-    tdG = SortBy[{Length@#, #} &]@PositionIndex[td];
-    AssociationThread[Keys@tdG, #] & /@ Tuples[Values@tdG]
-  ];
-
-
-
-Options[KahlerChambersCompatibility] := DeleteDuplicatesBy[First]@{
-  "ShowProgress" -> False
-};
-SyntaxInformation[KahlerChambersCompatibility] = {
-  "ArgumentsPattern" -> {_, OptionsPattern[]}
-};
-KahlerChambersCompatibility[W_?ToricPotentialQ, 
-    opts: OptionsPattern[KahlerChambersCompatibility] ] :=
-  Module[{k, status, indicator, td, triang, triangEdgesF, 
-      KC, F, stabilityC, tbPairs, pairsR, properPairs, tb},
-    F = VertexList[Values@QuiverFromFields@W];
-    td = ToricDiagram[W];
-    triang = PolytopeTriangulations[Values@td];
-    triangEdgesF = (Identity @@@ MeshCells[#, 1] /. MapIndexed[
-      First@#2 -> #1 &, Rationalize@MeshCoordinates@#] &);
-    KC = KahlerChambers[td];
-    stabilityC = Apply[And[##, Total@Map[$FIvar, F] == 0] &]@*Map[
-      LessThan[0]@*Total@*Map[$FIvar] ];
-    tbPairs = Outer[Join[(#1 /. #2), 
-      List /@ DeleteCases[ Subscript[$extremalPMVar,_] ]@Values@#2] &,
-      Map[triangEdgesF, triang], KC, 1];
-    properPairs = DeleteDuplicatesBy[Sort]@Flatten[tbPairs, 2];
-    {k, lenK, status} = {0, Length@properPairs,
-      "Simplifying theta-stability from sub-quiver representations..."};
-    If[OptionValue["ShowProgress"] === True, 
-      Echo@Labeled[
-        ProgressIndicator[Dynamic[k], {0, Dynamic[lenK]}, 
-          BaselinePosition->Scaled[0.1] ],
-        Style[Dynamic[status], FontFamily -> Automatic], 
-        Right
-      ]
-    ];
-    pairsR = Map[
-      Block[{},
-        k++;
-        Simplify@stabilityC[#]
-      ] &, 
-      SubQuiverRepresentations[W, properPairs]
-    ];
-    {k, lenK, status} = {0, Times @@ (Dimensions[tbPairs][[{1,2}]]),
-      "Simplifying compatibility table entries..."};
-    tb = Map[
-      Block[{},
-        k++;
-        FullSimplify@Apply[And, #]
-      ] &,
-      tbPairs /. Normal@KeyMap[#1 | Reverse@#1 &]@pairsR, 
-      {2}
-    ];
-    status = "Done!";
-    AssociationThread[triang, (AssociationThread[KC, #] &) /@ tb]
-  ];
-
-
-
-kcTablePattQ = MatchQ[
-  KeyValuePattern[_MeshRegion -> KeyValuePattern[
-    KeyValuePattern[{{__?NumericQ} -> Subscript[$pmVars, _]}] -> _]
-  ]
-];
-Options[KahlerChambersFlowGraph] := DeleteDuplicatesBy[First]@{
-  "RegionTests" -> Automatic,
-  "ShowProgress" -> False
-};
-SyntaxInformation[KahlerChambersFlowGraph] = {
-  "ArgumentsPattern" -> {_, _, OptionsPattern[]},
-  "OptionsName" -> {"RegionTests"}
-};
-KahlerChambersFlowGraph[WI_?ToricPotentialQ, WF_?ToricPotentialQ,
-    opts : OptionsPattern[KahlerChambersFlowGraph] ] :=
-  KahlerChambersFlowGraph[
-    KahlerChambersCompatibility[WI, "ShowProgress" -> OptionValue["ShowProgress"] ], 
-    KahlerChambersCompatibility[WF, "ShowProgress" -> OptionValue["ShowProgress"] ], 
-    opts];
-KahlerChambersFlowGraph[WI_?ToricPotentialQ, tbF_?kcTablePattQ,
-    opts : OptionsPattern[KahlerChambersFlowGraph] ] :=
-  KahlerChambersFlowGraph[
-    KahlerChambersCompatibility[WI, "ShowProgress" -> OptionValue["ShowProgress"] ], 
-    tbF, 
-    opts];
-KahlerChambersFlowGraph[tbI_?kcTablePattQ, WF_?ToricPotentialQ,
-    opts : OptionsPattern[KahlerChambersFlowGraph] ] :=
-  KahlerChambersFlowGraph[
-    tbI,
-    KahlerChambersCompatibility[WF, "ShowProgress" -> OptionValue["ShowProgress"] ], 
-    opts];
-KahlerChambersFlowGraph[tbI_?kcTablePattQ, tbF_?kcTablePattQ,
-    opts : OptionsPattern[KahlerChambersFlowGraph] ] := 
-  Module[{k = 0, oskcI, oskcF, trigI, trigF, meshToGr, kcRulesFunc,
-      kcRulesI, kcRulesF, vars, testRules, graph, indicator, status},
-    {trigI, trigF} = Keys /@ {tbI, tbF};
-    {oskcI, oskcF} = Keys /@ {First@tbI, First@tbF};
-    kcRulesFunc = {tb, oskc, trig} |-> DeleteCases[False]@Association[
-      Join @@ MapThread[Rule, {Outer[List, trig, oskc, 1],
-          ToNonStrict@Simplify@SimplifyThetaCondition@Map[Values, tb, {0, 1}]
-        }, 2]
-    ];
-    {status, indicator} = {"Simplifying theta-stability conditions...",
-      ProgressIndicator[Appearance -> "Indeterminate", BaselinePosition -> Scaled[0.1] ]};
-    If[OptionValue["ShowProgress"] === True, 
-      Echo@Dynamic[Labeled[Dynamic[indicator],
-        Style[Dynamic[status], FontFamily -> Automatic], Right]
-      ]
-    ];
-    {kcRulesI, kcRulesF} = kcRulesFunc @@@ {
-      {tbI, oskcI, trigI}, {tbF, oskcF, trigF}};
-    vars = Sort@UniqueCases[Values /@ {kcRulesI, kcRulesF}, $FIvar[_] ];
-    testRules = Switch[OptionValue["RegionTests"],
-      KeyValuePattern[{}], Normal@OptionValue["RegionTests"],
-      _, {
-        (RegionWithin[#2, #1] &) -> DirectedEdge,
-        (RegionWithin) -> (DirectedEdge[#2, #1] &)
-      }
-    ];
-    {status, indicator} = {"Comparing chambers from both models...",
-      ProgressIndicator[Dynamic[k], {0, Length[kcRulesI]*Length[kcRulesF]}, 
-        BaselinePosition -> Scaled[0.1] ]};
-    graph = Join @@ Outer[
-      Block[{}, 
-        k++;
-        Splice@Apply[
-          {f1, f2} |-> If[f1 @@ Map[Last, {##}], f2 @@ Map[First, {##}], Nothing], 
-          testRules, {1}]
-      ] &,
-      Normal[ImplicitRegion[#, Evaluate@vars] & /@ kcRulesI],
-      Normal[ImplicitRegion[#, Evaluate@vars] & /@ kcRulesF],
-      1
-    ];
-    status = "Done!";
-    Graph[graph]
-  ];
 
 
 

@@ -31,9 +31,11 @@ $QuiverVertexGroupingSpread = Pi/20;
 Begin["`Private`"]
 
 
+
 SyntaxInformation[QuiverEdgesQ] = {"ArgumentsPattern" -> {_}};
 QuiverEdgesQ[KeyValuePattern[(_?FieldQ) -> _DirectedEdge] ] := True;
 QuiverEdgesQ[_] := False
+
 
 
 SyntaxInformation[FieldsToEdges] = {"ArgumentsPattern" -> {_}};
@@ -41,13 +43,16 @@ FieldsToEdges[expr_] :=
   ReplaceAll[{Subscript[X, _] -> DirectedEdge}]@expr;
 
 
+
 SyntaxInformation[FieldsToTaggedEdges] = {"ArgumentsPattern" -> {_}};
 FieldsToTaggedEdges[expr_] :=
   ReplaceAll[{Subscript[X, k_][i_,j_] :> DirectedEdge[i, j, k]}]@expr;
 
 
+
 SyntaxInformation[QuiverFromFields] = {"ArgumentsPattern" -> {_}};
 QuiverFromFields[expr_] := AssociationMap[FieldsToEdges, Fields@expr];
+
 
 
 SyntaxInformation[QuiverCycles] = {"ArgumentsPattern" -> {_, _}};
@@ -71,6 +76,7 @@ QuiverCycles[edges_?EdgeListQ, {kmin_Integer, kmax: _Integer|Infinity}] :=
   ]
 
 
+
 SyntaxInformation[QuiverPathToFields] = {"ArgumentsPattern" -> {_, _.}};
 QuiverPathToFields[edges: (_?QuiverEdgesQ | _?EdgeListQ)][paths: {__?EdgeListQ}|_?EdgeListQ] := 
   QuiverPathToFields[paths, edges];
@@ -87,12 +93,14 @@ QuiverPathToFields[path_?EdgeListQ, edges_?QuiverEdgesQ] :=
   ];
 
 
+
 SyntaxInformation[GaugeInvariantMesons] = {"ArgumentsPattern" -> {_, _}};
 GaugeInvariantMesons[edges: (_?QuiverEdgesQ | _?EdgeListQ), 
   degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] := 
     Flatten@QuiverPathToFields[QuiverCycles[edges, degspec], edges];
 GaugeInvariantMesons[ edges: (_?QuiverEdgesQ | _?EdgeListQ), deg_] := 
   Flatten@QuiverPathToFields[QuiverCycles[edges, deg], edges];
+
 
 
 SyntaxInformation[QuiverIncidenceMatrix] = {"ArgumentsPattern" -> {_}};
@@ -109,6 +117,7 @@ QuiverIncidenceMatrix[edges_?EdgeListQ] :=
   ];
 
 
+
 SyntaxInformation[MesonQ] = {"ArgumentsPattern" -> {_}};
 MesonQ[t : (_Times|_CenterDot)?FieldProductQ] :=
   MesonQ@FieldsToTaggedEdges[
@@ -119,6 +128,7 @@ MesonQ[e_?EdgeListQ] := AllTrue[
     (Count[#, 1] == Count[#, -1]) && (Count[#, 1] > 0) &
   ];
 MesonQ[_] := False;
+
 
 
 SyntaxInformation[MesonQ] = {"ArgumentsPattern" -> {_}};
@@ -132,9 +142,11 @@ OrderedMesonQ[e_?EdgeListQ] :=
 OrderedMesonQ[_] := False;
 
 
+
 SyntaxInformation[GaugeInvariantQ] = {"ArgumentsPattern" -> {_}};
 GaugeInvariantQ[expr_] := 
   AllTrue[FieldProducts@expr, OrderedMesonQ];
+
 
 
 SyntaxInformation[ReorderLoopEdges] = {"ArgumentsPattern" -> {_}};
@@ -164,6 +176,7 @@ ReorderLoopEdges[e_List?EdgeListQ] := Message[ReorderLoopEdges::noloop];
 ReorderLoopEdges[_] := Message[ReorderLoopEdges::arg];
 
 
+
 SyntaxInformation[Mesons] = {"ArgumentsPattern" -> {_}};
 Mesons::fperr = "Field product `1` is not a meson.";
 Mesons::meserr = "Meson `1` cannot be written \
@@ -181,6 +194,7 @@ Mesons[expr_?(Not@*FreeQ[_?FieldQ])] :=
       {2}]
     ]
   ];
+
 
 
 SyntaxInformation[NonAbelianizeMesons] = {"ArgumentsPattern" -> {_}};
@@ -203,6 +217,7 @@ NonAbelianizeMesons[expr_?(Not@*FreeQ[_?FieldQ])] :=
 NonAbelianizeMesons[expr_] := expr /; Message[NonAbelianizeMesons::argfree];
 
 
+
 SyntaxInformation[FindQuiverPaths] = {"ArgumentsPattern" -> {_, _, _, _}};
 FindQuiverPaths[e_?QuiverEdgesQ, i_, j_, deg_] :=
   FindQuiverPaths[Values@e, i, j, deg];
@@ -219,6 +234,7 @@ FindQuiverPaths[e_?EdgeListQ, i_, j_, deg_] :=
     _, FindPath[e, i, j, deg, All] // 
       Map[BlockMap[Apply[DirectedEdge], #, 2, 1] &]
   ]
+
 
 
 Options[QuiverGraph] = DeleteDuplicatesBy[First]@{

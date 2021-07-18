@@ -10,7 +10,6 @@ BeginPackage["QuiverGaugeTheory`Moduli`", {
 
 
 GeneratorRulesQ::usage = "";
-ReplaceTraces::usage = "";
 ToGeneratorVariableRules::usage = "";
 GeneratorLinearRelations::usage = "";
 ReduceGenerators::usage = "";
@@ -18,6 +17,19 @@ SingularLocus::usage = "";
 SimplifyToricEquations::usage = "";
 GeneratorsLattice::usage = "";
 GeneratorsTable::usage = "";
+SubQuiverRepresentations::usage = "";
+KahlerChambers::usage = "";
+KahlerChambersCompatibility::usage = "";
+KahlerChambersFlowGraph::usage = "";
+MinimalGLSM::usage = "";
+KahlerVolumes::usage = "";
+
+
+$GeneratorVars::usage = "";
+
+
+Begin["`Private`"]
+
 
 
 $GeneratorVars = Alternatives@@
@@ -27,21 +39,12 @@ $GeneratorVars = Alternatives@@
   ];
 
 
-Begin["`Private`"]
-
 
 SyntaxInformation[GeneratorRulesQ] = {"ArgumentsPattern" -> {_}};
 GeneratorRulesQ[<|(HoldPattern[Times|CenterDot][__?FieldPowerQ] -> _)..|>] := True;
 GeneratorRulesQ[{(HoldPattern[Times|CenterDot][__?FieldPowerQ] -> _)..}] := True;
 GeneratorRulesQ[_] := False;
 
-
-SyntaxInformation[ReplaceTraces] = {"ArgumentsPattern" -> {_}};
-ReplaceTraces[gens_?GeneratorRulesQ][expr_] := 
- ReplaceAll[
-   MapAt[Alternatives @@ 
-       Table[RotateLeft[#, i], {i, Length[#]}] &, {All, 1}]@
-    If[AssociationQ@gens, KeyValueMap[List, gens], gens]][expr]
 
 
 SyntaxInformation[ToGeneratorVariableRules] = {"ArgumentsPattern" -> {_}};
@@ -51,8 +54,9 @@ ToGeneratorVariableRules[l : {(_?FieldQ | HoldPattern[Times|CenterDot][__?FieldP
     Flatten;
 
 
+
 SyntaxInformation[GeneratorLinearRelations] = {"ArgumentsPattern" -> {_, _}};
-GeneratorLinearRelations[W_?AbelianPotentialQ, genRules : KeyValuePattern[{}]] :=
+GeneratorLinearRelations[W_?AbelianPotentialQ, genRules : KeyValuePattern[{}] ] :=
   Module[{rel, gens},
     gens = If[AssociationQ@genRules, 
       KeyValueMap[Abelianize@#1 -> #2 &, genRules],
@@ -61,6 +65,7 @@ GeneratorLinearRelations[W_?AbelianPotentialQ, genRules : KeyValuePattern[{}]] :
     rel = ReplaceAll[gens]@Expand@Outer[Times, FTerms@W, Fields@W, 1];
     Select[ Flatten@rel, FreeQ[_?FieldQ] ]
   ];
+
 
 
 Options[ReduceGenerators] = {
@@ -133,6 +138,7 @@ ReduceGenerators[
   ]
 
 
+
 SyntaxInformation[SingularLocus] = {"ArgumentsPattern" -> {_, _}};
 SingularLocus[expr : (List|And)[Except[_List]..], v_] :=
   Module[{vars, ideal, jac},
@@ -144,6 +150,7 @@ SingularLocus[expr : (List|And)[Except[_List]..], v_] :=
       ideal
     ]
   ];
+
 
 
 SyntaxInformation[SimplifyToricEquations] = {"ArgumentsPattern" -> {_}};
@@ -164,6 +171,7 @@ SimplifyToricEquations[expr : (List|And)[Except[_List]..] ] :=
       Expand@l
     ]
  ];
+
 
 
 SyntaxInformation[GeneratorsLattice] = {"ArgumentsPattern" -> {_, _.}};
@@ -188,10 +196,7 @@ GeneratorsLattice[W_?ToricPotentialQ] :=
   ];
 
 
-GeneratorsTable::nontoric = "Superpotential or Model provided is not toric."
-GeneratorsTable::argw = "Argument provided is not a valid superpotential or Association."
-GeneratorsTable::misdata = "Association data provided does not contain all keys: \
-\"MesonicGenerators\", \"ChiralMesons\", \"RCharges\", \"GeneratorsLattice\".";
+
 SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_}};
 GeneratorsTable[W_?ToricPotentialQ] :=
   Module[{td, P, pmDecomp, rchPM, mes, redMes, gen, latt, lattPM},
@@ -254,6 +259,309 @@ GeneratorsTable[data_Association] :=
 GeneratorsTable[W_?PotentialQ] := Message[GeneratorsTable::nontoric];
 GeneratorsTable[a_Association] := Message[GeneratorsTable::misdata];
 GeneratorsTable[_] := Message[GeneratorsTable::argw];
+GeneratorsTable::nontoric = "Superpotential or Model provided is not toric."
+GeneratorsTable::argw = "Argument provided is not a valid superpotential or Association."
+GeneratorsTable::misdata = "Association data provided does not contain all keys: \
+\"MesonicGenerators\", \"ChiralMesons\", \"RCharges\", \"GeneratorsLattice\".";
+
+
+
+SyntaxInformation[SubQuiverRepresentations] = {"ArgumentsPattern" -> {_,_.}};
+SubQuiverRepresentations[W_?ToricPotentialQ] := 
+  SubQuiverRepresentations[W, Automatic];
+SubQuiverRepresentations[W_?ToricPotentialQ, pmPairs : {__} | Automatic] :=
+  Module[{td, P, pm, Q, properRep, F, allReps, pairs},
+    Q = QuiverFromFields@W;
+    td = ToricDiagram[W];
+    F = Sort@VertexList[Values@Q];
+    P = PerfectMatchingMatrix[W];
+    pm = AssociationThread[Keys@td, DeleteCases[Keys[Q]^#, 1] & /@ Transpose@P];
+    allReps = Subsets[F, {1, Length[F] - 1}];
+    properRep = g |-> Select[allReps, 
+      ContainsExactly[VertexOutComponent[g, #], #] &];
+    pairs = If[MatchQ[pmPairs, Automatic], List /@ Keys@td, List @@@ pmPairs];
+    AssociationMap[
+      properRep@Values@KeyDrop[ Q, Flatten[# /. pm] ] &, 
+      pairs
+    ]
+  ];
+
+
+
+SimplifyThetaCondition[k_Integer] :=
+  SimplifyThetaCondition[Range@k];
+SimplifyThetaCondition[F_List] :=
+  Module[{Fivars, rule},
+    Fivars = Map[$FayetIliopoulosVar, Sort@F];
+    rule = Last[Fivars] -> -Total@Most[Fivars];
+    ReplaceAll[rule]
+  ];
+ToNonStrict = ReplaceAll[{Greater -> GreaterEqual, Less -> LessEqual}];
+ToStrict = ReplaceAll[{GreaterEqual -> Greater, LessEqual -> Less}];
+
+
+
+SyntaxInformation[KahlerChambers] = {"ArgumentsPattern" -> {_}};
+KahlerChambers[W_?ToricPotentialQ] :=
+  KahlerChambers[ToricDiagram@W];
+KahlerChambers[td: KeyValuePattern[{}]?ToricDiagramQ] :=
+  Module[{tdG},
+    tdG = SortBy[{Length@#, #} &]@PositionIndex[td];
+    AssociationThread[Keys@tdG, #] & /@ Tuples[Values@tdG]
+  ];
+
+
+
+Options[KahlerChambersCompatibility] := DeleteDuplicatesBy[First]@{
+  "ShowProgress" -> False
+};
+SyntaxInformation[KahlerChambersCompatibility] = {
+  "ArgumentsPattern" -> {_, OptionsPattern[]}
+};
+KahlerChambersCompatibility[W_?ToricPotentialQ, 
+    opts: OptionsPattern[KahlerChambersCompatibility] ] :=
+  Module[{k, status, indicator, td, triang, triangEdgesF, lenK,
+      KC, F, stabilityC, tbPairs, pairsR, properPairs, tb},
+    F = Sort@VertexList[Values@QuiverFromFields@W];
+    simpT = SimplifyThetaCondition[F];
+    td = ToricDiagram[W];
+    triang = PolytopeTriangulations[Values@td];
+    triangEdgesF = (Identity @@@ MeshCells[#, 1] /. MapIndexed[
+      First@#2 -> #1 &, Rationalize@MeshCoordinates@#] &);
+    KC = KahlerChambers[td];
+    stabilityC = Apply[And]@*Map[ LessThan[0]@*Total@*Map[$FayetIliopoulosVar] ];
+    tbPairs = Outer[Join[(#1 /. #2), 
+      List /@ DeleteCases[ Subscript[$ExtremalPerfectMatchingVar,_] ]@Values@#2] &,
+      Map[triangEdgesF, triang], KC, 1];
+    properPairs = DeleteDuplicatesBy[Sort]@Flatten[tbPairs, 2];
+    {k, lenK, status} = {0, Length@properPairs,
+      "Simplifying theta-stability from sub-quiver representations..."};
+    If[OptionValue["ShowProgress"] === True, 
+      Echo@Labeled[
+        ProgressIndicator[Dynamic[k], {0, Dynamic[lenK]}, 
+          BaselinePosition->Scaled[0.1] ],
+        Style[Dynamic[status], FontFamily -> Automatic], 
+        Right
+      ]
+    ];
+    pairsR = Map[
+      Block[{},
+        k++;
+        Simplify@simpT@stabilityC[#]
+      ] &, 
+      SubQuiverRepresentations[W, properPairs]
+    ];
+    {k, lenK, status} = {0, Times @@ (Dimensions[tbPairs][[{1,2}]]),
+      "Simplifying compatibility table entries..."};
+    tb = Map[
+      Block[{},
+        k++;
+        ToNonStrict@FullSimplify@Apply[And, #]
+      ] &,
+      tbPairs /. Normal@KeyMap[#1 | Reverse@#1 &]@pairsR, 
+      {2}
+    ];
+    status = "Done!";
+    AssociationThread[triang, (AssociationThread[KC, #] &) /@ tb]
+  ];
+
+
+
+kcTablePattQ = MatchQ[
+  KeyValuePattern[_MeshRegion -> KeyValuePattern[
+    KeyValuePattern[{{__?NumericQ} -> Subscript[$PerfectMatchingVars, _]}] -> _]
+  ]
+];
+Options[KahlerChambersFlowGraph] := DeleteDuplicatesBy[First]@{
+  "RegionTests" -> Automatic,
+  "ShowProgress" -> False
+};
+SyntaxInformation[KahlerChambersFlowGraph] = {
+  "ArgumentsPattern" -> {_, _, OptionsPattern[]}
+};
+KahlerChambersFlowGraph[WI_?ToricPotentialQ, WF_?ToricPotentialQ,
+    opts : OptionsPattern[KahlerChambersFlowGraph] ] :=
+  KahlerChambersFlowGraph[
+    KahlerChambersCompatibility[WI, "ShowProgress" -> OptionValue["ShowProgress"] ], 
+    KahlerChambersCompatibility[WF, "ShowProgress" -> OptionValue["ShowProgress"] ], 
+    opts];
+KahlerChambersFlowGraph[WI_?ToricPotentialQ, tbF_?kcTablePattQ,
+    opts : OptionsPattern[KahlerChambersFlowGraph] ] :=
+  KahlerChambersFlowGraph[
+    KahlerChambersCompatibility[WI, "ShowProgress" -> OptionValue["ShowProgress"] ], 
+    tbF, 
+    opts];
+KahlerChambersFlowGraph[tbI_?kcTablePattQ, WF_?ToricPotentialQ,
+    opts : OptionsPattern[KahlerChambersFlowGraph] ] :=
+  KahlerChambersFlowGraph[
+    tbI,
+    KahlerChambersCompatibility[WF, "ShowProgress" -> OptionValue["ShowProgress"] ], 
+    opts];
+KahlerChambersFlowGraph[tbI_?kcTablePattQ, tbF_?kcTablePattQ,
+    opts : OptionsPattern[KahlerChambersFlowGraph] ] := 
+  Module[{k = 0, oskcI, oskcF, trigI, trigF, meshToGr, kcRulesFunc,
+      kcRulesI, kcRulesF, vars, testRules, graph, indicator, status},
+    {trigI, trigF} = Keys /@ {tbI, tbF};
+    {oskcI, oskcF} = Keys /@ {First@tbI, First@tbF};
+    kcRulesFunc = {tb, oskc, trig} |-> DeleteCases[False]@Association[Join @@ 
+      MapThread[Rule, {Outer[List, trig, oskc, 1], Map[Values, tb, {0, 1}]}, 2]
+    ];
+    {status, indicator} = {"Simplifying theta-stability conditions...",
+      ProgressIndicator[Appearance -> "Indeterminate", BaselinePosition -> Scaled[0.1] ]};
+    If[OptionValue["ShowProgress"] === True, 
+      Echo@Dynamic[Labeled[Dynamic[indicator],
+        Style[Dynamic[status], FontFamily -> Automatic], Right]
+      ]
+    ];
+    {kcRulesI, kcRulesF} = kcRulesFunc @@@ {
+      {tbI, oskcI, trigI}, {tbF, oskcF, trigF}};
+    vars = Sort@UniqueCases[Values /@ {kcRulesI, kcRulesF}, $FayetIliopoulosVar[_] ];
+    testRules = Switch[OptionValue["RegionTests"],
+      KeyValuePattern[{}], Normal@OptionValue["RegionTests"],
+      _, {
+        (RegionWithin[#2, #1] &) -> DirectedEdge,
+        (RegionWithin) -> (DirectedEdge[#2, #1] &)
+      }
+    ];
+    {status, indicator} = {"Comparing chambers from both models...",
+      ProgressIndicator[Dynamic[k], {0, Length[kcRulesI]*Length[kcRulesF]}, 
+        BaselinePosition -> Scaled[0.1] ]};
+    graph = Join @@ Outer[
+      Block[{}, 
+        k++;
+        Splice@Apply[
+          {f1, f2} |-> If[f1 @@ Map[Last, {##}], f2 @@ Map[First, {##}], Nothing], 
+          testRules, {1}]
+      ] &,
+      Normal[ImplicitRegion[#, Evaluate@vars] & /@ kcRulesI],
+      Normal[ImplicitRegion[#, Evaluate@vars] & /@ kcRulesF],
+      1
+    ];
+    status = "Done!";
+    Graph[graph]
+  ];
+
+
+
+Options[MinimalGLSM] := {
+  "BasisMethod" -> Automatic
+};
+SyntaxInformation[MinimalGLSM] = {
+  "ArgumentsPattern" -> {_, OptionsPattern[]}
+};
+MinimalGLSM[W_?ToricPotentialQ, opts : OptionsPattern[MinimalGLSM] ] :=
+  Module[{FIvar, simpF, ff, td, F, simpT, pms, KC, vars, thetaC, subQReps, 
+      regKC, eqs, eqsKC, linEqs, basis},
+    FIvar = $FayetIliopoulosVar;
+    simpF = FullSimplify[#, Element[FIvar[_], Reals] ] &;
+    {ff, td, KC} = {FastForward[W], ToricDiagram[W], KahlerChambers[W]};
+    subQReps = KeyMap[First]@SubQuiverRepresentations[W];
+    F = Sort@VertexList[Values@QuiverFromFields@W];
+    simpT = SimplifyThetaCondition[F];
+    pms = Keys[td];
+    vars = Sort@KeyValueMap[Subscript[First[#2], #1] &, First@KC];
+    thetaC = Apply[ And[##, Total@Array[FIvar, G] == 0] &
+      ]@*Map[LessEqualThan[0]@*Total@*Map[FIvar] ];
+    regKC = Map[Simplify@*simpT@*thetaC,
+      Join @@@ (Map[Values, KC] /. subQReps)];
+    eqs = Join[
+      If[ff["QF"] == {}, {}, ff["QF"] . pms],
+      If[ff["QDb"] == {}, {}, ff["QDb"] . pms - Array[FIvar, G] ]
+    ];
+    eqsKC = Map[
+      ToSubtractList@simpF@simpT@Eliminate[0 == (eqs/.#), pms] &,
+      KeyValueMap[#2 -> Subscript[First[#2], #1] &] /@ KC
+    ];
+    linEqs = {D[#, {vars}], Transpose[{D[#, {vars}] . vars - #}]} & /@ eqsKC;
+    basis = List @@ minimalGLSMBasis[
+      linEqs, regKC, Last /@ vars,
+      OptionValue["BasisMethod"]
+    ];
+    If[FailureQ@basis, Return@$Failed];
+    AssociationThread @@ MapAt[AssociationThread[vars, #] &, basis, {1, All}]
+  ];
+MinimalGLSM::mtharg = "Option value `1` for \"BasisMethod\" is not valid. \
+Use methods \"PositiveVolumes\", \"ToricDiagramKernel\" or \"MatchFirst\".";
+
+
+minimalGLSMBasis[eqs : {{_?MatrixQ, _?MatrixQ} ..}, reg_List, pt : {{_, _} ..}, m_] :=
+  Module[{glZ, reducePwF, simpF, toPiecewise, charges, vols, n,
+      ptCharges, minCoefCases, getVols, final},
+    reducePwF = Through@*If[MatchQ[_Piecewise], 
+      MapAt[Reduce[#, Reals] &, {1, All, 2}], Identity];
+    simpF = FullSimplify[#, Element[$FayetIliopoulosVar[_], Reals] ] &;
+    {charges, vols} = Transpose[eqs];
+    n = Length@First@charges;
+    ptCharges = NullSpace@Transpose@Join[pt, Table[{1}, Length@pt], 2];
+    glZ := Select[Tuples[Range[-3, 3], {n, n}], Abs@Det[#1] == 1 &];
+    minCoefCases := Values@DeleteDuplicatesBy[
+      AssociationMap[# . ptCharges &, glZ], Sort];
+    toPiecewise = reducePwF@simpF@Piecewise[Transpose@{#, reg}] &;
+    getVols[ch_] := Map[toPiecewise]@Transpose[
+      SolveMatrixLeft[#1, ch] . Flatten[#2] & @@@ eqs];
+    final = Switch[m,
+      Automatic | "ToricDiagramKernel",
+      AssociationMap[getVols, {ptCharges}],
+      "PositiveVolumes",
+      Select[AssociationMap[getVols, minCoefCases],
+        MatchQ[{True ..}|True]@*Map[(Reduce[# >= 0, Reals] &)]
+      ],
+      "MatchFirst",
+      AssociationMap[getVols, {charges[[1]]}],
+      _, Message[MinimalGLSM::mtharg, m]; Return[$Failed]
+    ];
+    Last@MaximalBy[Normal@final,
+      (Join[Count[0] /@ #, Count[_?Positive] /@ #] &)@*First
+    ]
+  ];
+
+
+
+triangulationFacePairs[trig_?PolytopeTriangulationQ] :=
+  Module[{ptsR, faceR, pairs},
+    ptsR = ReplaceAll@MapIndexed[
+      (Join[{0}, #2] | First[#2]) -> #1 &, 
+      Rationalize@MeshCoordinates@#] &;
+    faceR = ReplaceAll@MapIndexed[
+      (Join[{2}, #2] | First[#2]) -> #1 &, 
+      Identity @@@ MeshCells[#, 2]
+    ] &; 
+    Map[{Intersection @@ #, SymmetricDifference @@ #} &,
+      ptsR[trig]@faceR[trig]@EdgeList@MeshConnectivityGraph[trig, 2]
+    ]
+  ];
+
+
+
+Options[KahlerVolumes] := {};
+SyntaxInformation[KahlerVolumes] = {
+  "ArgumentsPattern" -> {_, OptionsPattern[]}
+};
+KahlerVolumes[W_?ToricPotentialQ, opts : OptionsPattern[KahlerVolumes] ] :=
+  Module[{r, F, td, ff, KC, triang, pms, eqs, triangPairs, 
+      cycleVol, cycleVolF},
+    F = Sort@VertexList[Values@QuiverFromFields@W];
+    {td, ff} = {ToricDiagram[W], FastForward[W]};
+    KC = KahlerChambers[td];
+    triang = PolytopeTriangulations[Values@td];
+    pms = Keys[td];
+    eqs = SimplifyThetaCondition[F]@Join[
+      If[ff["QF"] == {}, {}, ff["QF"] . (pms^2)],
+      If[ff["QDb"] == {}, {}, ff["QDb"] . (pms^2) - Map[$FayetIliopoulosVar,F] ]
+    ];
+    triangPairs = AssociationMap[triangulationFacePairs, triang];
+    cycleVol = (r /. First@Solve[Eliminate[
+        0 == Join[eqs /. Thread[#1 -> 0], {Dot[#2, #2] - r}],
+      pms], r] &);
+    cycleVolF = {trg, kc} |-> Association@Apply[
+      Sort[(#1 /. td)] -> cycleVol[#1, #2] &,
+      (trg /. triangPairs /. kc), {1}];
+    AssociationThread[triang,
+      Association /@ Apply[#2 -> cycleVolF[#1, #2] &, 
+        Outer[List, triang, KC, 1], {2}]
+    ]
+  ];
+
 
 
 End[]

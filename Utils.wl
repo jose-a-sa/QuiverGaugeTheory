@@ -5,9 +5,13 @@ BeginPackage["QuiverGaugeTheory`Utils`"]
 
 ApplyAt::usage = "";
 FirstLast::usage = "";
+SymmetricDifference::usage = "";
 SelectDelete::usage = "";
 EdgeListQ::usage = "";
+AssociationFlatten::usage = "";
 KeysByValueLength::usage = "";
+KeyValueReverse::usage = "";
+AssociationTableToPairs::usage = "";
 MinMaxExponent::usage = "";
 CyclicRange::usage = "";
 CyclicPatternSequence::usage = "";
@@ -33,13 +37,21 @@ EchoUniqueMessages::usage = "";
 Begin["`Private`"]
 
 
+
 SyntaxInformation[ApplyAt] = {"ArgumentsPattern" -> {_, _.}};
 ApplyAt[f_, levelspec_ : {0}] := 
   Apply[f, #, levelspec] &;
 
 
+
 SyntaxInformation[FirstLast] = {"ArgumentsPattern" -> {_}};
 FirstLast[expr_] := {First@expr,Last@expr};
+
+
+
+SyntaxInformation[SymmetricDifference] = {"ArgumentsPattern" -> {__}};
+SymmetricDifference[r__] := Complement[ Union[r], Intersection[r] ]
+
 
 
 SyntaxInformation[SelectDelete] = {"ArgumentsPattern" -> {_,_.,_.}};
@@ -48,14 +60,55 @@ SelectDelete[list_, crit_, n_ : Infinity] :=
   {Select[list, crit, n], Select[list, Not@*crit, n]};
 
 
+
 SyntaxInformation[EdgeListQ] = {"ArgumentsPattern" -> {_}};
 EdgeListQ[expr_] := 
   MatchQ[expr, { (DirectedEdge[__]|UndirectedEdge[__]) .. }];
 
 
+
 SyntaxInformation[KeysByValueLength] = {"ArgumentsPattern" -> {_}};
 KeysByValueLength[a : KeyValuePattern[{}] ] :=
   KeyValueMap[Splice@Table[#1, Length@#2] &, Association@a];
+
+
+
+SyntaxInformation[KeyValueReverse] = {"ArgumentsPattern" -> {_}};
+KeyValueReverse[a : KeyValuePattern[{}] ] :=
+  Association@KeyValueMap[#2 -> #1 &, Association@a];
+
+
+
+SyntaxInformation[AssociationFlatten] = {"ArgumentsPattern" -> {_,_.}};
+AssociationFlatten[a_ : KeyValuePattern[{}], maxlvl : (_Integer?NonNegative | Infinity) : Infinity] :=
+  Module[{n, flatten2, res},
+    n = Length@Rest@NestWhileList[
+      Map[Splice]@*Values,
+      {a}, AllTrue[MatchQ[Association]@*Head]
+    ];
+    flatten2 = KeyValueMap[
+      {t, r} |-> Splice@KeyValueMap[Splice@Prepend[{#1}, t] -> #2 &, Association@r]
+    ];
+    (* res = Nest[Association@*flatten2, KeyMap[List]@Association@a, n - 1];
+    If[AllTrue[Keys@res, MatchQ[{_}] ],
+      KeyMap[First]@res, res
+    ] *)
+    res = Map[flatten2, 
+      Association@a, {0, Max[0, Min[n - 1, maxlvl] - 1]}];
+    If[maxlvl == 0, a,
+      ReplaceAll[x : (KeyValuePattern[Splice[__] -> _]) :> 
+        KeyMap[First]@Association@x]@res
+    ]
+  ];
+
+
+
+SyntaxInformation[AssociationTableToPairs] = {"ArgumentsPattern" -> {_}};
+AssociationTableToPairs[a_] := 
+  Association@KeyValueMap[
+    {t, r} |-> Splice@KeyValueMap[{t, #1} -> #2 &, Association@r], Association@a
+  ] /; MatchQ[a, KeyValuePattern[{_ -> KeyValuePattern[{}]}] ];
+
 
 
 SyntaxInformation[MinMaxExponent] = {"ArgumentsPattern" -> {_, _.}};
@@ -65,6 +118,7 @@ MinMaxExponent[expr_, patt_] :=
     MonomialList@ExpandAll[expr /. {x: patt :> \[FormalLambda] x}], 
     \[FormalLambda]
   ]
+
 
 
 SyntaxInformation[CyclicRange] = {"ArgumentsPattern" -> {_, _., _., _.}};
@@ -78,10 +132,12 @@ CyclicRange[i_Integer, f_Integer, s_Integer?Positive, m_Integer?Positive] :=
   ReplaceAll[0 -> m]@Mod[Range[i, i + Mod[f - i, m], s], m]
 
 
+
 SyntaxInformation[CyclicPatternSequence] = {"ArgumentsPattern" -> {_.}};
-CyclicPatternSequence[patt__] := Alternatives @@ Nest[
+CyclicPatternSequence[patt__] := Alternatives @@ NestList[
   RotateRight, PatternSequence[patt], Length[{patt}] - 1]
 CyclicPatternSequence[] := PatternSequence[];
+
 
 
 SyntaxInformation[ToCyclicPattern] = {"ArgumentsPattern" -> {_}};
@@ -89,11 +145,14 @@ ToCyclicPattern[ x_ ] :=
   Alternatives @@ NestList[RotateRight, x, Length@x -1]
 
 
+
 SyntaxInformation[ToSubtractList] = {"ArgumentsPattern" -> {_}};
+ToSubtractList[ expr : _Equal ] := ToSubtractList[{expr}];
 ToSubtractList[ expr : (List|And)[Except[_List]..] ] := 
   Map[ Through@*If[MatchQ[_Equal], Apply[Subtract], Identity],
     List @@ expr
   ];
+
 
 
 SyntaxInformation[NormalizeGCD] = {"ArgumentsPattern" -> {_}};
@@ -102,10 +161,12 @@ NormalizeGCD[p: {__?ExactNumberQ}] := p / (GCD @@ p);
 NormalizeGCD[p: {__}] := p;
 
 
+
 SyntaxInformation[CollinearQ] = {"ArgumentsPattern" -> {_}};
 CollinearQ[pts_?MatrixQ] := 
   MatrixRank@Rest[(# - First@pts &) /@ pts] <= 1;
 CollinearQ[expr_] := False;
+
 
 
 SyntaxInformation[StrictlyCollinearQ] = {"ArgumentsPattern" -> {_}};
@@ -114,16 +175,19 @@ StrictlyCollinearQ[pts_?MatrixQ] :=
 StrictlyCollinearQ[expr_] := False;
 
 
+
 SyntaxInformation[CoplanarQ] = {"ArgumentsPattern" -> {_}};
 CoplanarQ[pts_?MatrixQ] := 
   MatrixRank@Rest[(# - First@pts &) /@ pts] <= 2;
 CollinearQ[expr_] := False;
 
 
+
 SyntaxInformation[StrictlyCoplanarQ] = {"ArgumentsPattern" -> {_}};
 StrictlyCoplanarQ[pts_?MatrixQ] := 
   MatrixRank@Rest[(# - First@pts &) /@ pts] == 2;
 StrictlyCollinearQ[expr_] := False;
+
 
 
 SyntaxInformation[UniqueCases] = SyntaxInformation[Cases];
@@ -133,12 +197,14 @@ UniqueCases[expr_, pattern_, opts : OptionsPattern[Cases] ] :=
   DeleteDuplicates@Cases[expr, pattern, Infinity, opts]
 
 
+
 SyntaxInformation[IndexedList] = {"ArgumentsPattern" -> {_, _., _.}};
 IndexedList[l_List] := Transpose[{Range@Length@l, l}]
 IndexedList[l_List, n0_] := 
   Transpose[{Range[n0, Length[l] + (n0 - 1)], l}]
 IndexedList[l_List, n0_, di_] := 
   Transpose[{Range[n0, n0 + di (Length[l] - 1), di], l}]
+
 
 
 SyntaxInformation[GridRulesGraphics] = {"ArgumentsPattern" -> {_,_.}};
@@ -151,6 +217,7 @@ GridRulesGraphics[
       Table[{{bx, y}, {tx, y}}, {y, by, ty, 1}]
     ]}
   ] /; (tx > bx) && (ty > by)
+
 
 
 SyntaxInformation[FindNonSimplePaths] = {"ArgumentsPattern" -> {_,_,_,_}};
@@ -181,6 +248,7 @@ FindNonSimplePaths[g_Graph, s_, t_, _] :=
   Message[FindNonSimplePaths::invvertex, t, EdgeList@g] /; (!VertexQ[g,t]);
 
 
+
 SyntaxInformation[SolveMatrixLeft] = {"ArgumentsPattern" -> {_,_}};
 SolveMatrixLeft::lslc = "Coefficient matrix and target matrix do not have matching dimensions.";
 SolveMatrixLeft::err = "An error occured while solving the system.";
@@ -202,6 +270,7 @@ SolveMatrixLeft[a_?MatrixQ, b_?MatrixQ] :=
 SolveMatrixLeft[a_, b_] := Message[SolveMatrixLeft::argx];
 
 
+
 SyntaxInformation[ReapMessages] = {"ArgumentsPattern" -> {_}};
 ReapMessages[eval_] :=
   Module[{msgs, res},
@@ -221,6 +290,7 @@ ReapMessages[eval_] :=
 SetAttributes[ReapMessages, HoldFirst]
 
 
+
 SyntaxInformation[EchoUniqueMessages] = {"ArgumentsPattern" -> {_}};
 EchoUniqueMessages[eval_] :=
   Module[{msgs, res, uniqueMsgs},
@@ -235,6 +305,7 @@ EchoUniqueMessages[eval_] :=
 SetAttributes[EchoUniqueMessages, {HoldFirst}]
 
 
+
 SyntaxInformation[UsageForm] = {"ArgumentsPattern" -> {_, _.}};
 UsageForm[u: {__String}, a: ({__String} | HoldPattern[Alternatives][__String] | Automatic): Automatic] := 
   Map[UsageForm[#, a] &, u];
@@ -244,7 +315,7 @@ UsageForm[u_String, a: ({__String} | HoldPattern[Alternatives][__String] | Autom
     uf[patt_] := ToString[Unevaluated[patt], StandardForm];
     funcPatt = (WordBoundary ~~ Pattern[#1, WordCharacter ..] ~~ 
       Pattern[#2, ("[" ~~ Shortest[__] ~~ "]&" | "] &" | "]") ..]) &;
-    vars = If[a =!= Automatic, a,
+    vars = Echo@If[a =!= Automatic, a,
       Flatten@StringCases[u,
         funcPatt[foo, args] :> StringSplit[args, ("["|"]"|",")] 
       ] 
@@ -262,6 +333,7 @@ UsageForm[u_String, a: ({__String} | HoldPattern[Alternatives][__String] | Autom
       varPatt[arg] :> handleV["Style[", arg, ",\"TI\"]"]
     }]
   ];
+
 
 
 End[]
