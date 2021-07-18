@@ -264,107 +264,221 @@ Options[PolytopePlot] = Normal@Association@{
   Splice@Options[Graphics],
   ImageSize -> Small,
   PlotRange -> Automatic,
-  GridLines -> None,
+  GridLines -> None, 
   PlotRangePadding -> Scaled[0.1],
-  GridLinesStyle -> Directive[ AbsoluteThickness[1], GrayLevel[0.75] ],
-  "BoundaryStyle" -> Directive[ EdgeForm[{Thickness[0.015], Black}], FaceForm[Transparent] ],
-  "ExtremalStyle" -> Directive[ FaceForm[Black] ],
-  "ExtremalPointFunction" -> (Disk[#, 0.12] &),
-  "NonExtremalStyle" -> Directive[EdgeForm[{Thickness[0.012], Black}], FaceForm[Yellow] ],
-  "NonExtremalPointFunction" -> (Disk[#, 0.10] &),
-  "InternalStyle" -> Directive[ EdgeForm[{Thickness[0.012], Black}], FaceForm@Lighter[Red, 0.6] ],
-  "InternalPointFunction" -> (Disk[#, 0.10] &),
+  GridLinesStyle -> 
+  Directive[AbsoluteThickness[1], GrayLevel[0.75] ],
   "pqWeb" -> None,
-  "pqWebStyle" -> Directive[Black, Thick, Arrowheads[0.085] ],
+  "pqWebStyle" -> Directive[Black, Thick, Arrowheads[0.085] ], 
   "pqWebArrowFunction" -> (Arrow[{Mean[#2], Mean[#2] + Normalize[#1]}, {0.2, -0.2}] &),
-  "Labels" -> None,
-  "LabelsStyle" -> Directive[Background -> Directive[Opacity[3/4], White], FontSize -> 12],
-  "LabelsFunction" -> (Text[#1, #2 + 0.2 #3, -#3] &),
-  "TriangulationStyle" -> Directive[{Black, Thickness[0.012]}],
-  "TriangulationLabelsStyle" -> Directive[Background -> Directive[Opacity[3/4], White], FontSize -> 12]
+  "PolytopeCellLabel" -> None,
+  "PolytopeCellLabelFunction" -> Automatic,
+  "PolytopeCellStyle" -> Automatic,
+  "PolytopeCellFunction" -> Automatic
 };
-PolytopePlot[td0_?ToricDiagramQ, opts : OptionsPattern[PolytopePlot] ] :=
-  PolytopePlot[td0, None, opts];
+$lineLabelAngle = (ArcTan @@ SelectFirst[
+  {{1, -1}, {-1, 1}}.#, 
+  NonNegative@*First, {1, 0}] &);
+$polytopeCellLabelStyle = Directive[
+  Background -> Directive[Opacity[4/5], White], FontSize -> 12];
+$polytopeCellStyle = Association@{
+  "ExtremalPoints" -> Directive[EdgeForm[{Thickness[0.012], Black}], FaceForm[Black] ],
+  "NonExtremalPoints" -> Directive[EdgeForm[{Thickness[0.012], Black}], FaceForm[Yellow] ],
+  "InternalPoints" -> Directive[
+    EdgeForm[{Thickness[0.012], Black}], 
+    FaceForm[{Lighter[Red, 0.6]}] ],
+  "InternalEdges" -> Directive[Thickness[0.012], Black],
+  "BoundaryEdges" -> Directive[Thickness[0.015], Black],
+  "Polygons" -> Directive[EdgeForm[None], FaceForm[None] ]
+};
+$polytopeCellFunction = Association@{
+  "ExtremalPoints" -> (Disk[#1, 0.11] &),
+  "NonExtremalPoints" -> (Disk[#1, 0.09] &),
+  "InternalPoints" -> (Disk[#1, 0.09] &),
+  "InternalEdges" -> (Line[#1] &),
+  "BoundaryEdges" -> (Line[#1] &),
+  "Polygons" -> (Polygon[#1] &)
+};
+$polytopeCellLabelFunction = Association@{
+  "ExtremalPoints" -> (Text[#1, #2 + 0.2 #3, -#3] &),
+  "NonExtremalPoints" -> (Text[#1, #2 + 0.15 #3, -#3] &),
+  "InternalPoints" -> (Text[#1, #2 + 0.15 #3, -#3] &),
+  "InternalEdges" -> (Rotate[
+    Text[#1, #2 + 0.15 #3, -#3], $lineLabelAngle@#4] &),
+  "BoundaryEdges" -> (Rotate[
+    Text[#1, #2 + 0.15 #3, -#3], $lineLabelAngle@#4] &),
+  "Polygons" -> (Text[#1, #2 + 0.15 #3, -#3] &)
+};
+PolytopePlot[td_?ToricDiagramQ, opts : OptionsPattern[PolytopePlot] ] :=
+  Module[{trig, tdG, ex, in, bd, coord, optLbl, cellLbl, pattQ, tranfPM},
+    tdG = PositionIndex[td];
+    {ex, in, bd} = PolytopeVertices[Keys@tdG];
+    coord = MapIndexed[#1 -> First[#2] &, Keys@tdG];
+    trig = MeshRegion[Keys@tdG, 
+      {{Map[Point, Join[bd, in] /. coord]}, {}, Polygon[bd /. coord]}];
+    optLbl = OptionValue["PolytopeCellLabel"];
+    pattQ = MatchQ@KeyValuePattern[{_ -> {(Subscript[$PerfectMatchingVars, _])..}}];
+    cellLbl = Switch[optLbl,
+      "PerfectMatchings" | Automatic,
+      KeyMap[Point]@If[pattQ[tdG], Map[Last]@tdG,
+        KeySelect[ FreeQ[Alternatives@@ex] ]@Map[Length]@tdG
+      ],
+      _, optLbl
+    ];
+    PolytopePlot[trig,
+      "PolytopeCellLabel" -> cellLbl,
+      Sequence @@ FilterRules[{opts}, Except["PolytopeCellLabel"] ]
+    ]
+  ];
 PolytopePlot[trig_?PolytopeTriangulationQ, opts : OptionsPattern[PolytopePlot] ] :=
-  PolytopePlot[Rationalize@MeshCoordinates@trig, MeshCells[trig, All], opts];
-PolytopePlot[
-    td0_?ToricDiagramQ, 
-    triangCells: (_?PolytopeTriangulationEdgesQ) | (_?PolytopeTriangulationCellsQ) | None | {}, 
-    opts : OptionsPattern[PolytopePlot] ] :=
-  Module[{getOpt, tdGrouped, ex, int, bd, bdLines, trigLines, grPts, pqWGr, pmText, bounds, gr},
-    getOpt[o_] := OptionValue[o] // If[MatchQ[#, Automatic],
-      OptionValue[PolytopePlot, Options@PolytopePlot, o], #] &;
-    {meshPts, tdGrouped} = Switch[td0,
-      KeyValuePattern[{}], {Values@td0, PositionIndex@Association@td0},
-      _?PolytopeQ, {td0, PositionIndex@td0}
+  Module[{remPrim, sortCoord, coord, cell, cellType, cellPts, ptsCells, cellGroups,
+      ex, int, bd, lblOffsets, cellStyles, cellFuncs, cellLbls, cellLblFuncs,
+      grPolyAssoc, grCellLblAssoc, grPoly, grLbls, grPQWeb, gr, bounds},
+    remPrim = ReplaceAll[{
+      Point[x : {__Integer}] -> {x},
+      (Point | Line | Polygon)[x : {{__Integer} ..}] -> x}
     ];
-    {ex, int, bd} = PolytopeVertices[Keys@tdGrouped];
-    bdLines = {getOpt["BoundaryStyle"], Polygon@ex};
-    trigLines = {getOpt["TriangulationStyle"], Switch[triangCells,
-        _?PolytopeTriangulationCellsQ, 
-        triangCells[[2]] /. MapIndexed[First@#2 -> #1 &, meshPts],
-        {Line[{__Integer}]...}, 
-        triangCells /. MapIndexed[First@#2 -> #1 &, meshPts],
-        _?PolytopeTriangulationEdgesQ, Line @@@ triangCells,
-        _, {}
-      ]
-    };
-    grPts = MapThread[{getOpt[#2], getOpt[#3] /@ #1} &,
-      {{ex, Complement[bd, ex], int},
-      {"ExtremalStyle", "NonExtremalStyle", "InternalStyle"},
-      {"ExtremalPointFunction", "NonExtremalPointFunction", "InternalPointFunction"}}
+    {coord, cell, cellType} = polytopePlotCellIndex[trig];
+    cellPts = AssociationFlatten@Map[remPrim@*ReplaceAll[coord], cell, {2}];
+    ptsCells = KeyValueReverse[cellPts];
+    cellGroups = KeyValueMap[
+      {Last@#1, remPrim@#2, #2, First@#1, {Last[#1][[1]], All}} &,
+      AssociationFlatten[cellType]
     ];
-    pmText = polytopePlotPMLabel[(KeyTake[tdGrouped, #] &) /@ {ex, int, bd}, opts];
-    pqWGr = polytopePlotpqWeb[Keys@tdGrouped, opts];
-    gr = {pqWGr, trigLines, bdLines, grPts, pmText};
+    {ex, int, bd} = PolytopeVertices@Values@coord;
+    lblOffsets = KeyMap[ReplaceAll@Normal@ptsCells]@Join[
+      (Simplify@RotationTransform[-Pi/2]@Normalize[ Normalize[#3-#2] + Normalize[#2-#1] ] &) 
+        @@@ AssociationThread[(List /@ bd), Partition[RotateRight@bd, 3, 1, {1, 1}] ],
+      AssociationThread[(List /@ int), Table[{-1, -1}/Sqrt[2], Length@int] ]
+    ];
+    cellStyles = polytopePlotCellOptions["PolytopeCellStyle", 
+      Map[{} &]@$polytopeCellStyle, cellGroups, 
+      Directive[Thickness[-1], PointSize[-1], EdgeForm[None], FaceForm[None] ], opts];
+    cellFuncs = polytopePlotCellOptions["PolytopeCellFunction",
+      $polytopeCellFunction, cellGroups, ({} &), opts];
+    cellLbls = polytopePlotCellOptions["PolytopeCellLabel",
+      Map[None &]@$polytopeCellStyle, cellGroups, None, opts];
+    cellLblFuncs = polytopePlotCellOptions["PolytopeCellLabelFunction",
+      $polytopeCellLabelFunction, cellGroups, ({} &), opts];
+    If[AnyTrue[{cellStyles, cellFuncs, cellLbls, cellLblFuncs}, FailureQ], 
+      Return[Null],
+      cellLbls = Select[cellLbls, MatchQ@Except[None] ];
+      cellLblFuncs = KeyTake[cellLblFuncs, Keys@cellLbls];
+    ];
+    grPolyAssoc = Merge[{
+      ReplaceAll[{x:{__?NumericQ}} -> x] /@ cellPts, 
+      cellStyles, 
+      cellFuncs},
+      Apply[{c, d, f} |-> {Splice@Flatten[{d}], f[c]}]
+    ];
+    grCellLblAssoc = Merge[{
+      KeyValueMap[#1 -> parseCellLabel[#2, Lookup[lblOffsets, Key[#1], {0, 0}] ] &, cellLbls],
+      KeyTake[Keys@cellLbls]@cellPts, 
+      cellLblFuncs},
+      Apply[ {lbl, prim, func} |-> func[First@lbl, Mean@prim, Last@lbl, prim] ]
+    ];
+    grPoly = Map[
+      {$polytopeCellStyle@#, Keys@cellType@#} &,
+      Reverse@Keys@cellType] /. Normal[grPolyAssoc];
+    grLbls = {$polytopeCellLabelStyle, Values@grCellLblAssoc};
+    grPQWeb = polytopePlotpqWeb[Values@coord, opts];
+    gr = {grPoly, grLbls, grPQWeb};
     bounds = polytopePlotBounds[gr, opts];
-    Graphics[gr,
-      Sequence @@ FilterRules[{opts}, Except[{
-        GridLines,GridLinesStyle,PlotRange,PlotRangePadding,ImageSize,"Labels"},
-        Options@Graphics]
+    Graphics[gr, 
+      Sequence @@ FilterRules[FilterRules[{opts}, Options@Graphics], 
+        Except[{GridLines, GridLinesStyle, PlotRange, PlotRangePadding, ImageSize}]
       ],
       GridLines -> (Range @@@ bounds),
-      GridLinesStyle -> getOpt["GridLinesStyle"],
-      PlotRange -> If[bounds === None, OptionValue["PlotRange"], bounds],
+      GridLinesStyle -> OptionValue["GridLinesStyle"],
+      PlotRange -> If[bounds === None, OptionValue["PlotRange"], bounds], 
       PlotRangePadding -> If[bounds === None, OptionValue["PlotRangePadding"], None],
       ImageSize -> OptionValue["ImageSize"]
     ]
   ];
-PolytopePlot::ptsform = "The first arguments";
-PolytopePlot[_, OptionsPattern[] ] := Message[PolytopePlot::ptsform];
+PolytopePlot::opterr = "The value `1` is not a valid \"`2`\" option. \
+Options should be a key-value pattern with keys of the form {dim,i}, \
+prim[{p1,p2,...}], {p1,p2,...} or" <> StringRiffle[
+  Map[(StringJoin["\"", #1, "\""] &), Keys@$polytopeCellLabelFunction], {" ",", ","."}]
 
 
-polytopePlotPMLabel[{ex_, int_, bd_}, opts : OptionsPattern[PolytopePlot] ] :=
-  Module[{td, getOpt, lbl, normalsBd, normalInt, dirs, textF, textS},
-    getOpt[o_] := OptionValue[o] // If[MatchQ[#, Automatic],
-      OptionValue[PolytopePlot, Options@PolytopePlot, o], #] &;
-    td = Union[bd, int];
-    lbl = OptionValue["Labels"] // Switch[#,
-      Automatic | "Count", DeleteCases[Length /@ td, 1],
-      All | "CountAll", Length /@ td,
-      "LastVariable" | "Last", Last /@ td,
-      "Variable", 
-      Replace[Subscript[x:Except[$ExtremalPerfectMatchingVar],_] :> x]@*Last /@ td,
+polytopePlotCellOptions[optN_, defOpt_, cellGroups_, noneDef_, opts : OptionsPattern[PolytopePlot] ] := 
+  Module[{ptAltPatt, ptOrderPattSeq, optV, opt, replaceF},
+    ptAltPatt = {__Integer} | HoldPattern[Alternatives][{__Integer} ..];
+    ptOrderPattSeq = Replace[{
+      {x : (ptAltPatt ..)} :> {OrderlessPatternSequence[x]},
+      (f : Line | Polygon)[{x : (ptAltPatt ..)}] :> f[{OrderlessPatternSequence[x]}]}];
+    optV = OptionValue[optN];
+    opt = Switch[optV,
+      None | False,
+      AssociationThread[{{0, All}, {1, All}, {2, All}}, noneDef],
+      Automatic | True,
+      Association[defOpt],
       KeyValuePattern[{}],
-      Union[
-        KeyMap[ Keys[td][[#]]& ]@KeySelect[ Association@#,
-          MatchQ[i_Integer /; 1<=Abs[i]<=Length@td] ],
-        KeyTake[Association@#, Keys@td]
-      ],
-      _, Association[]
-    ] &;
-    normalsBd = RotationTransform[-Pi/2]@Normalize[ Normalize[#3-#2]+Normalize[#2-#1] ] & 
-      @@@ Partition[RotateRight@Keys@bd, 3, 1, {1, 1}];
-    normalInt = Normalize@*RotationTransform[-Pi/2]@*Subtract @@  
-      First@First@MinimalBy[N@*Last]@Flatten@Outer[#2 -> RegionDistance[Line@#2, #1] &, 
-        Keys@int, Partition[Keys@ex, 2, 1, {1, 1}], 1];
-    dirs = Association@Join[
-      Thread[Keys@bd -> normalsBd],
-      Map[# -> normalInt &, Keys@int]
+      ReplaceAll[(None | False) -> noneDef] /@ KeyMap[ptOrderPattSeq]@Association[optV],
+      _, $Failed
     ];
-    textF = getOpt["LabelsFunction"];
-    textS = getOpt["LabelsStyle"];
-    KeyValueMap[textF[Style[#2, textS], #1, dirs@#1] &, lbl]
+    If[FailureQ@opt, Message[PolytopePlot::opterr, optV, optN];
+      Return[opt] ];
+    replaceF = Block[{ruleAuto, ruleFixSty},
+      ruleAuto = (True | Automatic) -> Lookup[defOpt, #4];
+      ruleFixSty = Directive[x__] :> Directive[Flatten@{x}];
+      Join[{#1, #2, #3, #4} /. Normal[opt],
+        {Lookup[opt, Key[#5], #5]}
+      ] /. ruleAuto /. ruleFixSty
+    ] &;
+    Association[(#1 -> (If[# === {}, {}, First@#] &)@SelectFirst[
+        Transpose[{replaceF[##], {##}}], Apply[UnsameQ], 
+        Lookup[defOpt, {#4, #4}]
+      ] &) @@@ cellGroups]
+  ];
+
+
+polytopePlotCellIndex[trig_] :=
+  Module[{coord, cell, cellC, ex, in, bd, nex, cellType, bdEdgeC},
+    coord = (AssociationThread[Range[Length@#], #] &)@Rationalize@MeshCoordinates[trig];
+    cell = Map[AssociationThread[Range[Length@#1], #1] &,
+      AssociationMap[ MeshCells[trig, #] &, Range[0, 2] ]
+    ];
+    cellC = Map[ReplaceAll[coord], cell, {2}];
+    {ex, in, bd} = PolytopeVertices[Values@coord];
+    nex = Complement[bd, ex];
+    cellType = <||>;
+    AppendTo[cellType, AssociationThread[
+        {"ExtremalPoints", "NonExtremalPoints", "InternalPoints"},
+        (KeyMap[{0, #} &]@Select[cellC[0], 
+          MatchQ@Point[Alternatives@@#] ] &) /@ {ex, nex, in}
+      ]
+    ];
+    bdEdgeC = Keys@Select[Length[#] == 1 &]@GroupBy[
+      EdgeList@MeshConnectivityGraph[trig, {2, 1}], Last -> First];
+    AppendTo[cellType, <|
+      "InternalEdges" -> KeyDrop[KeyMap[{1, #} &]@cellC[1], bdEdgeC],
+      "BoundaryEdges" -> KeyTake[KeyMap[{1, #} &]@cellC[1], bdEdgeC],
+      "Polygons" -> KeyMap[{2, #} &]@cellC[2]|>
+    ];
+    {coord, cell, cellType}
+  ];
+
+
+parseCellLabel[lbl_, def_ : {0, 0}] :=
+  Module[{tblrRule, placedRule},
+    tblrRule = {
+      Left -> {-1, 0}, Right -> {1, 0}, 
+      Top -> {0, 1}, Bottom -> {0, -1},
+      Center | Automatic -> {0, 0}
+    };
+    placedRule = Switch[#,
+      Left | Right | Top | Bottom | Center | Automatic,
+      # /. tblrRule,
+      {_?NumericQ, _?NumericQ}, #,
+      None | False, {0, 0},
+      _, def
+    ] &;
+    Apply[Placed[lbl /. #2, placedRule@#1] &,
+      (First[#, {def, {}}] &)@Cases[lbl, 
+        Placed[x_, p_] :> {p, Placed[x, p] -> x}, 
+      {0, Infinity}]
+    ]
   ];
 
 
@@ -397,8 +511,8 @@ polytopePlotpqWeb[pt_, opts : OptionsPattern[PolytopePlot] ] :=
 
 polytopePlotBounds[gr_, opts : OptionsPattern[PolytopePlot] ] :=
   Module[{minBounds, minBoundsF, grid, allPatt},
-    minBounds = {Floor[#1], Ceiling[#2]} & 
-      @@@ RegionBounds@RegionUnion@Cases[gr, _?RegionQ, Infinity];
+    minBounds = {Floor[Min@#1], Ceiling[Max@#2]} & @@@ 
+      Transpose[RegionBounds /@ Cases[gr, _?RegionQ, Infinity], {3, 1, 2}];
     minBoundsF = MapThread[
       Apply[{Min[#1], Max[#2]} &]@*Transpose@*List, 
       {#, minBounds}
