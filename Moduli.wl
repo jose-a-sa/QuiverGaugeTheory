@@ -337,7 +337,7 @@ KahlerChambersCompatibility[W_?ToricPotentialQ,
     {k, lenK, status} = {0, Length@properPairs,
       "Simplifying theta-stability from sub-quiver representations..."};
     If[OptionValue["ShowProgress"] === True, 
-      Echo@Labeled[
+      PrintTemporary@Labeled[
         ProgressIndicator[Dynamic[k], {0, Dynamic[lenK]}, 
           BaselinePosition->Scaled[0.1] ],
         Style[Dynamic[status], FontFamily -> Automatic], 
@@ -409,7 +409,7 @@ KahlerChambersFlowGraph[tbI_?kcTablePattQ, tbF_?kcTablePattQ,
     {status, indicator} = {"Simplifying theta-stability conditions...",
       ProgressIndicator[Appearance -> "Indeterminate", BaselinePosition -> Scaled[0.1] ]};
     If[OptionValue["ShowProgress"] === True, 
-      Echo@Dynamic[Labeled[Dynamic[indicator],
+      PrintTemporary@Dynamic[Labeled[Dynamic[indicator],
         Style[Dynamic[status], FontFamily -> Automatic], Right]
       ]
     ];
@@ -517,29 +517,15 @@ minimalGLSMBasis[eqs : {{_?MatrixQ, _?MatrixQ} ..}, reg_List, pt : {{_, _} ..}, 
 
 
 
-triangulationFacePairs[trig_?PolytopeTriangulationQ] :=
-  Module[{ptsR, faceR, pairs},
-    ptsR = ReplaceAll@MapIndexed[
-      (Join[{0}, #2] | First[#2]) -> #1 &, 
-      Rationalize@MeshCoordinates@#] &;
-    faceR = ReplaceAll@MapIndexed[
-      (Join[{2}, #2] | First[#2]) -> #1 &, 
-      Identity @@@ MeshCells[#, 2]
-    ] &; 
-    Map[{Intersection @@ #, SymmetricDifference @@ #} &,
-      ptsR[trig]@faceR[trig]@EdgeList@MeshConnectivityGraph[trig, 2]
-    ]
-  ];
-
-
-
-Options[KahlerVolumes] := {};
+Options[KahlerVolumes] := {
+  "ShowProgress" -> False
+};
 SyntaxInformation[KahlerVolumes] = {
   "ArgumentsPattern" -> {_, OptionsPattern[]}
 };
 KahlerVolumes[W_?ToricPotentialQ, opts : OptionsPattern[KahlerVolumes] ] :=
   Module[{r, F, td, ff, KC, triang, pms, eqs, triangPairs, 
-      cycleVol, cycleVolF},
+      cycleVol, cycleVolF, k, status, lenK, res},
     F = Sort@VertexList[Values@QuiverFromFields@W];
     {td, ff} = {ToricDiagram[W], FastForward[W]};
     KC = KahlerChambers[td];
@@ -553,12 +539,42 @@ KahlerVolumes[W_?ToricPotentialQ, opts : OptionsPattern[KahlerVolumes] ] :=
     cycleVol = (r /. First@Solve[Eliminate[
         0 == Join[eqs /. Thread[#1 -> 0], {Dot[#2, #2] - r}],
       pms], r] &);
-    cycleVolF = {trg, kc} |-> Association@Apply[
-      Sort[(#1 /. td)] -> cycleVol[#1, #2] &,
-      (trg /. triangPairs /. kc), {1}];
-    AssociationThread[triang,
+    {k, lenK, status} = {0, Length[KC]*Length[triang],
+      "Computing volumes..."};
+    If[OptionValue["ShowProgress"] === True, 
+      PrintTemporary@Labeled[
+        ProgressIndicator[Dynamic[k], {0, Dynamic[lenK]}, 
+          BaselinePosition->Scaled[0.1] ],
+        Style[Dynamic[status], FontFamily -> Automatic], 
+        Right
+      ]
+    ];
+    cycleVolF = {trg, kc} |-> Block[{},
+      k++;
+      Association@Apply[
+        Sort[(#1 /. td)] -> cycleVol[#1, #2] &,
+        (trg /. triangPairs /. kc), {1}]
+    ];
+    res = AssociationThread[triang,
       Association /@ Apply[#2 -> cycleVolF[#1, #2] &, 
         Outer[List, triang, KC, 1], {2}]
+    ];
+    status = "Done!";
+    res
+  ];
+
+
+triangulationFacePairs[trig_?PolytopeTriangulationQ] :=
+  Module[{ptsR, faceR, pairs},
+    ptsR = ReplaceAll@MapIndexed[
+      (Join[{0}, #2] | First[#2]) -> #1 &, 
+      Rationalize@MeshCoordinates@#] &;
+    faceR = ReplaceAll@MapIndexed[
+      (Join[{2}, #2] | First[#2]) -> #1 &, 
+      Identity @@@ MeshCells[#, 2]
+    ] &; 
+    Map[{Intersection @@ #, SymmetricDifference @@ #} &,
+      ptsR[trig]@faceR[trig]@EdgeList@MeshConnectivityGraph[trig, 2]
     ]
   ];
 

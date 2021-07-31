@@ -18,6 +18,7 @@ CyclicPatternSequence::usage = "";
 ToCyclicPattern::usage = "";
 ToSubtractList::usage = "";
 NormalizeGCD::usage = "";
+TransformedMesh::usage = "";
 CollinearQ::usage = "";
 StrictlyCollinearQ::usage = "";
 CoplanarQ::usage = "";
@@ -79,45 +80,74 @@ KeyValueReverse[a : KeyValuePattern[{}] ] :=
 
 
 
-SyntaxInformation[AssociationFlatten] = {"ArgumentsPattern" -> {_,_.}};
-AssociationFlatten[a_ : KeyValuePattern[{}], maxlvl : (_Integer?NonNegative | Infinity) : Infinity] :=
-  Module[{n, flatten2, res},
-    n = Length@Rest@NestWhileList[
-      Map[Splice]@*Values,
-      {a}, AllTrue[MatchQ[Association]@*Head]
-    ];
-    flatten2 = KeyValueMap[
-      {t, r} |-> Splice@KeyValueMap[Splice@Prepend[{#1}, t] -> #2 &, Association@r]
-    ];
-    (* res = Nest[Association@*flatten2, KeyMap[List]@Association@a, n - 1];
-    If[AllTrue[Keys@res, MatchQ[{_}] ],
-      KeyMap[First]@res, res
-    ] *)
-    res = Map[flatten2, 
-      Association@a, {0, Max[0, Min[n - 1, maxlvl] - 1]}];
-    If[maxlvl == 0, a,
-      ReplaceAll[x : (KeyValuePattern[Splice[__] -> _]) :> 
-        KeyMap[First]@Association@x]@res
+SyntaxInformation[AssociationDepth] = {"ArgumentsPattern" -> {_}};
+AssociationDepth[a_ : KeyValuePattern[{}] ] :=
+  Module[{},
+    Length@Rest@NestWhileList[
+      Map[Splice]@*Values, {Association@a},
+      AllTrue[MatchQ[Association]@*Head]
     ]
   ];
 
 
 
-SyntaxInformation[AssociationTableToPairs] = {"ArgumentsPattern" -> {_}};
-AssociationTableToPairs[a_] := 
-  Association@KeyValueMap[
-    {t, r} |-> Splice@KeyValueMap[{t, #1} -> #2 &, Association@r], Association@a
-  ] /; MatchQ[a, KeyValuePattern[{_ -> KeyValuePattern[{}]}] ];
+SyntaxInformation[AssociationFlatten] = {"ArgumentsPattern" -> {_,_.}};
+AssociationFlatten[a_ : KeyValuePattern[{}] ] :=
+  Module[{n, flatten2, res},
+    n = AssociationDepth[a];
+    flatten2 = Association@*KeyValueMap[
+      {t, r} |-> KeyValueMap[Splice@Prepend[{#1}, t] -> #2 &, Association@r]
+    ];
+    res = Nest[flatten2, Association@a, n - 1];
+    KeyMap[First, res]
+  ];
+AssociationFlatten[a_ : KeyValuePattern[{}], max_Integer?NonNegative] :=
+  Module[{n},
+    n = AssociationDepth[a];
+    AssociationFlatten[a, {Select[Range[n], LessEqualThan[max+1] ]}]
+  ];
+AssociationFlatten[a_ : KeyValuePattern[{}], 0] := a;
+AssociationFlatten[a_ : KeyValuePattern[{}], max_Integer] :=
+  Message[AssociationFlatten::flev, max, 2, a];
+AssociationFlatten[a_ : KeyValuePattern[{}], {i__Integer}] :=
+  AssociationFlatten[a, {{i}}];
+AssociationFlatten[a_ : KeyValuePattern[{}], lvlspec : {{___Integer} ..}] :=
+  Module[{n, lvls, groupF, reshapeF},
+    n = AssociationDepth[a];
+    FirstCase[lvlspec, Except[{__Integer?Positive}] ] // If[
+      Not@MissingQ@#,
+      Message[AssociationFlatten::flpi, lvlspec]; Return[Null]
+    ] &;
+    FirstCase[lvlspec, Except[{__Integer?(LessEqualThan[n])}] ] // If[
+      Not@MissingQ@#,
+      Message[AssociationFlatten::fldep, First@Cases[#, _Integer?(GreaterThan[n])], 
+        {#}, n, Association@a]; Return[Null]
+      ] &;
+    Select[Counts[Flatten@lvlspec], GreaterThan[1] ] // If[
+      Length@# > 0,
+      Message[AssociationFlatten::flrep, Keys[#][[1]], lvlspec]; Return[Null]
+    ] &;
+    lvls = Join[ lvlspec, List /@ Complement[Range[n], Join @@ lvlspec] ];
+    groupF[p_] := GroupBy[(#[[p /. {x_} :> x]] &)@*First];
+    reshapeF = Fold[{f, p} |-> Composition[ Map[f], groupF[p] ],
+      groupF[Last@lvls], Most@lvls];
+    Map[Last@*Last, reshapeF@Normal@AssociationFlatten[a], {Length@lvls}]
+  ];
+AssociationFlatten::fldep = Flatten::fldep;
+AssociationFlatten::flpi = Flatten::flpi;
+AssociationFlatten::flrep = Flatten::flrep;
+AssociationFlatten::flev = Flatten::flev;
 
 
 
 SyntaxInformation[MinMaxExponent] = {"ArgumentsPattern" -> {_, _.}};
-MinMaxExponent[patt_][expr_] := MinMaxExponent[expr, patt];
+MinMaxExponent[patt_][expr_] :=
+  MinMaxExponent[expr, patt];
 MinMaxExponent[expr_, patt_] := 
   MinMax@Exponent[
     MonomialList@ExpandAll[expr /. {x: patt :> \[FormalLambda] x}], 
     \[FormalLambda]
-  ]
+  ];
 
 
 
@@ -159,6 +189,25 @@ SyntaxInformation[NormalizeGCD] = {"ArgumentsPattern" -> {_}};
 NormalizeGCD[p: {0 ..}] := p; 
 NormalizeGCD[p: {__?ExactNumberQ}] := p / (GCD @@ p);
 NormalizeGCD[p: {__}] := p;
+
+
+
+TransformedMesh[t_][m_MeshRegion] := 
+  TransformedMesh[m, t]
+TransformedMesh[m_MeshRegion, t : {{__?NumericQ} ..}?MatrixQ] := 
+  Message[TransformedMesh::dimerr] /; 
+    Apply[Unequal, {Splice@Dimensions[t], Length@First@MeshCoordinates[m]}];
+TransformedMesh[m_MeshRegion, t : {{__?NumericQ} ..}?SquareMatrixQ] :=
+  MeshRegion[
+    Map[x |-> t . x, Rationalize@MeshCoordinates@m],
+    MeshCells@m,
+    Sequence @@ Options[m]
+  ];
+TransformedMesh[m_MeshRegion, _] := Message[TransformedMesh::matarg]
+TransformedMesh::dimerr =
+"Dimension of the mesh points and the transformation matrix do not match.";
+TransformedMesh::matarg =
+"Argument provided is not a valid argument.";
 
 
 
@@ -221,8 +270,6 @@ GridRulesGraphics[
 
 
 SyntaxInformation[FindNonSimplePaths] = {"ArgumentsPattern" -> {_,_,_,_}};
-FindNonSimplePaths::invgraph = "The argument `1` is not a valid graph.";
-FindNonSimplePaths::invvertex = "The argument `1` is not a valid vertex of `2`.";
 FindNonSimplePaths[e_?EdgeListQ, s_, t_, kspec_] :=
   FindNonSimplePaths[Graph[e], s, t, kspec];
 FindNonSimplePaths[g_Graph, s_, t_, kmax_Integer] :=
@@ -246,13 +293,12 @@ FindNonSimplePaths[g_Graph, s_, t_, _] :=
   Message[FindNonSimplePaths::invvertex, s, EdgeList@g] /; (!VertexQ[g,s]);
 FindNonSimplePaths[g_Graph, s_, t_, _] :=
   Message[FindNonSimplePaths::invvertex, t, EdgeList@g] /; (!VertexQ[g,t]);
+FindNonSimplePaths::invgraph = "The argument `1` is not a valid graph.";
+FindNonSimplePaths::invvertex = "The argument `1` is not a valid vertex of `2`.";
 
 
 
 SyntaxInformation[SolveMatrixLeft] = {"ArgumentsPattern" -> {_,_}};
-SolveMatrixLeft::lslc = "Coefficient matrix and target matrix do not have matching dimensions.";
-SolveMatrixLeft::err = "An error occured while solving the system.";
-SolveMatrixLeft::argx = "Arguments provided are not matrices.";
 SolveMatrixLeft[a_?MatrixQ, b_?MatrixQ] :=
   Module[{dimA, dimB, err, res},
     {dimA, dimB} = Dimensions /@ {a, b};
@@ -268,6 +314,9 @@ SolveMatrixLeft[a_?MatrixQ, b_?MatrixQ] :=
     ]
   ];
 SolveMatrixLeft[a_, b_] := Message[SolveMatrixLeft::argx];
+SolveMatrixLeft::lslc = "Coefficient matrix and target matrix do not have matching dimensions.";
+SolveMatrixLeft::err = "An error occured while solving the system.";
+SolveMatrixLeft::argx = "Arguments provided are not matrices.";
 
 
 

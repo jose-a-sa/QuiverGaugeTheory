@@ -331,18 +331,21 @@ PolytopePlot[td_?ToricDiagramQ, opts : OptionsPattern[PolytopePlot] ] :=
     ]
   ];
 PolytopePlot[trig_?PolytopeTriangulationQ, opts : OptionsPattern[PolytopePlot] ] :=
-  Module[{remPrim, sortCoord, coord, cell, cellType, cellPts, ptsCells, cellGroups,
+  Module[{remPrim, sortPrim, sortCoord, coord, cell, cellType, cellPts, ptsCells, cellGroups,
       ex, int, bd, lblOffsets, cellStyles, cellFuncs, cellLbls, cellLblFuncs,
       grPolyAssoc, grCellLblAssoc, grPoly, grLbls, grPQWeb, gr, bounds},
     remPrim = ReplaceAll[{
-      Point[x : {__Integer}] -> {x},
-      (Point | Line | Polygon)[x : {{__Integer} ..}] -> x}
+      Point[x : {__Integer}] :> {x},
+      (Point | Line | Polygon)[x : {{__Integer} ..}] :> Sort@x}
+    ];
+    sortPrim = ReplaceAll[{
+      (f: (Point | Line | Polygon))[x : {{__Integer} ..}] :> f@Sort@x}
     ];
     {coord, cell, cellType} = polytopePlotCellIndex[trig];
     cellPts = AssociationFlatten@Map[remPrim@*ReplaceAll[coord], cell, {2}];
     ptsCells = KeyValueReverse[cellPts];
     cellGroups = KeyValueMap[
-      {Last@#1, remPrim@#2, #2, First@#1, {Last[#1][[1]], All}} &,
+      {Last@#1, remPrim@#2, sortPrim@#2, First@#1, {Last[#1][[1]], All}} &,
       AssociationFlatten[cellType]
     ];
     {ex, int, bd} = PolytopeVertices@Values@coord;
@@ -405,8 +408,9 @@ polytopePlotCellOptions[optN_, defOpt_, cellGroups_, noneDef_, opts : OptionsPat
   Module[{ptAltPatt, ptOrderPattSeq, optV, opt, replaceF},
     ptAltPatt = {__Integer} | HoldPattern[Alternatives][{__Integer} ..];
     ptOrderPattSeq = Replace[{
-      {x : (ptAltPatt ..)} :> {OrderlessPatternSequence[x]},
-      (f : Line | Polygon)[{x : (ptAltPatt ..)}] :> f[{OrderlessPatternSequence[x]}]}];
+      {x : (ptAltPatt ..)} :> Sort[{x}],
+      (f : Line | Polygon)[{x : (ptAltPatt ..)}] :> f[Sort@{x}]
+    }];
     optV = OptionValue[optN];
     opt = Switch[optV,
       None | False,
@@ -422,8 +426,8 @@ polytopePlotCellOptions[optN_, defOpt_, cellGroups_, noneDef_, opts : OptionsPat
     replaceF = Block[{ruleAuto, ruleFixSty},
       ruleAuto = (True | Automatic) -> Lookup[defOpt, #4];
       ruleFixSty = Directive[x__] :> Directive[Flatten@{x}];
-      Join[{#1, #2, #3, #4} /. Normal[opt],
-        {Lookup[opt, Key[#5], #5]}
+      Map[k |-> Lookup[opt, Key[k], k], 
+        {#1, #2, #3, #4, #5} 
       ] /. ruleAuto /. ruleFixSty
     ] &;
     Association[(#1 -> (If[# === {}, {}, First@#] &)@SelectFirst[
@@ -565,7 +569,7 @@ TriangulationFlips[trig_MeshRegion] :=
     faces = MeshCells[trig, 2];
     flipablePairQ[pair_] := 
       (ContainsExactly[Rationalize@MeshCoordinates@ConvexHullMesh@#, #] &)[
-        Apply[Union]@Map[First, (faces[[pair]]/.pts)]
+        Apply[Union, First /@ (faces[[pair]]/.pts)]
       ];
     fcPairs = Select[
       List @@@ Map[Last, EdgeList@MeshConnectivityGraph[trig, 2], {2}],
@@ -576,17 +580,16 @@ TriangulationFlips[trig_MeshRegion] :=
       fcPairs
     ];
     fcPairsEdgeNew = Association@KeyValueMap[
-      {fcs, e} |-> (Map[Polygon@*Sort@*Apply[Join], 
-        Thread[{List /@ First@e, #}, List, 1] ] -> Line@Sort[#] &)@
-        Flatten@Map[DeleteCases[Alternatives@@First@e]@*First, fcs],
-      fcPairsEdge
-    ];
+      {fcs, e} |-> With[
+        {newL = Flatten@Map[DeleteCases[Alternatives @@ First@e]@*First, fcs]},
+        Map[Polygon@Append[newL, #] &, First@e] -> Line@newL], 
+      fcPairsEdge];
     facesFlipR = AssociationThread[Keys@fcPairsEdge, Keys@fcPairsEdgeNew];
     edgesFlipR = AssociationThread[Values@fcPairsEdge, Values@fcPairsEdgeNew];
     facesTree = Map[Sort, Union[DeleteCases[faces, Alternatives @@ #1], #2], 
-      {0, 2}] & @@@ Normal@facesFlipR;
+      {0, 2}] & @@@ Normal[facesFlipR];
     edgesTree = Map[Sort, Union[DeleteCases[edges, #1], {#2}], 
-      {0, 2}] & @@@ Normal@edgesFlipR;
+      {0, 2}] & @@@ Normal[edgesFlipR];
     MapThread[
       MeshRegion[Values@pts, {Point /@ Keys@pts, #1, #2}] &,
       {edgesTree, facesTree}
@@ -611,8 +614,8 @@ PolytopeTriangulationsGraph[pt_?PolytopeQ] :=
       Return@Graph[{trigI}, {}]
     ];
     graph = NestWhile[
-      g |-> Union[Join @@ (Thread@DirectedEdge[#, TriangulationFlips@#] & /@
-        Flatten@Select[ConnectedComponents@g, EqualTo[1]@*Length]), g],
+      g |-> Union[ Map[Splice@Thread@DirectedEdge[#, TriangulationFlips@#] &,
+        Flatten@Select[ConnectedComponents@g, EqualTo[1]@*Length] ], g],
       graph0,
       MemberQ[1]@*Map[Length]@*ConnectedComponents
     ];

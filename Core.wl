@@ -118,12 +118,6 @@ Untrace /: Times[l___, Untrace, r___] := Times[l, 1, r];
 
 
 
-SetAttributes[NonCommutativeMultiply, {Flat, Listable, OneIdentity}]
-NonCommutativeMultiply[x___] := CenterDot[x];
-Default[NonCommutativeMultiply] = Default[Times];
-
-
-
 SyntaxInformation[DG] = {"ArgumentsPattern" -> {_, _, _.}};
 DG[{x__}, var__] := Map[DG[#, var] &, {x}];
 DG[any_, {{vars__?FieldQ}}] := Map[DG[any, #] &, {vars}];
