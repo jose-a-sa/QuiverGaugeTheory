@@ -183,7 +183,7 @@ Model /: MakeBoxes[q : Model[key_?ModelKeyExistsQ], fmt : (StandardForm | Tradit
     keyBox = ExpandableBoxItem[{"Key: ", key}];
     descriptionsBox = handleBox["Descriptions: ", Lookup["Descriptions"]@data];
     potentialBox = handleBox["Potential: ", Lookup["Potential"]@data, Identity,
-      ImageSize -> UpTo[500] ];
+      ImageSize -> UpTo[520] ];
     toricQBox = handleBox["ToricPotentialQ: ", Lookup["Potential"]@data, ToricPotentialQ];
     noFieldsBox = handleBox["No. Fields: ", Lookup["Potential"]@data, Length@*Fields];
     miniQuiver = QuiverGraph[
@@ -214,19 +214,13 @@ Quiver[ Model[key_?ModelKeyQ] ] :=
   Model[key, "Quiver"];
 
 
-QuiverGraph[ Model[key_?ModelKeyQ] ] := 
+QuiverGraph[ Model[key_?ModelKeyQ], opts: OptionsPattern[QuiverGraph] ] := 
   Model[key, "QuiverGraph"];
 QuiverGraph[ Model[key_?ModelKeyQ], opts: OptionsPattern[QuiverGraph] ] :=
-  If[MissingQ@Model[key, "QuiverGraph"],
-    Model[key, "QuiverGraph"],
-    QuiverGraph[Model[key, "QuiverPositioning"], Model[key, "Quiver"], opts]
-  ];
+  QuiverGraph[Model[key, "QuiverPositioning"], Model[key, "Quiver"], opts];
 QuiverGraph[vertex:{(_Integer|{__Integer})..}, Model[key_?ModelKeyQ], 
     opts: OptionsPattern[QuiverGraph] ] :=
-  If[MissingQ@Model[key, "QuiverGraph"],
-    Model[key, "QuiverGraph"],
-    QuiverGraph[vertex, Model[key, "Quiver"], opts]
-  ];
+  QuiverGraph[vertex, Model[key, "Quiver"], opts];
 
 
 ToricDiagram[ Model[key_?ModelKeyQ], m_?MatrixQ] :=

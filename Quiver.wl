@@ -237,7 +237,9 @@ FindQuiverPaths[e_?EdgeListQ, i_, j_, deg_] :=
 
 
 
-Options[QuiverGraph] = DeleteDuplicatesBy[First]@{
+Options[QuiverGraph] = Normal@Association@{
+  Splice@Options[Graph],
+  ImageSize -> 250,
   VertexSize -> {"Scaled", 0.04},
   VertexStyle -> Directive[ EdgeForm[{Black}], FaceForm[{Hue[0.15, 0.2, 1]}] ],
   VertexLabels -> Placed[Automatic, {0.52, 0.48}],
@@ -245,12 +247,10 @@ Options[QuiverGraph] = DeleteDuplicatesBy[First]@{
   EdgeStyle -> Directive[ Opacity[1], Hue[0, 1, 0.5] ],
   "MultiplicityAsEdges" -> False,
   "ArrowSize" -> 0.04,
-  "ArrowsPosition" -> {0.8, 0.16},
-  Splice@Options[Graph]
+  "ArrowsPosition" -> {0.8, 0.16}
 };
 SyntaxInformation[QuiverGraph] = {
-  "ArgumentsPattern" -> {_, _., OptionsPattern[]},
-  "OptionsName" -> {"MultiplicityAsEdges", "ArrowSize", "ArrowsPosition"}
+  "ArgumentsPattern" -> {_, _., OptionsPattern[]}
 };
 QuiverGraph[W_?PotentialQ, opts: OptionsPattern[QuiverGraph] ] := 
   QuiverGraph[Automatic, QuiverFromFields@W, opts];
@@ -273,14 +273,15 @@ QuiverGraph[v: {(_Integer | {__Integer}) ..}, e_?EdgeListQ, opts: OptionsPattern
       parseArrowheads[e, OptionValue["ArrowSize"], OptionValue["ArrowsPosition"] ]
     ];
     Graph[Flatten@v, edges,
-      Sequence @@ FilterRules[{opts}, Except[{
-        EdgeShapeFunction, "MultiplicityAsEdges", "ArrowSize", "ArrowsPosition"}]
+      Sequence @@ FilterRules[FilterRules[{opts}, Options@QuiverGraph], 
+        Except[{EdgeShapeFunction, "MultiplicityAsEdges", "ArrowSize", "ArrowsPosition"}]
       ],
-      VertexSize -> {"Scaled", 0.045},
-      VertexStyle -> Directive[ EdgeForm[{Black}], FaceForm[{Hue[0.15, 0.2, 1]}] ],
-      VertexLabels -> Placed[Automatic, {0.52, 0.48}],
-      VertexLabelStyle -> Directive[ Bold, FontSize -> Scaled[0.04] ],
-      EdgeStyle -> Directive[ Opacity[1], Hue[0, 1, 0.5] ],
+      ImageSize -> OptionValue["ImageSize"],
+      VertexSize -> OptionValue["VertexSize"],
+      VertexStyle -> OptionValue["VertexStyle"],
+      VertexLabels -> OptionValue["VertexLabels"],
+      VertexLabelStyle -> OptionValue["VertexLabelStyle"],
+      EdgeStyle -> OptionValue["EdgeStyle"],
       (*handling different layouts*)
       VertexCoordinates -> Switch[OptionValue["GraphLayout"],
         "CircularAdjacencyEmbedding" | Automatic,

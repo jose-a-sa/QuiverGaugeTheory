@@ -33,7 +33,6 @@ pqWebPlot::usage = "";
 AMaximization::usage = "";
 
 
-
 $ExtremalPerfectMatchingVar::usage = "";
 $BoundaryPerfectMatchingVars::usage = "";
 $InternalMatchingVars::usage = "";
@@ -336,10 +335,12 @@ PolytopePlot[trig_?PolytopeTriangulationQ, opts : OptionsPattern[PolytopePlot] ]
       grPolyAssoc, grCellLblAssoc, grPoly, grLbls, grPQWeb, gr, bounds},
     remPrim = ReplaceAll[{
       Point[x : {__Integer}] :> {x},
-      (Point | Line | Polygon)[x : {{__Integer} ..}] :> Sort@x}
+      (Point | Line | Polygon)[x : {{__Integer} ..}] :> 
+        RotateRight[x, FirstPosition[Ordering@x, 1, 1] - 1]}
     ];
     sortPrim = ReplaceAll[{
-      (f: (Point | Line | Polygon))[x : {{__Integer} ..}] :> f@Sort@x}
+      (f: (Point | Line | Polygon))[x : {{__Integer} ..}] :> 
+        f@RotateRight[x, FirstPosition[Ordering@x, 1, 1] - 1]}
     ];
     {coord, cell, cellType} = polytopePlotCellIndex[trig];
     cellPts = AssociationFlatten@Map[remPrim@*ReplaceAll[coord], cell, {2}];

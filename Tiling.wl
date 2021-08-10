@@ -7,6 +7,7 @@ BeginPackage["QuiverGaugeTheory`Tiling`", {
 
 
 PerfectMatchingMatrix::usage = "";
+PerfectMatchings::usage = "";
 KasteleynMatrix::usage = "";
 BraneTiling::usage = "";
 BraneTilingGraph::usage = "";
@@ -35,6 +36,18 @@ PerfectMatchingMatrix[W_?ToricPotentialQ] :=
     If[Dimensions[k] == {1,1}, pmList = List /@ pmList];
     Boole@Outer[
       MemberQ[#2, #1] &, fs, (Alternatives @@@ pmList), 1
+    ]
+  ];
+
+
+SyntaxInformation[PerfectMatchings] = {"ArgumentsPattern" -> {_}};
+PerfectMatchings[W_?ToricPotentialQ] :=
+  Module[{fs, pmV, P},
+    fs = Fields[W];
+    pmV = Keys@ToricDiagram[W];
+    P = PerfectMatchingMatrix[W];
+    AssociationThread[pmV, 
+      (DeleteCases[fs^#, 1] &) /@ Transpose[P]
     ]
   ];
 
@@ -227,11 +240,12 @@ BraneTiling[kast_?MatrixQ, opts: OptionsPattern[BraneTiling] ] :=
   Module[{embRng, Imin, Imax, Jmin, Jmax, edges0, gr0, coordV, c0, fdL, xx,
       yy, tau, faceSelF, faces, potWTerm, tiling},
     embRng = OptionValue["EmbeddingRange"];
-    {{Imin,Imax},{Jmin,Jmax}} = Switch[embRng,
-      i_Integer?(GreaterThan[1]), {{-1,1},{-1,1}} embRng,
+    {{Imin, Imax}, {Jmin, Jmax}} = Switch[embRng,
+      i_Integer?(GreaterThan[1]),
+      {{-1,1},{-1,1}} embRng,
       {m_Integer,M_Integer} /; m<=M,
-      {embRng,embRng},
-      {{Im_Integer,IM_Integer}/;(Im<IM), {Jm_Integer,JM_Integer}/;(Jm<JM)},
+      {embRng, embRng},
+      {{im_Integer,iM_Integer}/;(im<iM), {jm_Integer,jM_Integer}/;(jm<jM)},
       embRng,
       _, {{-2,2},{-2,2}}
     ];

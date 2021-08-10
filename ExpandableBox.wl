@@ -84,7 +84,7 @@ ExpandableBox[q_, header_, grid_, fmt_ : StandardForm] :=
       ];
     With[{
       ib = Block[{BoxForm`UseTextFormattingQ = False},
-        With[ {bx = dynamicBox}, MakeBoxes[bx, fmt] ] 
+        With[{bx = dynamicBox}, MakeBoxes[bx, fmt] ] 
       ]},
       InterpretationBox[ib, q, Selectable -> False]
     ]
@@ -108,7 +108,7 @@ ExpandableBoxItem[{n_String, v_}, g_: Identity,
     OptionValue["ReplacementValue"],
     Row[{Style[ n, GrayLevel[0.5] ], g@v},
       Sequence @@ FilterRules[{opts}, 
-        Except[Options@ExpandableBoxItem, Options@Row]
+        Options@ExpandableBoxItem
       ],
       BaseStyle -> OptionValue["BaseStyle"]
     ]
