@@ -186,12 +186,12 @@ normalizeFundDomain[{nodes_, edges_, faces_, tau_}, {xf___?FieldQ}] :=
     ]
   ];
 transformTiling[tiling0_, opt_] :=
-  Module[{optSV, optRot, optSkew, optT, optSc, 
-      sv, trans, scale, skew, rot, mat, tau0},
-    {optSV, optRot, optSkew, optT, optSc} = OptionValue[
+  Module[{optSV, optRot, optSkew, optT, optSc, optTT, 
+      sv, trans, transT, scale, skew, rot, mat, tau0},
+    {optSV, optRot, optSkew, optT, optSc, optTT} = OptionValue[
       BraneTiling, opt,
       {"ShiftVertex", "RotateTiling", "SkewTiling", 
-        "TransformMatrix", "ScaleTiling"}
+        "TransformMatrix", "ScaleTiling", "TranslateTiling"}
     ];
     rot = Switch[optRot,
       (_?NumericQ), RotationMatrix[optRot],
@@ -209,6 +209,10 @@ transformTiling[tiling0_, opt_] :=
       {Repeated[{_?NumericQ, _?NumericQ}, {2}]}, optT,
       _, IdentityMatrix[2] 
     ];
+    transT = Switch[optTT,
+      {_?NumericQ, _?NumericQ}, Clip /@ optTT,
+      _, {0,0} 
+    ];
     mat = Dot[trans, scale, skew, rot];
     transF = MapAt[Map[mat . # &], {{1}, {4}}];
     tau0 = Last[tiling0];
@@ -218,7 +222,7 @@ transformTiling[tiling0_, opt_] :=
       _, Association[] 
     ];
     shiftF = MapAt[Association@*KeyValueMap[
-      #1 -> #2 + Lookup[sv, Take[#1, 1], {0, 0}].tau0 &
+      #1 -> #2 + (Lookup[sv, Take[#1, 1], {0, 0}]-transT).tau0 &
     ], {{1}}];
     transF@shiftF[tiling0]
   ];
@@ -231,7 +235,8 @@ Options[BraneTiling] = {
   "ScaleTiling" -> Automatic,
   "TransformMatrix" -> Automatic,
   "Embedding" -> "SpringEmbedding",
-  "EmbeddingRange" -> Automatic
+  "EmbeddingRange" -> Automatic,
+  "TranslateTiling" -> Automatic
 };
 SyntaxInformation[BraneTiling] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
 BraneTiling[W_?ToricPotentialQ, opts: OptionsPattern[BraneTiling] ] :=
@@ -518,7 +523,7 @@ zigZagEdges[edges_, f_] :=
     ] // Map[If[fWN.linesToWN[#] < 0, Map[Reverse,#,{0,1}], #] &];
     ndOrder = Select[paths, fWN.linesToWN[#] !=0 &] //
       lineToNd@*First@*MaximalBy[Length];
-    If[{SequenceCount[ndOrder, lineToNd@#],fWN.linesToWN[#]} === {0,0}, 
+    If[{SequenceCount[ndOrder, lineToNd@#], fWN.linesToWN[#]} === {0,0}, 
       Map[Reverse,#,{0,1}], #] & /@ paths
   ];
 
@@ -535,7 +540,7 @@ primF_[ TwistedZigZag[lines_, d_ : 0.1] ] ^:=
     gs = MapThread[
       If[PossibleZeroQ[#1 . #2], 0, (#2 . #2)/(#1 . #2)] &, 
       {Most[ns] + Rest[ns], Rest[ts] - Most[ts]}
-    ] // Join[{-Sign@First@#}, #, {-Sign@Last@#}] &;
+    ] // Join[{-Sign@First[#,1]}, #, {-Sign@Last[#,1]}] &;
     sgn = Sign[First@gs] (-1)^Range[2, Length@gs];
     Map[primF]@Transpose[{
       Most[pts] + d sgn ns + Most[Abs@gs] Abs[d] ts,

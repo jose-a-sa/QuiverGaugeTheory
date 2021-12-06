@@ -279,7 +279,7 @@ $lineLabelAngle = (ArcTan @@ SelectFirst[
   {{1, -1}, {-1, 1}}.#, 
   NonNegative@*First, {1, 0}] &);
 $polytopeCellLabelStyle = Directive[
-  Background -> Directive[Opacity[4/5], White], FontSize -> 12];
+  Background -> None, FontSize -> 12];
 $polytopeCellStyle = Association@{
   "ExtremalPoints" -> Directive[EdgeForm[{Thickness[0.012], Black}], FaceForm[Black] ],
   "NonExtremalPoints" -> Directive[EdgeForm[{Thickness[0.012], Black}], FaceForm[Yellow] ],

@@ -163,7 +163,7 @@ CyclicRange[i_Integer, f_Integer, s_Integer?Positive, m_Integer?Positive] :=
 
 
 
-SyntaxInformation[CyclicPatternSequence] = {"ArgumentsPattern" -> {_.}};
+SyntaxInformation[CyclicPatternSequence] = {"ArgumentsPattern" -> {___}};
 CyclicPatternSequence[patt__] := Alternatives @@ NestList[
   RotateRight, PatternSequence[patt], Length[{patt}] - 1]
 CyclicPatternSequence[] := PatternSequence[];
