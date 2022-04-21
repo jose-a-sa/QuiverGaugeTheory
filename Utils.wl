@@ -3,6 +3,7 @@
 BeginPackage["QuiverGaugeTheory`Utils`"]
 
 
+ContainsQ::usage = "";
 ApplyAt::usage = "";
 FirstLast::usage = "";
 SymmetricDifference::usage = "";
@@ -36,6 +37,12 @@ EchoUniqueMessages::usage = "";
 
 
 Begin["`Private`"]
+
+
+
+SyntaxInformation[ContainsQ] = {"ArgumentsPattern" -> {_, _., _.}};
+ContainsQ[form_] := (Not@*FreeQ[form]);
+ContainsQ[expr_, y__] := (Not@FreeQ[expr, y]);
 
 
 

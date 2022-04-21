@@ -15,6 +15,7 @@ GeneratorLinearRelations::usage = "";
 ReduceGenerators::usage = "";
 SingularLocus::usage = "";
 SimplifyToricEquations::usage = "";
+MesonicGenerators::usage = "";
 GeneratorsLattice::usage = "";
 GeneratorsTable::usage = "";
 SubQuiverRepresentations::usage = "";
@@ -62,7 +63,7 @@ GeneratorLinearRelations[W_?AbelianPotentialQ, genRules : KeyValuePattern[{}] ] 
       KeyValueMap[Abelianize@#1 -> #2 &, genRules],
       MapAt[Abelianize, genRules, {All, 1}]
     ];
-    rel = ReplaceAll[gens]@Expand@Outer[Times, FTerms@W, Fields@W, 1];
+    rel = ReplaceAll[gens]@Expand@Outer[Times, FTerms@W, FieldCases@W, 1];
     Select[ Flatten@rel, FreeQ[_?FieldQ] ]
   ];
 
@@ -99,7 +100,7 @@ ReduceGenerators[
     genRules : KeyValuePattern[{}],
     opts : OptionsPattern[ReduceGenerators] ] :=
   ReduceGenerators[ 
-    GroebnerBasis[Abelianize@FTerms@W, Fields@W, 
+    GroebnerBasis[Abelianize@FTerms@W, FieldCases@W, 
       Method -> OptionValue["GroebnerBasisMethod"] ], 
     ops, genRules, opts];
 ReduceGenerators[
@@ -111,7 +112,7 @@ ReduceGenerators[
     dotPR[x : {{{__}, _} ..}, l0_List] := Map[dotPR[#, l0] &, x];
     dotPR[{l : {__}, n_?(Not@*MatchQ[_List])}, l0_List] := l0.l + n;
     gens = Association[genRules];
-    fields = Fields@gb;
+    fields = FieldCases@gb;
     Message[Abelianize::warn];
     genDecomp = NestWhile[
       dotPR[PolynomialReduce[#, Abelianize@Keys@gens, fields], Values@gens] &,
@@ -174,25 +175,38 @@ SimplifyToricEquations[expr : (List|And)[Except[_List]..] ] :=
 
 
 
-SyntaxInformation[GeneratorsLattice] = {"ArgumentsPattern" -> {_, _.}};
-GeneratorsLattice[W_?ToricPotentialQ] :=
-  Module[{P, pmDecomp, Pmes, Gm, mes, redMes, p, ks},
+SyntaxInformation[MesonicGenerators] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
+MesonicGenerators[W_?ToricPotentialQ, OptionsPattern[{Method -> Automatic}] ] :=
+  Module[{P, pms, pmDecomp, Pmes, Gm, mes, redMes, ks},
     mes = GaugeInvariantMesons[QuiverFromFields@W, Infinity];
     P = PerfectMatchingMatrix[W];
-    pmDecomp = Map[
-      (Times @@ Power[Array[p, Length@#], #] &), 
-      AssociationThread[Fields@W, P]
+    pms = Switch[OptionValue[Method],
+      "Fast" | "Faster", 
+      Array[Subscript[\[FormalCapitalP], #] &, Last@Dimensions@P],
+      Automatic | "ToricDiagram", 
+      Keys@ToricDiagram[W],
+      _, Keys@ToricDiagram[W]
+    ];
+    pmDecomp = Map[(Times @@ Power[pms, #] &),
+      AssociationThread[FieldCases@W, P]
     ];
     ks = GroupBy[mes, ReplaceAll@pmDecomp];
-    redMes = Join @@ Values@KeyTake[ks, 
-      SortBy[GroebnerBasis@Keys@ks, LeafCount]
-    ];
-    Pmes = (Exponent[Abelianize@redMes, #] &) /@ Fields[W];
+    KeyTake[ks, SortBy[GroebnerBasis@Keys@ks, LeafCount] ]
+  ];
+
+
+
+SyntaxInformation[GeneratorsLattice] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
+GeneratorsLattice[W_?ToricPotentialQ] :=
+  Module[{P, Pmes, Gm, redMes, ch},
+    P = PerfectMatchingMatrix[W];
+    redMes = Join @@ Values@MesonicGenerators[W, Method -> "Fast"];
+    Pmes = (Exponent[Abelianize@redMes, #] &) /@ FieldCases[W];
     Gm = NullSpace@NullSpace[Transpose[P].Pmes];
-    GroupBy[ Thread[redMes -> If[CoplanarQ@Transpose@Gm, 
-        NormalizePolytope@Transpose@Most@Gm, Transpose@Gm]
-      ], Last -> First
-    ]
+    ch = If[CoplanarQ@Transpose@Gm, 
+      NormalizePolytope@Transpose@Most@Gm, 
+      Transpose@Gm];
+    GroupBy[Thread[redMes -> ch], Last -> First]
   ];
 
 
@@ -205,7 +219,7 @@ GeneratorsTable[W_?ToricPotentialQ] :=
     latt = GeneratorsLattice[W];
     pmDecomp = Map[
       (Times @@ Power[Keys@td, #] &), 
-      AssociationThread[Fields@W, P]
+      AssociationThread[FieldCases@W, P]
     ];
     rchPM = Last@AMaximization[td];
     mes = GaugeInvariantMesons[QuiverFromFields@W, Infinity];
@@ -451,10 +465,11 @@ SyntaxInformation[MinimalGLSM] = {
 };
 MinimalGLSM[W_?ToricPotentialQ, opts : OptionsPattern[MinimalGLSM] ] :=
   Module[{FIvar, simpF, ff, td, F, simpT, pms, KC, vars, thetaC, subQReps, 
-      regKC, eqs, eqsKC, linEqs, basis},
+      regKC, eqs, eqsKC, linEqs, basis, G},
     FIvar = $FayetIliopoulosVar;
     simpF = FullSimplify[#, Element[FIvar[_], Reals] ] &;
     {ff, td, KC} = {FastForward[W], ToricDiagram[W], KahlerChambers[W]};
+    G = Length[ ff["QDb"] ];
     subQReps = KeyMap[First]@SubQuiverRepresentations[W];
     F = Sort@VertexList[Values@QuiverFromFields@W];
     simpT = SimplifyThetaCondition[F];

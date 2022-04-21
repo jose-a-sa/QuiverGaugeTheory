@@ -87,7 +87,7 @@ handlePotential[W_?PotentialQ, qPos : ({(_Integer|{__Integer})..}|Automatic) : A
       P = PerfectMatchingMatrix[W];
       fieldsPM = Map[
         (Times @@ Power[Keys@td, #] &),
-        AssociationThread[Fields@W, P]
+        AssociationThread[FieldCases@W, P]
       ];
       {
         "ToricDiagram" -> td,
@@ -185,7 +185,7 @@ Model /: MakeBoxes[q : Model[key_?ModelKeyExistsQ], fmt : (StandardForm | Tradit
     potentialBox = handleBox["Potential: ", Lookup["Potential"]@data, Identity,
       ImageSize -> UpTo[520] ];
     toricQBox = handleBox["ToricPotentialQ: ", Lookup["Potential"]@data, ToricPotentialQ];
-    noFieldsBox = handleBox["No. Fields: ", Lookup["Potential"]@data, Length@*Fields];
+    noFieldsBox = handleBox["No. FieldCases: ", Lookup["Potential"]@data, Length@*FieldCases];
     miniQuiver = QuiverGraph[
       Lookup["QuiverPositioning"]@data, Lookup["Quiver"]@data,
       ImageSize -> UpTo[130], 

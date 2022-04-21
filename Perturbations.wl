@@ -66,7 +66,7 @@ MassShiftRules[coef_, restriction_ : (0<=#<=1 &)] :=
   MassShiftRules[#, coef, restriction] &;
 MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] := 
   Module[{vars, q, rule, sol, fields},
-    fields = Fields@W;
+    fields = FieldCases@W;
     vars = fields/.{X -> q};
     rule = Thread[fields -> Power[coef,vars]*fields];
     sol = Last@FindInstance[ And[

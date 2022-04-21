@@ -10,6 +10,7 @@ QuiverEdgesQ::usage = "";
 FieldsToEdges::usage = "";
 FieldsToTaggedEdges::usage = "";
 QuiverFromFields::usage = "";
+RelabelFieldMultiplicity::usage = "";
 QuiverCycles::usage = "";
 QuiverPathToFields::usage = "";
 GaugeInvariantMesons::usage = "";
@@ -51,7 +52,19 @@ FieldsToTaggedEdges[expr_] :=
 
 
 SyntaxInformation[QuiverFromFields] = {"ArgumentsPattern" -> {_}};
-QuiverFromFields[expr_] := AssociationMap[FieldsToEdges, Fields@expr];
+QuiverFromFields[expr_] := AssociationMap[FieldsToEdges, FieldCases@expr];
+
+
+
+SyntaxInformation[RelabelFieldMultiplicity] = {"ArgumentsPattern" -> {_}};
+RelabelFieldMultiplicity[W_?PotentialQ] :=
+  Module[{relabelR},
+    relabelR = Join @@ KeyValueMap[
+      {k, v} |-> MapIndexed[#1 -> X[First@k, Last@k, First@#2] &, Sort@v],
+      GroupBy[Normal@QuiverFromFields[W], Last -> First]
+    ];
+    Simplify[W /. relabelR]
+  ];
 
 
 

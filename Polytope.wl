@@ -142,21 +142,24 @@ DualPolytope[pts_?ReflexivePolytopeQ] :=
 
 SyntaxInformation[NormalizePolytope] = {"ArgumentsPattern" -> {_}};
 NormalizePolytope[pt_?PolytopeQ] :=
-  Module[{c0, sortV, glMs, newP, polyAngle, min, rules, vert},
+  Module[{c0, sortV, glMs, newP, polyAngle, min, rules, vert, newP2},
     vert = PolytopeVertices[pt];
     c0 = Round@If[vert[[2]] == {}, PolytopeCentroid[pt], vert[[2]]//Mean ];
     newP = Map[# - c0 &, pt];
-    polyAngle[pts_?MatrixQ] := (VectorAngle[#1 - #2, #3 - #2] &) @@@ 
-      Partition[RotateRight@pts, 3, 1, {1, 1}];
+    polyAngle[pts_?MatrixQ] := Association[(#2 -> VectorAngle[#1 - #2, #3 - #2] &)
+      @@@ Partition[RotateRight@pts, 3, 1, {1, 1}]
+    ];
     sortV = Block[{ex, int, bd, ang},
       {ex, int, bd} = PolytopeVertices[#];
       ang = polyAngle[ex];
       {
         Total[EuclideanDistance @@@ Partition[ex, 2, 1, {1, 1}] ], 
-        Abs@Apply[Subtract]@MinMax@ang,
-        Total@Map[z |-> z.z, #], 
+        Abs@Apply[Subtract]@MinMax@Values@ang,
+        Total@Map[z |-> z.z, #],
+        {-1, 1}.MinMax[First /@ bd],
         -Values@KeySort@CountsBy[bd, First], 
-        -Values@KeySort@CountsBy[bd, Last]
+        -Values@KeySort@CountsBy[bd, Last],
+        -KeyValueMap[#2*{Last@#1,First@#1} &]@KeySortBy[ang, Last]
       }
     ] &;
     glMs = Select[
@@ -172,7 +175,10 @@ NormalizePolytope[pt_?PolytopeQ] :=
         Thread[newP -> Last@#], 
         HoldPattern[Rule][x_, x_]
       ] &, min];
-    newP /. First@Keys@KeySortBy[rules, Length]
+    newPt = newP /. First@Keys@KeySortBy[rules, Length];
+    vert = PolytopeVertices[newPt];
+    c0 = Floor@If[vert[[2]] == {}, PolytopeCentroid[newPt], vert[[2]]//Mean];
+    Map[# - c0 &, newPt]
   ];
 
 
@@ -240,7 +246,7 @@ ZigZagPaths[W_?ToricPotentialQ] :=
     td = ToricDiagram[W];
     P = PerfectMatchingMatrix[W];
     pms = AssociationThread[Keys[td], 
-      (DeleteCases[Fields[W]^#, 1] & /@ Transpose@P)];
+      (DeleteCases[FieldCases[W]^#, 1] & /@ Transpose@P)];
     pmGroups = Last@PolytopeVertices[Values@td] /. 
       GroupBy[Normal@td, Last -> First];
     pmDiffs = Splice@*Tuples /@ Partition[pmGroups, 2, 1, {1, 1}];
@@ -774,7 +780,7 @@ AMaximization[pt_?PolytopeQ] :=
   ];
 AMaximization[W_?PotentialQ] :=
   Module[{fs, fp, r, R, t, h, cond, linSol, trialA, maxF, sol},
-    fs = Fields[W];
+    fs = FieldCases[W];
     fp = FieldProducts[W];
     If[AnyTrue[fp, Not@*MesonQ],
       Message[Mesons::fperr, SelectFirst[Not@*MesonQ]@fp]; 

@@ -29,10 +29,10 @@ $nB = \[FormalB];
 SyntaxInformation[PerfectMatchingMatrix] = {"ArgumentsPattern" -> {_}};
 PerfectMatchingMatrix[W_?ToricPotentialQ] :=
   Module[{k, fs, pmList, a = $a},
-    fs = Fields[W];
+    fs = FieldCases[W];
     k = KasteleynMatrix[W, {1, 1}];
     pmList = ReplaceAll[a -> Identity]@MonomialList[
-      Expand@Permanent[k], a/@Fields@W];
+      Expand@Permanent[k], a/@FieldCases@W];
     If[Dimensions[k] == {1,1}, pmList = List /@ pmList];
     Boole@Outer[
       MemberQ[#2, #1] &, fs, (Alternatives @@@ pmList), 1
@@ -43,7 +43,7 @@ PerfectMatchingMatrix[W_?ToricPotentialQ] :=
 SyntaxInformation[PerfectMatchings] = {"ArgumentsPattern" -> {_}};
 PerfectMatchings[W_?ToricPotentialQ] :=
   Module[{fs, pmV, P},
-    fs = Fields[W];
+    fs = FieldCases[W];
     pmV = Keys@ToricDiagram[W];
     P = PerfectMatchingMatrix[W];
     AssociationThread[pmV, 
@@ -61,7 +61,7 @@ KasteleynMatrix[W_?ToricPotentialQ, {1|1., 1|1.}] :=
     sp = ExpandAll@If[AbelianPotentialQ@W,
       NonAbelianizeMesons[W], W];
     If[sp === $Failed, Return[$Failed] ];
-    fs = Fields[sp];
+    fs = FieldCases[sp];
     terms = GroupBy[
       Cases[sp, HoldPattern[Times][x_.,c_?FieldProductQ] :> {x, c}],
       First -> Last
@@ -81,7 +81,7 @@ KasteleynMatrix[W_?ToricPotentialQ, {x0_, y0_}] :=
     If[sp === $Failed, Return[$Failed] ];
     td = ToricDiagram[W];
     P = PerfectMatchingMatrix[W];
-    fs = Fields[sp];
+    fs = FieldCases[sp];
     fieldPMwind = AssociationThread[
       Sort@DeleteCases[fs^#, 1] & /@ Transpose[P], 
       Values@td];
@@ -94,8 +94,8 @@ KasteleynMatrix[W_?ToricPotentialQ, {x0_, y0_}] :=
       terms[1], terms[-1], 1
     ];
     monExp = First /@ GroupBy[
-      MonomialList[Expand@Permanent[k], a/@Fields@W],
-      Fields -> (Exponent[#,{x,y}]&)
+      MonomialList[Expand@Permanent[k], a/@FieldCases@W],
+      FieldCases -> (Exponent[#,{x,y}]&)
     ];
     solH1 = Last@Solve@KeyValueMap[(Sort[#1] /. fieldPMwind) == #2 &, monExp];
     solH2 = Last@FindInstance[
@@ -129,7 +129,7 @@ edgeCentering := ReplaceAll[RuleDelayed[
 kasteleynToEdges[kast_, Op_ : {0, 0}] :=
   Module[{dK, matMon, assoc},
     dK = Dimensions[kast];
-    matMon = MonomialList[Expand@kast, $a/@Fields@kast];
+    matMon = MonomialList[Expand@kast, $a/@FieldCases@kast];
     assoc = KeyDrop[{0, 0.}]@Flatten@MapThread[
       {x, y} |-> (Rule[#, x] & /@ y),
       {Array[{##} &, dK], matMon}, 2];
@@ -137,7 +137,7 @@ kasteleynToEdges[kast_, Op_ : {0, 0}] :=
       UndirectedEdge[
         $nW[First@#2, Op], 
         $nB[Last@#2, Op + Exponent[#1,{$x,$y}] ] 
-      ] -> First@Fields[#1] &, 
+      ] -> First@FieldCases[#1] &, 
       assoc
     ]
   ];
@@ -234,7 +234,7 @@ Options[BraneTiling] = {
   "SkewTiling" -> Automatic,
   "ScaleTiling" -> Automatic,
   "TransformMatrix" -> Automatic,
-  "Embedding" -> "SpringEmbedding",
+  "Embedding" -> "SpringElectricalEmbedding",
   "EmbeddingRange" -> Automatic,
   "TranslateTiling" -> Automatic
 };
@@ -278,7 +278,7 @@ BraneTiling[kast_?MatrixQ, opts: OptionsPattern[BraneTiling] ] :=
       DeleteCases[_?AcyclicGraphQ]@ConnectedGraphComponents[
         Keys@faceSelF[#]@Apply[Join]@Flatten@edgeRng
       ] -> # &,
-      Sort@DeleteDuplicates@Flatten[List @@@ Fields@kast]
+      Sort@DeleteDuplicates@Flatten[List @@@ FieldCases@kast]
     ] // KeyMap[ First@*FindCycle@*EdgeList@*Last@*SortBy[Count[ndFDPatt]@*VertexList] ];
 
     potWTerm = QuiverFromFields@DeleteCases[First[kast]/.{$x|$y->1,$a->Identity}, 0] //
@@ -411,7 +411,7 @@ tilingEdgeGraphics[edgesA_, opts : OptionsPattern[BraneTilingGraph] ] :=
       Directive[None], Flatten@Directive@#1 ] &;
     rules = Cases[Normal@opt, HoldPattern[Rule][f_?(Not@*FreeQ[X]), d_] :> If[
       FreeQ[f,_?FieldQ], Rule[f, dirParse@d], 
-      Splice@Thread[Fields[{f}]-> dirParse@d] ]
+      Splice@Thread[FieldCases[{f}]-> dirParse@d] ]
     ];
     Switch[Normal@opt,
       Automatic | All | True, 

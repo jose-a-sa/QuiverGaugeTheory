@@ -11,7 +11,7 @@ $RedefinitionVars = Alternatives@@
 
 X::usage = "";
 Untrace::usage = "";
-Fields::usage = "";
+FieldCases::usage = "";
 FieldQ::usage = "";
 FieldPowerQ::usage = "";
 FieldProducts::usage = "";
@@ -29,10 +29,10 @@ PotentialCoefficientTestQ::usage = "";
 PotentialQ::usage = "";
 AbelianPotentialQ::usage = "";
 NonAbelianPotentialQ::usage = "";
-FEquationsTrivialQ::usage = "";
 ToricPotentialQ::usage = "\
 ToricPotentialQ[W] yields True if the F-terms for the superpotential W result\ 
 in exactly 2 monominals with opposite coefficients \[PlusMinus]1.";
+IntegrateOutMassTerms::usage = "";
 ToricPotentialTeXForm::usage = "";
 
 
@@ -83,8 +83,8 @@ AbelianQ[x_] := FreeQ[ExpandAll@x, _?NonAbelianFieldProductQ];
 
 
 
-SyntaxInformation[Fields] = {"ArgumentsPattern" -> {_}};
-Fields[W_] := SortBy[
+SyntaxInformation[FieldCases] = {"ArgumentsPattern" -> {_}};
+FieldCases[W_] := SortBy[
   UniqueCases[ ExpandAll@W, _?FieldQ ],
   Apply[DirectedEdge]
 ];
@@ -165,7 +165,7 @@ NonAbelianPotentialQ[_] := False;
 SyntaxInformation[FTerms] = {"ArgumentsPattern" -> {_, _.}};
 FTerms[W_?PotentialQ, f_: Identity] := 
   ExpandAll@Collect[
-    ExpandAll@DG[W, {Fields@W}], 
+    ExpandAll@DG[W, {FieldCases@W}], 
     (_?FieldProductQ) | (_?FieldQ), 
     f@*Simplify
   ];
@@ -181,7 +181,7 @@ FTermsConstraint[W_?PotentialQ, f_: Identity, g_: Plus] :=
 SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_}};
 FTermsTable[W_?PotentialQ] := 
   Grid[Transpose[{
-    Fields@W,
+    FieldCases@W,
     FTerms[W, Highlighted],
     Simplify@FTermsConstraint[W], 
     Simplify@FTermsConstraint[W, Abs]
@@ -199,15 +199,14 @@ ToricPotentialQ[_] := False
 
 
 
-SyntaxInformation[FEquationsTrivialQ] = {"ArgumentsPattern" -> {_, _.}};
-FEquationsTrivialQ[W_?PotentialQ][diff_] := 
-  FEquationsTrivialQ[diff, W];
-FEquationsTrivialQ[diff_, W_?PotentialQ] :=
-  Module[{grB, vars},
-    Message[Abelianize::warn];
-    vars = Fields@W;
-    grB = GroebnerBasis[FTerms@Abelianize@W, vars];
-    PossibleZeroQ@Last@PolynomialReduce[Abelianize@diff, grB, vars]
+SyntaxInformation[IntegrateOutMassTerms] = {"ArgumentsPattern" -> {_}};
+IntegrateOutMassTerms[W_?PotentialQ] :=
+  Module[{massF},
+    massF = FieldCases@Select[FieldProducts[W], Length[#] == 2 &];
+    If[Length@massF > 0,
+      (W /. Last[Solve[DG[W, {massF}] == 0, massF], {}]) // Expand,
+      W
+    ]
   ];
 
 
