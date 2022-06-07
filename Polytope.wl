@@ -752,7 +752,7 @@ pqWebPlot[ pq:{_,_,_}?pqWebQ, opts: OptionsPattern[pqWebPlot] ] :=
 
 
 
-SyntaxInformation[AMaximization] = {"ArgumentsPattern" -> {_}};
+SyntaxInformation[AMaximization] = {"ArgumentsPattern" -> {_, _., _.}};
 AMaximization::arg = "Argument is not a valid potential or toric diagram."
 AMaximization[td : KeyValuePattern[{}]?ToricDiagramQ] := MapAt[
     Map[ReplaceAll[#], td] &, 
@@ -778,34 +778,44 @@ AMaximization[pt_?PolytopeQ] :=
     sol = Maximize[{maxTerm, condTerm}, Values@charges];
     {RootReduce@First@sol, ReplaceAll[RootReduce@Last@sol] /@ Append[charges,charges0]}
   ];
+AMaximization[q_?EdgeListQ, cyc_List ] :=
+  AMaximization[q, cyc, AssociationThread[VertexList@q, 1] ];
+AMaximization[q_?EdgeListQ, cyc_List, ranks: KeyValuePattern[_->_Integer] ] :=
+  Module[{rk, rkQ, R, t, h, cond, linSol, trialA, vars, sol},
+    rk = Association[ranks];
+    rkQ = AssociationMap[Apply[Times]@*Map[rk], q];
+    h = GroupBy[q, First -> (rkQ[#] (R[#] - 1) &), Total];
+    t = GroupBy[q, Last -> (rkQ[#] (R[#] - 1) &), Total];
+    cond = Join[
+      KeyValueMap[2 rk[#1]^2 + Total[#2] == 0 &]@Merge[{h, t}, Identity],
+      (Total[#] == 2 &)@*Map[R] /@ cyc
+    ];
+    linSol = First@Solve[cond];
+    trialA = 9/32*(Total[rk^2] + Total@Map[rkQ[#]*(R[#]-1)^3 &, q]/.linSol) // ExpandAll;
+    vars = Variables@trialA;
+    sol = TimeConstrained[
+      RootReduce@Maximize[{trialA, 0 <= vars <= 2}, vars], 
+      5, 
+      NMaximize[{trialA, 0 <= vars <= 2}, vars]
+    ];
+    {First@sol, AssociationMap[ 
+      ReplaceAll[Union[(linSol/.Last@sol), Last@sol] ]@*R, q]}
+  ];
 AMaximization[W_?PotentialQ] :=
-  Module[{fs, fp, r, R, t, h, cond, linSol, trialA, maxF, sol},
-    fs = FieldCases[W];
+  AMaximization[W, AssociationThread[VertexList@Values@QuiverFromFields@W, 1] ];
+AMaximization[W_?PotentialQ, ranks: KeyValuePattern[_->_Integer] ] :=
+  Module[{fs, q, cyc, sol},
     fp = FieldProducts[W];
     If[AnyTrue[fp, Not@*MesonQ],
       Message[Mesons::fperr, SelectFirst[Not@*MesonQ]@fp]; 
       Return[$Failed]
     ];
-    R = Association@MapIndexed[#1 -> r@First@#2 &, fs];
-    {h, t} = {GroupBy[fs, First -> R], GroupBy[fs, Last -> R]};
-    cond = Join[
-      Values@Merge[{h, t}, 
-        Apply[Total[#1 - 1] + Total[#2 - 1] + 2 == 0 &]
-      ],
-      (Total[#] == 2 &)@*Map[R]@*List @@@ fp
-    ];
-    linSol = First@Solve[cond];
-    trialA[c_] := 9/32*((c - 1)^3 - (c - 1));
-    maxF = ReplaceAll[linSol]@Total[trialA /@ R];
-    sol = TimeConstrained[
-      RootReduce@Maximize[{maxF, 0<Variables@maxF<2}, Variables@maxF],
-      3,
-      NMaximize[{maxF, 0<Variables@maxF<2}, Variables@maxF]
-    ];
-    {First@sol, RootReduce@*ReplaceAll[Last@sol]@*ReplaceAll[linSol] /@ R}
+    q = QuiverFromFields[W];
+    cyc = Apply[DirectedEdge, List @@@ fp, {2}];
+    sol = AMaximization[Values@q, cyc, ranks];
+    {First@sol, ReplaceAll[Last@sol] /@ q}
   ];
 AMaximization[_] := Message[AMaximization::arg];
-
 
 
 End[]

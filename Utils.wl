@@ -98,7 +98,7 @@ AssociationDepth[a_ : KeyValuePattern[{}] ] :=
 
 
 
-SyntaxInformation[AssociationFlatten] = {"ArgumentsPattern" -> {_,_.}};
+SyntaxInformation[AssociationFlatten] = {"ArgumentsPattern" -> {_}};
 AssociationFlatten[a_ : KeyValuePattern[{}] ] :=
   Module[{n, flatten2, res},
     n = AssociationDepth[a];
