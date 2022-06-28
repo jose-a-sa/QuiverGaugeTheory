@@ -174,7 +174,7 @@ FTerms[W_?PotentialQ, f_: Identity] :=
 
 SyntaxInformation[FTermsConstraint] = {"ArgumentsPattern" -> {_, _., _.}};
 FTermsConstraint[W_?PotentialQ, f_: Identity, g_: Plus] := 
-  g@@@ReplaceAll[(_?FieldQ) -> 1][ List @@@ FTerms[W, f] ];
+  g @@@ ReplaceAll[(_?FieldQ) -> 1]@Map[Flatten@*List]@ReplaceAll[Plus -> List]@Expand@FTerms[W, f];
 
 
 

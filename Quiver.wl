@@ -23,6 +23,9 @@ ReorderLoopEdges::usage = "";
 NonAbelianizeMesons::usage = "";
 FindQuiverPaths::usage = "";
 QuiverGraph::usage = "";
+MutateQuiver::usage = "";
+MutatePotential::usage = "";
+FindAllToricDuals::usage = ""; 
 
 
 $QuiverRotationByDegree = {3 -> Pi/2, 4 -> Pi/4, 5 -> Pi/10, 7 -> 3 Pi/14};
@@ -338,6 +341,130 @@ parseArrowheads[edges_, s: (_?NumericQ): 0.04, p: (_?NumericQ | {_?NumericQ,_?Nu
         Table[{+s,f+(2*k-#3+1)*2*s/3}, {k,0,#3-1}]
       }] &, {1}] //
     KeyValueMap[shapeF]
+  ];
+
+
+
+MutateQuiver[k_][x: {(_?GraphQ | _?EdgeListQ), ({__Integer} | KeyValuePattern[_ -> _Integer])} | _?GraphQ | _?EdgeListQ] :=
+  MutateQuiver[x, k];
+MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, ks_List] :=
+  Message[MutateQuiver::verterr, EdgeList@q, ks, "vertices"] /; (!SubsetQ[VertexList@q, ks]);
+MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, k: Except[_List] ] :=
+  Message[MutateQuiver::verterr, EdgeList@q, k, "vertex"] /; (!MemberQ[VertexList@q, k]);
+MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: {__Integer}}, k_] :=
+  Message[MutateQuiver::rkerr, ranks, Length@VertexList@q] /; UnsameQ[Length@ranks, Length@VertexList@q];
+MutateQuiver[q: (_?GraphQ | _?EdgeListQ), k_] :=
+  MutateQuiver[{q, AssociationThread[VertexList@Graph@q, 1]}, k];
+MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: {__Integer}}, k_] :=
+  MutateQuiver[{Graph@q, AssociationThread[VertexList@Graph@q, ranks]}, k];
+MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, ks_List] :=
+  Fold[MutateQuiver, {Graph@q, ranks}, ks];
+MutateQuiver[{q : (_?GraphQ | _?EdgeListQ), ranks : KeyValuePattern[_ -> _Integer]}, k_] :=
+  Module[{a, V, i, n0, col, row, rk},
+    V = VertexList[q];
+    a = Normal@AdjacencyMatrix[q];
+    i = VertexIndex[q, k];
+    n0 = ranks[k];
+    rk = Append[ranks, k -> 0];
+    {col, row} = {a[[All, i]], a[[i, All]]};
+    a[[All, i]] = row;
+    a[[i, All]] = col;
+    AppendTo[rk, k -> (Total[Map[rk, V]*row] - n0)];
+    a = a + Outer[Times, col, row];
+    a = Map[Max[0, #] &, a - Transpose[a], {2}];
+    Return[{EdgeList@AdjacencyGraph[V, a], AssociationMap[rk, Keys@ranks]}];
+  ];
+MutateQuiver::rkerr = "The rank vector `1` does not have size `2`.";
+MutateQuiver::verterr = "The `3` `2` does not appear in the graph `1`.";
+
+
+
+MutatePotential[k_][x: {_?PotentialQ, ({__Integer} | KeyValuePattern[_ -> _Integer])} | _?PotentialQ] :=
+  MutatePotential[x, k];
+MutatePotential[{W_?PotentialQ, ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, ks_List] :=
+  Message[MutatePotential::verterr, W, ks, "group labels"] /; (!SubsetQ[VertexList@Values@QuiverFromFields@W, ks]);
+MutatePotential[{W_?PotentialQ, ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, k: Except[_List] ] :=
+  Message[MutatePotential::verterr, W, k, "group label"] /; (!MemberQ[VertexList@Values@QuiverFromFields@W, k]);
+MutatePotential[{W_?PotentialQ, ranks: {__Integer}}, k_] :=
+  Message[MutatePotential::rkerr, ranks, Length@VertexList@Values@QuiverFromFields@W] /;
+    UnsameQ[Length@ranks, Length@VertexList@Values@QuiverFromFields@W];
+MutatePotential[{W_?PotentialQ, ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, ks_List] :=
+  Fold[MutatePotential, {W, ranks}, ks];
+MutatePotential[{W_?PotentialQ, ranks: {__Integer}}, k_] :=
+  MutatePotential[{W, AssociationThread[VertexList@Values@QuiverFromFields@W, ranks]}, k];
+MutatePotential[W_?PotentialQ, k_] :=
+  MutatePotential[{W, KeySort@AssociationThread[VertexList@Values@QuiverFromFields@W, 1]}, k];
+MutatePotential[{W_?PotentialQ, ranks: KeyValuePattern[_ -> _Integer]}, k_] :=
+  Module[{f, in, out, comp0, comp, rep, revInOut, newMes, newW, zz, yy, startI},
+    f = FieldCases@W;
+    {in, out} = {Cases[f, Subscript[X, _][_, k] ], Cases[f, Subscript[X, _][k, _] ]};
+    comp = Association@Flatten[ Thread /@ KeyValueMap[
+      Table[(Subscript[X, zz@l] @@ #1), {l, Length@#2}] -> #2 &,
+      GroupBy[Tuples[{in, out}], Replace[{Subscript[X, _][i_, _], Subscript[X, _][_, j_]} :> {i, j}] ] 
+    ] ];
+    rep = KeyValueMap[
+      ToCyclicPattern@HoldPattern[CenterDot][l___, First@#2, Last@#2, r___] :> CenterDot[l, #1, r] &,
+      comp
+    ];
+    revInOut = Flatten@Map[ KeyValueMap[
+        Thread[#2 -> Table[Subscript[X, yy@l] @@ #1, {l, Length@#2}] ] &
+      ]@*GroupBy[ Apply[Reverse@*List] ], 
+      {out, in}
+    ];
+    newMes = KeyValueMap[
+      Simplify[ CenterDot @@ Insert[#2, #1, 2] ] &, 
+      ReplaceAll[revInOut] /@ comp
+    ];
+    startI = 1 + Max@Union[Cases[W, \[FormalZeta][i_] :> i, Infinity], {0}];
+    newW = ReplaceAll[rep]@W + Array[\[FormalZeta], Length@newMes, startI].newMes // Expand;
+    {
+      RelabelFieldMultiplicity@IntegrateOutMassTerms[newW],
+      KeySort@Last@MutateQuiver[{DirectedEdge @@@ f, ranks}, k]
+    }
+  ];
+MutatePotential::rkerr = "The rank vector `1` does not have size `2`.";
+MutatePotential::verterr = "The `3` `2` does not appear in the potential `1`.";
+
+
+
+FindAllToricDuals[W_?ToricPotentialQ, maxIter: _Integer?Positive : 15] :=
+  Module[{toQuiver, squareFaces, resolveToric, mutateSquareFaces, sameModelQ, visited, isomR},
+    toQuiver = Values@*QuiverFromFields;
+    sameModelQ[w1_][w2_] := sameModelQ[w1, w2];
+    sameModelQ[w1_, w2_] := Or[
+      Length@FindGraphIsomorphism[Graph@toQuiver@w1, Graph@toQuiver@w2] > 0,
+      Length@FindGraphIsomorphism[Graph@toQuiver@w1, Graph@Map[Reverse]@toQuiver@w2] > 0
+    ];
+    squareFaces = Extract[VertexList@#, Position[Normal@IncidenceMatrix@#,
+       l_List /; (Count[l, 1] == Count[l, -1] == 2), {1}]
+    ] &;
+    resolveToric = (# /. Last[Solve[FTermsConstraint[#] == 0], {}] &);
+    mutateSquareFaces[pot_] := Thread@UndirectedEdge[pot, DeleteDuplicates[
+      (resolveToric@First@MutatePotential[pot, #] &) /@ squareFaces[toQuiver@pot],
+      sameModelQ]
+    ];
+    visited = {};
+    FixedPoint[
+      Function[g, 
+        Block[{wList, newE, newV},
+          wList = DeleteCases[VertexList@g, Alternatives @@ visited];
+          visited = Union[visited, wList];
+          newE = Union[EdgeList@g, Flatten[mutateSquareFaces /@ wList] ];
+          newV = Union[VertexList@g, VertexList@newE];
+          isomR = Flatten@MapIndexed[
+            Thread[Select[sameModelQ@#1]@Take[newV, UpTo@First@#2] -> #1] &,
+            Rest@newV
+          ];
+          Graph[
+            DeleteDuplicates[newV //. isomR],
+            DeleteCases[DeleteDuplicates[Sort /@ (newE //. isomR)], 
+              HoldPattern[UndirectedEdge][z_, z_] ] 
+          ]
+        ] 
+      ],
+      Graph[{Simplify@W}, {}],
+      maxIter
+    ]
   ];
 
 
