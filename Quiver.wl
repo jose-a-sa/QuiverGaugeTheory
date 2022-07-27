@@ -1,5 +1,9 @@
 (* ::Package:: *)
 
+Unprotect["QuiverGaugeTheory`Quiver`*"];
+ClearAll["QuiverGaugeTheory`Quiver`*"];
+
+
 BeginPackage["QuiverGaugeTheory`Quiver`", {
   "QuiverGaugeTheory`Utils`",
   "QuiverGaugeTheory`Core`"
@@ -35,28 +39,27 @@ $QuiverVertexGroupingSpread = Pi/20;
 Begin["`Private`"]
 
 
-
 SyntaxInformation[QuiverEdgesQ] = {"ArgumentsPattern" -> {_}};
 QuiverEdgesQ[KeyValuePattern[(_?FieldQ) -> _DirectedEdge] ] := True;
-QuiverEdgesQ[_] := False
-
+QuiverEdgesQ[_] := False;
+SetAttributes[QuiverEdgesQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FieldsToEdges] = {"ArgumentsPattern" -> {_}};
 FieldsToEdges[expr_] :=
   ReplaceAll[{Subscript[X, _] -> DirectedEdge}]@expr;
-
+SetAttributes[FieldsToEdges, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FieldsToTaggedEdges] = {"ArgumentsPattern" -> {_}};
 FieldsToTaggedEdges[expr_] :=
   ReplaceAll[{Subscript[X, k_][i_,j_] :> DirectedEdge[i, j, k]}]@expr;
-
+SetAttributes[FieldsToTaggedEdges, {Protected, ReadProtected}];
 
 
 SyntaxInformation[QuiverFromFields] = {"ArgumentsPattern" -> {_}};
 QuiverFromFields[expr_] := AssociationMap[FieldsToEdges, FieldCases@expr];
-
+SetAttributes[QuiverFromFields, {Protected, ReadProtected}];
 
 
 SyntaxInformation[RelabelFieldMultiplicity] = {"ArgumentsPattern" -> {_}};
@@ -68,7 +71,7 @@ RelabelFieldMultiplicity[W_?PotentialQ] :=
     ];
     Simplify[W /. relabelR]
   ];
-
+SetAttributes[RelabelFieldMultiplicity, {Protected, ReadProtected}];
 
 
 SyntaxInformation[QuiverCycles] = {"ArgumentsPattern" -> {_, _}};
@@ -89,8 +92,8 @@ QuiverCycles[edges_?EdgeListQ, {kmin_Integer, kmax: _Integer|Infinity}] :=
     cyc1 = Cases[edges, (DirectedEdge | UndirectedEdge)[i_, i_, ___] ] //
       DeleteDuplicates // Map[List];
     If[kmin <= 1 <= kmax, Join[cyc1, cyc2up], cyc2up]
-  ]
-
+  ];
+SetAttributes[QuiverCycles, {Protected, ReadProtected}];
 
 
 SyntaxInformation[QuiverPathToFields] = {"ArgumentsPattern" -> {_, _.}};
@@ -107,7 +110,7 @@ QuiverPathToFields[path_?EdgeListQ, edges_?QuiverEdgesQ] :=
     assoc = GroupBy[Normal@edges, Last -> First];
     path // ReplaceAll[assoc] // Outer[CenterDot, Sequence@@#1] & // Flatten
   ];
-
+SetAttributes[QuiverPathToFields, {Protected, ReadProtected}];
 
 
 SyntaxInformation[GaugeInvariantMesons] = {"ArgumentsPattern" -> {_, _}};
@@ -116,7 +119,7 @@ GaugeInvariantMesons[edges: (_?QuiverEdgesQ | _?EdgeListQ),
     Flatten@QuiverPathToFields[QuiverCycles[edges, degspec], edges];
 GaugeInvariantMesons[ edges: (_?QuiverEdgesQ | _?EdgeListQ), deg_] := 
   Flatten@QuiverPathToFields[QuiverCycles[edges, deg], edges];
-
+SetAttributes[GaugeInvariantMesons, {Protected, ReadProtected}];
 
 
 SyntaxInformation[QuiverIncidenceMatrix] = {"ArgumentsPattern" -> {_}};
@@ -125,13 +128,8 @@ QuiverIncidenceMatrix[W_?PotentialQ] :=
 QuiverIncidenceMatrix[edges_?QuiverEdgesQ] := 
   QuiverIncidenceMatrix[Values@edges];
 QuiverIncidenceMatrix[edges_?EdgeListQ] := 
-  Module[{},
-    IncidenceMatrix@Graph[
-      Sort@VertexList@edges, 
-      edges
-    ] // Normal[-#] & 
-  ];
-
+  Normal[ -IncidenceMatrix@Graph[Sort@VertexList@edges, edges] ];
+SetAttributes[QuiverIncidenceMatrix, {Protected, ReadProtected}];
 
 
 SyntaxInformation[MesonQ] = {"ArgumentsPattern" -> {_}};
@@ -144,10 +142,10 @@ MesonQ[e_?EdgeListQ] := AllTrue[
     (Count[#, 1] == Count[#, -1]) && (Count[#, 1] > 0) &
   ];
 MesonQ[_] := False;
+SetAttributes[MesonQ, {Protected, ReadProtected}];
 
 
-
-SyntaxInformation[MesonQ] = {"ArgumentsPattern" -> {_}};
+SyntaxInformation[OrderedMesonQ] = {"ArgumentsPattern" -> {_}};
 OrderedMesonQ[c_CenterDot?FieldProductQ] :=
   OrderedMesonQ@FieldsToTaggedEdges[
     (List @@ c) /. {Power -> Splice@*ConstantArray}
@@ -156,19 +154,15 @@ OrderedMesonQ[e_?EdgeListQ] :=
   (SameQ[#1, RotateRight@#2] &) @@ 
     Transpose@Map[Take[List @@ #, 2] &, e];
 OrderedMesonQ[_] := False;
-
+SetAttributes[OrderedMesonQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[GaugeInvariantQ] = {"ArgumentsPattern" -> {_}};
-GaugeInvariantQ[expr_] := 
-  AllTrue[FieldProducts@expr, OrderedMesonQ];
-
+GaugeInvariantQ[expr_] := AllTrue[FieldProducts@expr, OrderedMesonQ];
+SetAttributes[GaugeInvariantQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ReorderLoopEdges] = {"ArgumentsPattern" -> {_}};
-ReorderLoopEdges::noloop = "List of edges does not correspond to a cycle \
-of a composition of cycles.";
-ReorderLoopEdges::arg = "Argument does not correspond to a list of edges.";
 ReorderLoopEdges[e_List?MesonQ] :=
   Module[{incM, eeM, n, tree},
     n = Length[e];
@@ -188,15 +182,14 @@ ReorderLoopEdges[e_List?MesonQ] :=
       AnyTrue[ NestList[RotateLeft, #1, Length@#1], EqualTo@#2 ] &
     ]
   ];
-ReorderLoopEdges[e_List?EdgeListQ] := Message[ReorderLoopEdges::noloop];
-ReorderLoopEdges[_] := Message[ReorderLoopEdges::arg];
-
+ReorderLoopEdges[_List?EdgeListQ] := Null /; Message[ReorderLoopEdges::noloop];
+ReorderLoopEdges[_] := Null /; Message[ReorderLoopEdges::arg];
+ReorderLoopEdges::noloop = "List of edges does not correspond to a cycle of a composition of cycles.";
+ReorderLoopEdges::arg = "Argument does not correspond to a list of edges.";
+SetAttributes[ReorderLoopEdges, {Protected, ReadProtected}];
 
 
 SyntaxInformation[Mesons] = {"ArgumentsPattern" -> {_}};
-Mesons::fperr = "Field product `1` is not a meson.";
-Mesons::meserr = "Meson `1` cannot be written \
-as a unique single trace operator.";
 Mesons[expr_?(Not@*FreeQ[_?FieldQ])] :=
   Module[{mesonfp, edgeL},
     mesonfp = Select[MesonQ]@FieldProducts[expr];
@@ -210,11 +203,12 @@ Mesons[expr_?(Not@*FreeQ[_?FieldQ])] :=
       {2}]
     ]
   ];
-
+Mesons::fperr = "Field product `1` is not a meson.";
+Mesons::meserr = "Meson `1` cannot be written as a unique single trace operator.";
+SetAttributes[Mesons, {Protected, ReadProtected}];
 
 
 SyntaxInformation[NonAbelianizeMesons] = {"ArgumentsPattern" -> {_}};
-NonAbelianizeMesons::argfree = "Expression does not contain any fields.";
 NonAbelianizeMesons[expr_?(Not@*FreeQ[_?FieldQ])] :=
   Module[{fp, mes, newExpr},
     fp = FieldProducts[expr];
@@ -231,7 +225,8 @@ NonAbelianizeMesons[expr_?(Not@*FreeQ[_?FieldQ])] :=
     newExpr /. Map[First, mes]
   ];
 NonAbelianizeMesons[expr_] := expr /; Message[NonAbelianizeMesons::argfree];
-
+NonAbelianizeMesons::argfree = "Expression does not contain any fields.";
+SetAttributes[NonAbelianizeMesons, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FindQuiverPaths] = {"ArgumentsPattern" -> {_, _, _, _}};
@@ -242,15 +237,15 @@ FindQuiverPaths[e_?EdgeListQ, i_, j_, degspec:{ ({_Integer, _Integer}|{_Integer}
     _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
     _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
     _, Join @@ (FindQuiverPaths[e, i, j, #, All] & /@ SortBy[First]@degspec);
-  ]
+  ];
 FindQuiverPaths[e_?EdgeListQ, i_, j_, deg_] :=
   Switch[e,
     _?(FreeQ[i]), Missing["QuiverVertexAbsent", i],
     _?(FreeQ[j]), Missing["QuiverVertexAbsent", j],
     _, FindPath[e, i, j, deg, All] // 
       Map[BlockMap[Apply[DirectedEdge], #, 2, 1] &]
-  ]
-
+  ];
+SetAttributes[FindQuiverPaths, {Protected, ReadProtected}];
 
 
 Options[QuiverGraph] = Normal@Association@{
@@ -307,6 +302,8 @@ QuiverGraph[v: {(_Integer | {__Integer}) ..}, e_?EdgeListQ, opts: OptionsPattern
       EdgeShapeFunction -> edgeShapeF
     ]
   ];
+SetAttributes[QuiverGraph, {Protected, ReadProtected}];
+
 
 parseVertexGrouping[e_?EdgeListQ] :=
   Module[{adj, gr, v},
@@ -344,15 +341,14 @@ parseArrowheads[edges_, s: (_?NumericQ): 0.04, p: (_?NumericQ | {_?NumericQ,_?Nu
   ];
 
 
-
 MutateQuiver[k_][x: {(_?GraphQ | _?EdgeListQ), ({__Integer} | KeyValuePattern[_ -> _Integer])} | _?GraphQ | _?EdgeListQ] :=
   MutateQuiver[x, k];
-MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, ks_List] :=
-  Message[MutateQuiver::verterr, EdgeList@q, ks, "vertices"] /; (!SubsetQ[VertexList@q, ks]);
-MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, k: Except[_List] ] :=
-  Message[MutateQuiver::verterr, EdgeList@q, k, "vertex"] /; (!MemberQ[VertexList@q, k]);
-MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: {__Integer}}, k_] :=
-  Message[MutateQuiver::rkerr, ranks, Length@VertexList@q] /; UnsameQ[Length@ranks, Length@VertexList@q];
+MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, ks_List] /; 
+  (!SubsetQ[VertexList@q, ks]) := Null /; Message[MutateQuiver::verterr, EdgeList@q, ks, "vertices"];
+MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, k: Except[_List] ] /;
+  (!MemberQ[VertexList@q, k]) := Null /; Message[MutateQuiver::verterr, EdgeList@q, k, "vertex"];
+MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: {__Integer}}, k_] /;
+  UnsameQ[Length@ranks, Length@VertexList@q] := Null /; Message[MutateQuiver::rkerr, ranks, Length@VertexList@q];
 MutateQuiver[q: (_?GraphQ | _?EdgeListQ), k_] :=
   MutateQuiver[{q, AssociationThread[VertexList@Graph@q, 1]}, k];
 MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: {__Integer}}, k_] :=
@@ -376,18 +372,17 @@ MutateQuiver[{q : (_?GraphQ | _?EdgeListQ), ranks : KeyValuePattern[_ -> _Intege
   ];
 MutateQuiver::rkerr = "The rank vector `1` does not have size `2`.";
 MutateQuiver::verterr = "The `3` `2` does not appear in the graph `1`.";
-
+SetAttributes[MutateQuiver, {Protected, ReadProtected}];
 
 
 MutatePotential[k_][x: {_?PotentialQ, ({__Integer} | KeyValuePattern[_ -> _Integer])} | _?PotentialQ] :=
   MutatePotential[x, k];
-MutatePotential[{W_?PotentialQ, ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, ks_List] :=
-  Message[MutatePotential::verterr, W, ks, "group labels"] /; (!SubsetQ[VertexList@Values@QuiverFromFields@W, ks]);
-MutatePotential[{W_?PotentialQ, ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, k: Except[_List] ] :=
-  Message[MutatePotential::verterr, W, k, "group label"] /; (!MemberQ[VertexList@Values@QuiverFromFields@W, k]);
-MutatePotential[{W_?PotentialQ, ranks: {__Integer}}, k_] :=
-  Message[MutatePotential::rkerr, ranks, Length@VertexList@Values@QuiverFromFields@W] /;
-    UnsameQ[Length@ranks, Length@VertexList@Values@QuiverFromFields@W];
+MutatePotential[{W_?PotentialQ, ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, ks_List] /; 
+  (!SubsetQ[VertexList@Values@QuiverFromFields@W, ks]) := Null /; Message[MutatePotential::verterr, W, ks, "group labels"];
+MutatePotential[{W_?PotentialQ, ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, k: Except[_List] ] /; 
+  (!MemberQ[VertexList@Values@QuiverFromFields@W, k]) := Null /; Message[MutatePotential::verterr, W, k, "group label"];
+MutatePotential[{W_?PotentialQ, ranks: {__Integer}}, k_] /; UnsameQ[Length@ranks, Length@VertexList@Values@QuiverFromFields@W] :=
+  Null /; Message[MutatePotential::rkerr, ranks, Length@VertexList@Values@QuiverFromFields@W];
 MutatePotential[{W_?PotentialQ, ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, ks_List] :=
   Fold[MutatePotential, {W, ranks}, ks];
 MutatePotential[{W_?PotentialQ, ranks: {__Integer}}, k_] :=
@@ -424,7 +419,7 @@ MutatePotential[{W_?PotentialQ, ranks: KeyValuePattern[_ -> _Integer]}, k_] :=
   ];
 MutatePotential::rkerr = "The rank vector `1` does not have size `2`.";
 MutatePotential::verterr = "The `3` `2` does not appear in the potential `1`.";
-
+SetAttributes[MutateQuiver, {Protected, ReadProtected}];
 
 
 FindAllToricDuals[W_?ToricPotentialQ, maxIter: _Integer?Positive : 15] :=
@@ -466,6 +461,7 @@ FindAllToricDuals[W_?ToricPotentialQ, maxIter: _Integer?Positive : 15] :=
       maxIter
     ]
   ];
+SetAttributes[FindAllToricDuals, {Protected, ReadProtected}];
 
 
 End[]

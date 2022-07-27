@@ -1,5 +1,9 @@
 (* ::Package:: *)
 
+Unprotect["QuiverGaugeTheory`Utils`*"];
+ClearAll["QuiverGaugeTheory`Utils`*"];
+
+
 BeginPackage["QuiverGaugeTheory`Utils`"]
 
 
@@ -9,6 +13,7 @@ FirstLast::usage = "";
 SymmetricDifference::usage = "";
 SelectDelete::usage = "";
 EdgeListQ::usage = "";
+AssociationDepth::usage = "";
 AssociationFlatten::usage = "";
 KeysByValueLength::usage = "";
 KeyValueReverse::usage = "";
@@ -39,112 +44,111 @@ EchoUniqueMessages::usage = "";
 Begin["`Private`"]
 
 
-
 SyntaxInformation[ContainsQ] = {"ArgumentsPattern" -> {_, _., _.}};
 ContainsQ[form_] := (Not@*FreeQ[form]);
 ContainsQ[expr_, y__] := (Not@FreeQ[expr, y]);
-
+SetAttributes[ContainsQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ApplyAt] = {"ArgumentsPattern" -> {_, _.}};
 ApplyAt[f_, levelspec_ : {0}] := 
   Apply[f, #, levelspec] &;
-
+SetAttributes[ApplyAt, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FirstLast] = {"ArgumentsPattern" -> {_}};
 FirstLast[expr_] := {First@expr,Last@expr};
+SetAttributes[FirstLast, {Protected, ReadProtected}];
 
 
-
-SyntaxInformation[SymmetricDifference] = {"ArgumentsPattern" -> {__}};
-SymmetricDifference[r__] := Complement[ Union[r], Intersection[r] ]
-
+If[Null === Definition[SymmetricDifference],
+  SyntaxInformation[SymmetricDifference] = {"ArgumentsPattern" -> {__}};
+  SymmetricDifference[r__] := Complement[ Union[r], Intersection[r] ];
+  SetAttributes[SymmetricDifference, {Flat, Protected, ReadProtected}];
+];
 
 
 SyntaxInformation[SelectDelete] = {"ArgumentsPattern" -> {_,_.,_.}};
 SelectDelete[crit_][list_] := SelectDelete[list, crit];
 SelectDelete[list_, crit_, n_ : Infinity] :=
   {Select[list, crit, n], Select[list, Not@*crit, n]};
-
+SetAttributes[SelectDelete, {Protected, ReadProtected}];
 
 
 SyntaxInformation[EdgeListQ] = {"ArgumentsPattern" -> {_}};
 EdgeListQ[expr_] := 
   MatchQ[expr, { (DirectedEdge[__]|UndirectedEdge[__]) .. }];
-
+SetAttributes[EdgeListQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[KeysByValueLength] = {"ArgumentsPattern" -> {_}};
 KeysByValueLength[a : KeyValuePattern[{}] ] :=
   KeyValueMap[Splice@Table[#1, Length@#2] &, Association@a];
-
+SetAttributes[KeysByValueLength, {Protected, ReadProtected}];
 
 
 SyntaxInformation[KeyValueReverse] = {"ArgumentsPattern" -> {_}};
 KeyValueReverse[a : KeyValuePattern[{}] ] :=
   Association@KeyValueMap[#2 -> #1 &, Association@a];
-
+SetAttributes[KeyValueReverse, {Protected, ReadProtected}];
 
 
 SyntaxInformation[AssociationDepth] = {"ArgumentsPattern" -> {_}};
-AssociationDepth[a_ : KeyValuePattern[{}] ] :=
+AssociationDepth[a : KeyValuePattern[{}] ] :=
   Module[{},
     Length@Rest@NestWhileList[
       Map[Splice]@*Values, {Association@a},
-      AllTrue[MatchQ[Association]@*Head]
+      (AllTrue[#1, MatchQ[_Association] ] && MatchQ[#1, Except[{}] ] &)
     ]
   ];
+SetAttributes[AssociationDepth, {Protected, ReadProtected}];
 
 
-
-SyntaxInformation[AssociationFlatten] = {"ArgumentsPattern" -> {_}};
-AssociationFlatten[a_ : KeyValuePattern[{}] ] :=
+SyntaxInformation[AssociationFlatten] = {"ArgumentsPattern" -> {_,_.}};
+AssociationFlatten[a : KeyValuePattern[{}] ] :=
   Module[{n, flatten2, res},
     n = AssociationDepth[a];
     flatten2 = Association@*KeyValueMap[
       {t, r} |-> KeyValueMap[Splice@Prepend[{#1}, t] -> #2 &, Association@r]
     ];
     res = Nest[flatten2, Association@a, n - 1];
-    KeyMap[First, res]
+    KeyMap[List, res]
   ];
-AssociationFlatten[a_ : KeyValuePattern[{}], max_Integer?NonNegative] :=
-  Module[{n},
-    n = AssociationDepth[a];
-    AssociationFlatten[a, {Select[Range[n], LessEqualThan[max+1] ]}]
-  ];
-AssociationFlatten[a_ : KeyValuePattern[{}], 0] := a;
-AssociationFlatten[a_ : KeyValuePattern[{}], max_Integer] :=
-  Message[AssociationFlatten::flev, max, 2, a];
-AssociationFlatten[a_ : KeyValuePattern[{}], {i__Integer}] :=
+AssociationFlatten[a : KeyValuePattern[{}], max_Integer?NonNegative] :=
+  AssociationFlatten[a, {Select[Range[AssociationDepth@a], LessEqualThan[max+1] ]}];
+AssociationFlatten[a : KeyValuePattern[{}], 0 | {}] := 
+  Association[a];
+AssociationFlatten[a : KeyValuePattern[{}], max_Integer] :=
+  Null /; Message[AssociationFlatten::flev, max, 2, a];
+AssociationFlatten[a : KeyValuePattern[{}], {i__Integer}] :=
   AssociationFlatten[a, {{i}}];
-AssociationFlatten[a_ : KeyValuePattern[{}], lvlspec : {{___Integer} ..}] :=
+AssociationFlatten[a : KeyValuePattern[{}], lvlspec : Except[{{__Integer?Positive} ..}] ] := 
+  Null /; Message[AssociationFlatten::flpi, lvlspec];
+AssociationFlatten[a : KeyValuePattern[{}], lvlspec : {{__Integer?Positive} ..}] /; 
+  MatchQ[lvlspec, Except[{{__Integer?(LessEqualThan[AssociationDepth@a])} ..}] ] :=
+    Null /; Message[AssociationFlatten::fldep,
+      First@Cases[lvlspec, _Integer?(GreaterThan[AssociationDepth@a]), Infinity],
+      lvlspec, AssociationDepth@a, Association@a
+    ];
+AssociationFlatten[a : KeyValuePattern[{}], lvlspec : {{__Integer?Positive} ..}] /;
+   AnyTrue[Counts@Flatten[lvlspec], GreaterThan[1] ] := 
+      Null /; Message[AssociationFlatten::flrep, 
+        First@Keys@Select[Counts@Flatten[lvlspec], GreaterThan[1] ], 
+        lvlspec
+      ];
+AssociationFlatten[a : KeyValuePattern[{}], lvlspec : {{__Integer} ..}] :=
   Module[{n, lvls, groupF, reshapeF},
     n = AssociationDepth[a];
-    FirstCase[lvlspec, Except[{__Integer?Positive}] ] // If[
-      Not@MissingQ@#,
-      Message[AssociationFlatten::flpi, lvlspec]; Return[Null]
-    ] &;
-    FirstCase[lvlspec, Except[{__Integer?(LessEqualThan[n])}] ] // If[
-      Not@MissingQ@#,
-      Message[AssociationFlatten::fldep, First@Cases[#, _Integer?(GreaterThan[n])], 
-        {#}, n, Association@a]; Return[Null]
-      ] &;
-    Select[Counts[Flatten@lvlspec], GreaterThan[1] ] // If[
-      Length@# > 0,
-      Message[AssociationFlatten::flrep, Keys[#][[1]], lvlspec]; Return[Null]
-    ] &;
-    lvls = Join[ lvlspec, List /@ Complement[Range[n], Join @@ lvlspec] ];
+    lvls = Join[lvlspec, List /@ Complement[Range[n], Join @@ lvlspec] ];
     groupF[p_] := GroupBy[(#[[p /. {x_} :> x]] &)@*First];
-    reshapeF = Fold[{f, p} |-> Composition[ Map[f], groupF[p] ],
-      groupF[Last@lvls], Most@lvls];
+    reshapeF = Fold[{f, p} |-> Composition[ Map[f], groupF[p] ], groupF[Last@lvls], Most@lvls];
     Map[Last@*Last, reshapeF@Normal@AssociationFlatten[a], {Length@lvls}]
   ];
 AssociationFlatten::fldep = Flatten::fldep;
 AssociationFlatten::flpi = Flatten::flpi;
 AssociationFlatten::flrep = Flatten::flrep;
 AssociationFlatten::flev = Flatten::flev;
-
+SetAttributes[AssociationFlatten, {Protected, ReadProtected}];
 
 
 SyntaxInformation[MinMaxExponent] = {"ArgumentsPattern" -> {_, _.}};
@@ -155,32 +159,32 @@ MinMaxExponent[expr_, patt_] :=
     MonomialList@ExpandAll[expr /. {x: patt :> \[FormalLambda] x}], 
     \[FormalLambda]
   ];
-
+SetAttributes[MinMaxExponent, {Protected, ReadProtected}];
 
 
 SyntaxInformation[CyclicRange] = {"ArgumentsPattern" -> {_, _., _., _.}};
 CyclicRange[m_?Positive][i_Integer, f_Integer, s : _Integer?Positive : 1] := 
-  CyclicRange[i, f, s, m]
+  CyclicRange[i, f, s, m];
 CyclicRange[f_Integer, m_?Positive] := 
   CyclicRange[1, f, 1, m];
 CyclicRange[i_Integer, f_Integer, m_Integer?Positive] :=
   CyclicRange[i, f, 1, m];
 CyclicRange[i_Integer, f_Integer, s_Integer?Positive, m_Integer?Positive] := 
-  ReplaceAll[0 -> m]@Mod[Range[i, i + Mod[f - i, m], s], m]
-
+  ReplaceAll[0 -> m]@Mod[Range[i, i + Mod[f - i, m], s], m];
+SetAttributes[CyclicRange, {Protected, ReadProtected}];
 
 
 SyntaxInformation[CyclicPatternSequence] = {"ArgumentsPattern" -> {___}};
 CyclicPatternSequence[patt__] := Alternatives @@ NestList[
   RotateRight, PatternSequence[patt], Length[{patt}] - 1]
 CyclicPatternSequence[] := PatternSequence[];
-
+SetAttributes[CyclicPatternSequence, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ToCyclicPattern] = {"ArgumentsPattern" -> {_}};
 ToCyclicPattern[ x_ ] := 
-  Alternatives @@ NestList[RotateRight, x, Length@x -1]
-
+  Alternatives @@ NestList[RotateRight, x, Length@x -1];
+SetAttributes[ToCyclicPattern, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ToSubtractList] = {"ArgumentsPattern" -> {_}};
@@ -189,14 +193,14 @@ ToSubtractList[ expr : (List|And)[Except[_List]..] ] :=
   Map[ Through@*If[MatchQ[_Equal], Apply[Subtract], Identity],
     List @@ expr
   ];
-
+SetAttributes[ToSubtractList, {Protected, ReadProtected}];
 
 
 SyntaxInformation[NormalizeGCD] = {"ArgumentsPattern" -> {_}};
 NormalizeGCD[p: {0 ..}] := p; 
 NormalizeGCD[p: {__?ExactNumberQ}] := p / (GCD @@ p);
 NormalizeGCD[p: {__}] := p;
-
+SetAttributes[NormalizeGCD, {Protected, ReadProtected}];
 
 
 TransformedMesh[t_][m_MeshRegion] := 
@@ -210,57 +214,72 @@ TransformedMesh[m_MeshRegion, t : {{__?NumericQ} ..}?SquareMatrixQ] :=
     MeshCells@m,
     Sequence @@ Options[m]
   ];
-TransformedMesh[m_MeshRegion, _] := Message[TransformedMesh::matarg]
-TransformedMesh::dimerr =
-"Dimension of the mesh points and the transformation matrix do not match.";
-TransformedMesh::matarg =
-"Argument provided is not a valid argument.";
-
+TransformedMesh[m_MeshRegion, _] := Null /; Message[TransformedMesh::matarg]
+TransformedMesh::dimerr = "Dimension of the mesh points and the transformation matrix do not match.";
+TransformedMesh::matarg = "Argument provided is not a valid argument.";
+SetAttributes[TransformedMesh, {Protected, ReadProtected}];
 
 
 SyntaxInformation[CollinearQ] = {"ArgumentsPattern" -> {_}};
-CollinearQ[pts_?MatrixQ] := 
-  MatrixRank@Rest[(# - First@pts &) /@ pts] <= 1;
-CollinearQ[expr_] := False;
-
+CollinearQ[{}] := Null /; ArgumentCountQ[CollinearQ, 0, 1, 1];
+CollinearQ[{_}?MatrixQ] := True;
+CollinearQ[{pts__}?MatrixQ] := 
+  MatrixRank@Map[# - First[{pts}] &, Rest@{pts}] <= 1 /; (Length[{pts}] > 1);
+CollinearQ[x : Except[_List] ] := Null /; Message[CollinearQ::pts, x];
+CollinearQ[x_, y__] := Null /; ArgumentCountQ[CollinearQ, Length[{x, y}], 1, 1];
+CollinearQ::pts = "`1` should be a non-empty list of points.";
+SetAttributes[CollinearQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[StrictlyCollinearQ] = {"ArgumentsPattern" -> {_}};
-StrictlyCollinearQ[pts_?MatrixQ] := 
-  MatrixRank@Rest[(# - First@pts &) /@ pts] == 1;
-StrictlyCollinearQ[expr_] := False;
-
+StrictlyCollinearQ[{}] := Null /; ArgumentCountQ[StrictlyCollinearQ, 0, 1, 1];
+StrictlyCollinearQ[{_}?MatrixQ] := True;
+StrictlyCollinearQ[{pts__}?MatrixQ] := 
+  MatrixRank@Map[# - First[{pts}] &, Rest@{pts}] == 1 /; (Length[{pts}] > 1);
+StrictlyCollinearQ[x : Except[_List] ] := Null /; Message[StrictlyCollinearQ::pts, x];
+StrictlyCollinearQ[x_, y__] := Null /; ArgumentCountQ[StrictlyCollinearQ, Length[{x, y}], 1, 1];
+StrictlyCollinearQ::pts = "`1` should be a non-empty list of points.";
+SetAttributes[StrictlyCollinearQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[CoplanarQ] = {"ArgumentsPattern" -> {_}};
-CoplanarQ[pts_?MatrixQ] := 
-  MatrixRank@Rest[(# - First@pts &) /@ pts] <= 2;
-CollinearQ[expr_] := False;
-
+CoplanarQ[{}] := Null /; ArgumentCountQ[CoplanarQ, 0, 1, 1];
+CoplanarQ[{_}?MatrixQ] := True;
+CoplanarQ[{pts__}?MatrixQ] := 
+  MatrixRank@Map[# - First[{pts}] &, Rest@{pts}] <= 1 /; (Length[{pts}] > 1);
+CoplanarQ[x : Except[_List] ] := Null /; Message[CoplanarQ::pts, x];
+CoplanarQ[x_, y__] := Null /; ArgumentCountQ[CoplanarQ, Length[{x, y}], 1, 1];
+CoplanarQ::pts = "`1` should be a non-empty list of points.";
+SetAttributes[CoplanarQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[StrictlyCoplanarQ] = {"ArgumentsPattern" -> {_}};
-StrictlyCoplanarQ[pts_?MatrixQ] := 
-  MatrixRank@Rest[(# - First@pts &) /@ pts] == 2;
-StrictlyCollinearQ[expr_] := False;
-
+StrictlyCoplanarQ[{}] := Null /; ArgumentCountQ[StrictlyCoplanarQ, 0, 1, 1];
+StrictlyCoplanarQ[{_}?MatrixQ] := True;
+StrictlyCoplanarQ[{pts__}?MatrixQ] := 
+  MatrixRank@Map[# - First[{pts}] &, Rest@{pts}] == 2 /; (Length[{pts}] > 1);
+StrictlyCoplanarQ[x : Except[_List] ] := Null /; Message[StrictlyCoplanarQ::pts, x];
+StrictlyCoplanarQ[x_, y__] := Null /; ArgumentCountQ[StrictlyCoplanarQ, Length[{x, y}], 1, 1];
+StrictlyCoplanarQ::pts = "`1` should be a non-empty list of points.";
+SetAttributes[StrictlyCoplanarQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[UniqueCases] = SyntaxInformation[Cases];
+Options[UniqueCases] = Options[Cases];
 UniqueCases[pattern_, opts : OptionsPattern[Cases] ][expr_] :=
-  UniqueCases[expr, pattern, opts]
+  UniqueCases[expr, pattern, opts];
 UniqueCases[expr_, pattern_, opts : OptionsPattern[Cases] ] :=
-  DeleteDuplicates@Cases[expr, pattern, Infinity, opts]
-
+  DeleteDuplicates@Cases[expr, pattern, Infinity, opts];
+SetAttributes[UniqueCases, {Protected, ReadProtected}];
 
 
 SyntaxInformation[IndexedList] = {"ArgumentsPattern" -> {_, _., _.}};
-IndexedList[l_List] := Transpose[{Range@Length@l, l}]
+IndexedList[l_List] := Transpose[{Range@Length@l, l}];
 IndexedList[l_List, n0_] := 
-  Transpose[{Range[n0, Length[l] + (n0 - 1)], l}]
+  Transpose[{Range[n0, Length[l] + (n0 - 1)], l}];
 IndexedList[l_List, n0_, di_] := 
-  Transpose[{Range[n0, n0 + di (Length[l] - 1), di], l}]
-
+  Transpose[{Range[n0, n0 + di (Length[l] - 1), di], l}];
+SetAttributes[IndexedList, {Protected, ReadProtected}];
 
 
 SyntaxInformation[GridRulesGraphics] = {"ArgumentsPattern" -> {_,_.}};
@@ -273,7 +292,7 @@ GridRulesGraphics[
       Table[{{bx, y}, {tx, y}}, {y, by, ty, 1}]
     ]}
   ] /; (tx > bx) && (ty > by)
-
+SetAttributes[GridRulesGraphics, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FindNonSimplePaths] = {"ArgumentsPattern" -> {_,_,_,_}};
@@ -295,14 +314,14 @@ FindNonSimplePaths[g_Graph, s_, t_, {kmin_Integer, kmax_Integer}] :=
     ]
   ] /; AllTrue[{s, t}, VertexQ[g, #] &];
 FindNonSimplePaths[g_, _, _, _] := 
-  Message[FindNonSimplePaths::invgraph, g];
-FindNonSimplePaths[g_Graph, s_, t_, _] := 
-  Message[FindNonSimplePaths::invvertex, s, EdgeList@g] /; (!VertexQ[g,s]);
-FindNonSimplePaths[g_Graph, s_, t_, _] :=
-  Message[FindNonSimplePaths::invvertex, t, EdgeList@g] /; (!VertexQ[g,t]);
+  Null /; Message[FindNonSimplePaths::invgraph, g];
+FindNonSimplePaths[g_Graph, s_, t_, _] /; (!VertexQ[g,s]) := 
+  Null /; Message[FindNonSimplePaths::invvertex, s, EdgeList@g];
+FindNonSimplePaths[g_Graph, s_, t_, _] /; (!VertexQ[g,t]) :=
+  Null /; Message[FindNonSimplePaths::invvertex, t, EdgeList@g];
 FindNonSimplePaths::invgraph = "The argument `1` is not a valid graph.";
 FindNonSimplePaths::invvertex = "The argument `1` is not a valid vertex of `2`.";
-
+SetAttributes[FindNonSimplePaths, {Protected, ReadProtected}];
 
 
 SyntaxInformation[SolveMatrixLeft] = {"ArgumentsPattern" -> {_,_}};
@@ -320,11 +339,11 @@ SolveMatrixLeft[a_?MatrixQ, b_?MatrixQ] :=
       Return[res]
     ]
   ];
-SolveMatrixLeft[a_, b_] := Message[SolveMatrixLeft::argx];
+SolveMatrixLeft[a_, b_] := Null /; Message[SolveMatrixLeft::argx];
 SolveMatrixLeft::lslc = "Coefficient matrix and target matrix do not have matching dimensions.";
 SolveMatrixLeft::err = "An error occured while solving the system.";
 SolveMatrixLeft::argx = "Arguments provided are not matrices.";
-
+SetAttributes[SolveMatrixLeft, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ReapMessages] = {"ArgumentsPattern" -> {_}};
@@ -342,9 +361,8 @@ ReapMessages[eval_] :=
       res = eval
     ];
     Return[{msgs, res}];
-  ]
-SetAttributes[ReapMessages, HoldFirst]
-
+  ];
+SetAttributes[ReapMessages, {HoldFirst, Protected, ReadProtected}];
 
 
 SyntaxInformation[EchoUniqueMessages] = {"ArgumentsPattern" -> {_}};
@@ -358,8 +376,7 @@ EchoUniqueMessages[eval_] :=
     ] // ReleaseHold;
     Return[res];
   ]
-SetAttributes[EchoUniqueMessages, {HoldFirst}]
-
+SetAttributes[EchoUniqueMessages, {HoldFirst, Protected, ReadProtected}];
 
 
 SyntaxInformation[UsageForm] = {"ArgumentsPattern" -> {_, _.}};
@@ -389,7 +406,7 @@ UsageForm[u_String, a: ({__String} | HoldPattern[Alternatives][__String] | Autom
       varPatt[arg] :> handleV["Style[", arg, ",\"TI\"]"]
     }]
   ];
-
+SetAttributes[UsageForm, {Protected, ReadProtected}];
 
 
 End[]

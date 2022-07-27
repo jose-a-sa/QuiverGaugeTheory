@@ -5,44 +5,6 @@ With[{clearSyms = {CenterDot, NonCommutativeMultiply}},
   ClearAll /@ clearSyms;
 ];
 
-Unprotect["QuiverGaugeTheory`Utils`*"];
-ClearAll["QuiverGaugeTheory`Utils`*"];
-
-Unprotect["QuiverGaugeTheory`ExpandableBox`*"];
-ClearAll["QuiverGaugeTheory`ExpandableBox`*"];
-
-Unprotect["QuiverGaugeTheory`Core`*"];
-ClearAll["QuiverGaugeTheory`Core`*"];
-
-Unprotect["QuiverGaugeTheory`Quiver`*"];
-ClearAll["QuiverGaugeTheory`Quiver`*"];
-
-Unprotect["QuiverGaugeTheory`Tiling`*"];
-ClearAll["QuiverGaugeTheory`Tiling`*"];
-
-Unprotect["QuiverGaugeTheory`Polytope`*"];
-ClearAll["QuiverGaugeTheory`Polytope`*"];
-
-Unprotect["QuiverGaugeTheory`Moduli`*"];
-ClearAll["QuiverGaugeTheory`Moduli`*"];
-
-Unprotect["QuiverGaugeTheory`Perturbations`*"];
-ClearAll["QuiverGaugeTheory`Perturbations`*"];
-
-Unprotect["QuiverGaugeTheory`Model`*"];
-ClearAll["QuiverGaugeTheory`Model`*"];
-
-(* With[
-  {syms = Map["QuiverGaugeTheory`Model`" <> # &, 
-    DeleteCases[
-      Names["QuiverGaugeTheory`Model`*"],
-      "ModelData"
-    ]
-  ]},
-  Unprotect /@ syms;
-  ClearAll /@ syms;
-] *)
-
 
 Get["QuiverGaugeTheory`Utils`"]
 Get["QuiverGaugeTheory`ExpandableBox`"]
@@ -54,6 +16,10 @@ Get["QuiverGaugeTheory`Polytope`"]
 Get["QuiverGaugeTheory`Moduli`"]
 Get["QuiverGaugeTheory`Perturbations`"]
 Get["QuiverGaugeTheory`Model`"]
+
+
+SetAttributes[CenterDot, {Protected, ReadProtected}];
+SetAttributes[NonCommutativeMultiply, {Protected, ReadProtected}];
 
 
 SetOptions[Simplify, 
@@ -69,41 +35,3 @@ SetOptions[FullSimplify,
     ]}
 ];
 
-
-With[{syms = Names["QuiverGaugeTheory`Utils`*"]},
-  SetAttributes[syms, {Protected, ReadProtected}]
-];
-
-With[{syms = Names["QuiverGaugeTheory`ExpandableBox`*"]},
-  SetAttributes[syms, {ReadProtected}]
-];
-
-With[{syms = Names["QuiverGaugeTheory`Core`*"]},
-  SetAttributes[syms, {Protected, ReadProtected}]
-];
-SetAttributes[CenterDot, {Protected, ReadProtected}];
-SetAttributes[NonCommutativeMultiply, {Protected, ReadProtected}];
-
-With[{syms = Names["QuiverGaugeTheory`Quiver`*"]},
-  SetAttributes[syms, {Protected, ReadProtected}]
-];
-
-With[{syms = Names["QuiverGaugeTheory`Tiling`*"]},
-  SetAttributes[syms, {Protected, ReadProtected}]
-];
-
-With[{syms = Names["QuiverGaugeTheory`Polytope`*"]},
-  SetAttributes[syms, {Protected, ReadProtected}]
-];
-
-With[{syms = Names["QuiverGaugeTheory`Moduli`*"]},
-  SetAttributes[syms, {Protected, ReadProtected}]
-];
-
-With[{syms = Names["QuiverGaugeTheory`Perturbations`*"]},
-  SetAttributes[syms, {Protected, ReadProtected}]
-];
-
-With[{syms = Names["QuiverGaugeTheory`Model`*"]},
-  SetAttributes[syms, {Protected, ReadProtected}];
-];

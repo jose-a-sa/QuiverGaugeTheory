@@ -1,5 +1,9 @@
 (* ::Package:: *)
 
+Unprotect["QuiverGaugeTheory`Polytope`*"];
+ClearAll["QuiverGaugeTheory`Polytope`*"];
+
+
 BeginPackage["QuiverGaugeTheory`Polytope`", {
   "QuiverGaugeTheory`Utils`",
   "QuiverGaugeTheory`Core`",
@@ -56,12 +60,11 @@ $PerfectMatchingVars := Join[
   $BoundaryPerfectMatchingVars];
 
 
-
 SyntaxInformation[PolytopeQ] = {"ArgumentsPattern" -> {_}};
 PolytopeQ[pts : {{_Integer,_Integer} ..}] :=
   Length@DeleteDuplicates[pts] > 2;
 PolytopeQ[_] := False;
-
+SetAttributes[PolytopeQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ToricDiagramQ] = {"ArgumentsPattern" -> {_}};
@@ -70,18 +73,18 @@ ToricDiagramQ[td : KeyValuePattern[{}] ] :=
 ToricDiagramQ[pts_?PolytopeQ] :=
   AllTrue[(Count[pts, #] &) /@ First@PolytopeVertices@pts, #1 === 1 &];
 ToricDiagramQ[_] := False;
-
+SetAttributes[ToricDiagramQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[PolytopeTriangulationQ] = {"ArgumentsPattern" -> {_}};
 PolytopeTriangulationQ[m_MeshRegion] := And[
-  PolytopeQ@Rationalize@MeshCoordinates[m],
-  Equal @@ Map[PolytopeArea@*First, MeshCells[m,2] /. MapIndexed[
-    First@#2 ->#1 &, Rationalize@MeshCoordinates@m] 
-  ]
-];
+    PolytopeQ@Rationalize@MeshCoordinates[m],
+    Equal @@ Map[PolytopeArea@*First, MeshCells[m,2] /. MapIndexed[
+      First@#2 ->#1 &, Rationalize@MeshCoordinates@m] 
+    ]
+  ];
 PolytopeTriangulationQ[_] := False;
-
+SetAttributes[PolytopeTriangulationQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[PolytopeTriangulationCellsQ] = {"ArgumentsPattern" -> {_}};
@@ -89,15 +92,15 @@ PolytopeTriangulationCellsQ[
   {{Point[_Integer]...}, {Line[{__Integer}]...}, {Polygon[{__Integer}]...}}
 ] := True;
 PolytopeTriangulationCellsQ[_] := False;
-
+SetAttributes[PolytopeTriangulationCellsQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[PolytopeTriangulationEdgesQ] = {"ArgumentsPattern" -> {_}};
 PolytopeTriangulationEdgesQ[{Line[{_,_}]...}] := True;
 PolytopeTriangulationEdgesQ[{UndirectedEdge[_,_]...}] := True;
 PolytopeTriangulationEdgesQ[{List[_,_]...}] := True;
-PolytopeTriangulationEdgesQ[_] := False
-
+PolytopeTriangulationEdgesQ[_] := False;
+SetAttributes[PolytopeTriangulationEdgesQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[PolytopeVertices] = {"ArgumentsPattern" -> {_}};
@@ -120,14 +123,14 @@ PolytopeVertices[pts_?PolytopeQ] :=
       NestWhile[RotateLeft, bd, UnequalTo[ex1]@*First]
     }
   ];
-
+SetAttributes[PolytopeVertices, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ReflexivePolytopeQ] = {"ArgumentsPattern" -> {_}};
 ReflexivePolytopeQ[pts_?PolytopeQ] := 
   Length[ PolytopeVertices[pts][[2]] ] == 1;
 ReflexivePolytopeQ[_] := False;
-
+SetAttributes[ReflexivePolytopeQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[DualPolytope] = {"ArgumentsPattern" -> {_}};
@@ -137,7 +140,7 @@ DualPolytope[pts_?ReflexivePolytopeQ] :=
     p = Array[x, {Length@c0}];
     p /. Solve[And @@ (p.(#1 - c0) >= -1 &) /@ pts, p, Integers]
   ];
-
+SetAttributes[DualPolytope, {Protected, ReadProtected}];
 
 
 SyntaxInformation[NormalizePolytope] = {"ArgumentsPattern" -> {_}};
@@ -180,7 +183,7 @@ NormalizePolytope[pt_?PolytopeQ] :=
     c0 = Floor@If[vert[[2]] == {}, PolytopeCentroid[newPt], vert[[2]]//Mean];
     Map[# - c0 &, newPt]
   ];
-
+SetAttributes[NormalizePolytope, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FastForward] = {"ArgumentsPattern" -> {_}};
@@ -205,9 +208,8 @@ FastForward[W_?ToricPotentialQ] :=
     ];
     <|"Gt" -> Gt, "QF" -> QF, "QD" -> QD, "QDb" -> QDb|>
   ];
-FastForward::notcoplanar = 
-  "Resulting polytope is not strictly coplanar.";
-
+FastForward::notcoplanar = "Resulting polytope is not strictly coplanar.";
+SetAttributes[FastForward, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ToricDiagram] = {"ArgumentsPattern" -> {_,_.}};
@@ -237,7 +239,7 @@ ToricDiagram[W_?ToricPotentialQ] :=
     ];
     AssociationThread[sortedPM, pt]
   ];
-
+SetAttributes[ToricDiagram, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ZigZagPaths] = {"ArgumentsPattern" -> {_}};
@@ -262,7 +264,7 @@ ZigZagPaths[W_?ToricPotentialQ] :=
       First@*Last -> First
     ]
   ];
-
+SetAttributes[ZigZagPaths, {Protected, ReadProtected}];
 
 
 Options[PolytopePlot] = Normal@Association@{
@@ -408,7 +410,8 @@ PolytopePlot[trig_?PolytopeTriangulationQ, opts : OptionsPattern[PolytopePlot] ]
 PolytopePlot::opterr = "The value `1` is not a valid \"`2`\" option. \
 Options should be a key-value pattern with keys of the form {dim,i}, \
 prim[{p1,p2,...}], {p1,p2,...} or" <> StringRiffle[
-  Map[(StringJoin["\"", #1, "\""] &), Keys@$polytopeCellLabelFunction], {" ",", ","."}]
+  Map[(StringJoin["\"", #1, "\""] &), Keys@$polytopeCellLabelFunction], {" ",", ","."}];
+SetAttributes[PolytopePlot, {Protected, ReadProtected}];
 
 
 polytopePlotCellOptions[optN_, defOpt_, cellGroups_, noneDef_, opts : OptionsPattern[PolytopePlot] ] := 
@@ -545,14 +548,13 @@ polytopePlotBounds[gr_, opts : OptionsPattern[PolytopePlot] ] :=
   ];
 
 
-
 SyntaxInformation[PolytopeArea] = {"ArgumentsPattern" -> {_}};
 PolytopeArea[pt_?PolytopeQ] := 
   Module[{xs, ys},
     {xs, ys} = Transpose@First@PolytopeVertices[pt];
     Abs@Total[xs RotateLeft[ys] - RotateLeft[xs] ys]/2
   ];
-
+SetAttributes[PolytopeArea, {Protected, ReadProtected}];
 
 
 SyntaxInformation[PolytopeCentroid] = {"ArgumentsPattern" -> {_}};
@@ -564,7 +566,7 @@ PolytopeCentroid[pt_?PolytopeQ] :=
     cy = Total[(ys + RotateLeft[ys]) as]/3;
     {cx, cy}/Abs[Total@as]
   ];
-
+SetAttributes[PolytopeCentroid, {Protected, ReadProtected}];
 
 
 SyntaxInformation[TriangulationFlips] = {"ArgumentsPattern" -> {_}};
@@ -602,7 +604,7 @@ TriangulationFlips[trig_MeshRegion] :=
       {edgesTree, facesTree}
     ]
   ];
-
+SetAttributes[TriangulationFlips, {Protected, ReadProtected}];
 
 
 SyntaxInformation[PolytopeTriangulationsGraph] = {"ArgumentsPattern" -> {_}};
@@ -628,7 +630,7 @@ PolytopeTriangulationsGraph[pt_?PolytopeQ] :=
     ];
     Graph[ UndirectedEdge @@@ DeleteDuplicatesBy[graph, Sort] ]
   ];
-
+SetAttributes[PolytopeTriangulationsGraph, {Protected, ReadProtected}];
 
 
 SyntaxInformation[PolytopeTriangulations] = {"ArgumentsPattern" -> {_}};
@@ -636,7 +638,7 @@ PolytopeTriangulations[td: KeyValuePattern[{}]?ToricDiagramQ] :=
   PolytopeTriangulations[Values@td];
 PolytopeTriangulations[pt_?PolytopeQ] :=
   VertexList@PolytopeTriangulationsGraph[pt];
-
+SetAttributes[PolytopeTriangulations, {Protected, ReadProtected}];
 
 
 SyntaxInformation[pqWebReduced] = {"ArgumentsPattern" -> {_, _.}};
@@ -651,7 +653,7 @@ pqWebReduced[pts_?PolytopeQ] :=
     ];
     {Map[rotateLine, seg], seg}
   ];
-
+SetAttributes[pqWebReduced, {Protected, ReadProtected}];
 
 
 SyntaxInformation[pqWeb] = {"ArgumentsPattern" -> {_}};
@@ -707,7 +709,7 @@ pqWeb[trig_?PolytopeTriangulationQ] :=
       Union[bdLineAssoc, facePolyAssoc]
     }
   ];
-
+SetAttributes[pqWeb, {Protected, ReadProtected}];
 
 
 SyntaxInformation[pqWebQ] = {"ArgumentsPattern" -> {_}};
@@ -723,7 +725,7 @@ pqWebQ[expr : {_, _}] :=
     <|HoldPattern[Rule][(\[FormalCapitalV])[_], _] ..|>
   }];
 pqWebQ[expr_] := False;
-
+SetAttributes[pqWebQ, {Protected, ReadProtected}];
 
 
 Options[pqWebPlot] = Normal@Association@{
@@ -736,7 +738,7 @@ Options[pqWebPlot] = Normal@Association@{
 SyntaxInformation[pqWebPlot] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
 pqWebPlot[trig_?PolytopeTriangulationQ, opts: OptionsPattern[pqWebPlot] ] :=
   pqWebPlot[ pqWeb[trig], opts ];
-pqWebPlot[ pq:{_,_,_}?pqWebQ, opts: OptionsPattern[pqWebPlot] ] :=
+pqWebPlot[pq:{_,_,_}?pqWebQ, opts: OptionsPattern[pqWebPlot] ] :=
   Module[{pqWebGraph, rules, varPoly},
     {pqWebGraph, rules, varPoly} = pq;
     gr = EdgeList@pqWebGraph // ReplaceAll[rules] // ReplaceAll[{
@@ -748,11 +750,11 @@ pqWebPlot[ pq:{_,_,_}?pqWebQ, opts: OptionsPattern[pqWebPlot] ] :=
       Frame -> True, 
       FrameTicks -> None
     ]
- ];
+  ];
+SetAttributes[pqWebPlot, {Protected, ReadProtected}];
 
 
-
-SyntaxInformation[AMaximization] = {"ArgumentsPattern" -> {_, _., _.}};
+SyntaxInformation[AMaximization] = {"ArgumentsPattern" -> {_, _.}};
 AMaximization::arg = "Argument is not a valid potential or toric diagram."
 AMaximization[td : KeyValuePattern[{}]?ToricDiagramQ] := MapAt[
     Map[ReplaceAll[#], td] &, 
@@ -778,9 +780,9 @@ AMaximization[pt_?PolytopeQ] :=
     sol = Maximize[{maxTerm, condTerm}, Values@charges];
     {RootReduce@First@sol, ReplaceAll[RootReduce@Last@sol] /@ Append[charges,charges0]}
   ];
-AMaximization[q_?EdgeListQ, cyc_List ] :=
-  AMaximization[q, cyc, AssociationThread[VertexList@q, 1] ];
-AMaximization[q_?EdgeListQ, cyc_List, ranks: KeyValuePattern[_->_Integer] ] :=
+AMaximization[q_?EdgeListQ, cyc_List] :=
+  AMaximization[{q, AssociationThread[VertexList@q, 1]}, cyc];
+AMaximization[{q_?EdgeListQ, ranks: KeyValuePattern[_->_Integer]}, cyc_List] :=
   Module[{rk, rkQ, R, t, h, cond, linSol, trialA, vars, sol},
     rk = Association[ranks];
     rkQ = AssociationMap[Apply[Times]@*Map[rk], q];
@@ -812,10 +814,11 @@ AMaximization[W_?PotentialQ, ranks: KeyValuePattern[_->_Integer] ] :=
     ];
     q = QuiverFromFields[W];
     cyc = Apply[DirectedEdge, List @@@ fp, {2}];
-    sol = AMaximization[Values@q, cyc, ranks];
+    sol = AMaximization[{Values@q, ranks}, cyc];
     {First@sol, ReplaceAll[Last@sol] /@ q}
   ];
-AMaximization[_] := Message[AMaximization::arg];
+AMaximization[_] := Null /; Message[AMaximization::arg];
+SetAttributes[AMaximization, {Protected, ReadProtected}];
 
 
 End[]

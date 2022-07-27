@@ -1,5 +1,9 @@
 (* ::Package:: *)
 
+Unprotect["QuiverGaugeTheory`Core`*"];
+ClearAll["QuiverGaugeTheory`Core`*"];
+
+
 BeginPackage["QuiverGaugeTheory`Core`", {
   "QuiverGaugeTheory`Utils`"
 }]
@@ -29,58 +33,54 @@ PotentialCoefficientTestQ::usage = "";
 PotentialQ::usage = "";
 AbelianPotentialQ::usage = "";
 NonAbelianPotentialQ::usage = "";
-ToricPotentialQ::usage = "\
-ToricPotentialQ[W] yields True if the F-terms for the superpotential W result\ 
-in exactly 2 monominals with opposite coefficients \[PlusMinus]1.";
+ToricPotentialQ::usage = "";
 IntegrateOutMassTerms::usage = "";
 ToricPotentialTeXForm::usage = "";
-
 
 
 Begin["`Private`"]
 
 
-
 SyntaxInformation[X] = {"ArgumentsPattern" -> {_, _, _.}};
-X[i_, j_, k_ : 1] := Subscript[X, k][i, j]
-
+X[i_, j_, k_ : 1] := Subscript[X, k][i, j];
+SetAttributes[X, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FieldQ] = {"ArgumentsPattern" -> {_}};
 FieldQ[ Subscript[X, _][_, _] ] := True;
 FieldQ[_] := False;
-
+SetAttributes[FieldQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FieldPowerQ] = {"ArgumentsPattern" -> {_}};
 FieldPowerQ[ Power[_?FieldQ, _.] ] := True;
 FieldPowerQ[ (_?FieldQ) ] := True;
 FieldPowerQ[_] := False;
-
+SetAttributes[FieldPowerQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[AbelianFieldProductQ] = {"ArgumentsPattern" -> {_}};
 AbelianFieldProductQ[ HoldPattern[Times][__?FieldPowerQ] ] := True;
 AbelianFieldProductQ[_] := False;
-
+SetAttributes[AbelianFieldProductQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[NonAbelianFieldProductQ] = {"ArgumentsPattern" -> {_}};
 NonAbelianFieldProductQ[ HoldPattern[CenterDot][__?FieldPowerQ] ] := True;
 NonAbelianFieldProductQ[_] := False;
-
+SetAttributes[NonAbelianFieldProductQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FieldProductQ] = {"ArgumentsPattern" -> {_}};
 FieldProductQ[_?AbelianFieldProductQ] := True;
 FieldProductQ[_?NonAbelianFieldProductQ] := True;
 FieldProductQ[_] := False;
-
+SetAttributes[FieldProductQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[AbelianQ] = {"ArgumentsPattern" -> {_}};
 AbelianQ[x_] := FreeQ[ExpandAll@x, _?NonAbelianFieldProductQ];
-
+SetAttributes[AbelianQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FieldCases] = {"ArgumentsPattern" -> {_}};
@@ -88,7 +88,7 @@ FieldCases[W_] := SortBy[
   UniqueCases[ ExpandAll@W, _?FieldQ ],
   Apply[DirectedEdge]
 ];
-
+SetAttributes[FieldCases, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FieldProducts] = {"ArgumentsPattern" -> {_}};
@@ -96,13 +96,13 @@ FieldProducts[W_] := DeleteDuplicates@Map[
   ReplaceAll[HoldPattern[Times][l___, _?(FreeQ[_?FieldQ]), r___] :> l*r], 
   UniqueCases[{ExpandAll@W}, _?FieldProductQ | HoldPattern[Times][_, _?FieldProductQ] ]
 ];
-
+SetAttributes[FieldProducts, {Protected, ReadProtected}];
 
 
 SyntaxInformation[Abelianize] = {"ArgumentsPattern" -> {_}}
-Abelianize::warn = "Abelianization of the fields was done."
 Abelianize[x_] := ReplaceAll[CenterDot -> Times]@x;
-
+Abelianize::warn = "Abelianization of the fields was done."
+SetAttributes[Abelianize, {Protected, ReadProtected}];
 
 
 CenterDot[l___, a_ + b_, r___] := CenterDot[l, a, r] + CenterDot[l, b, r]
@@ -112,25 +112,29 @@ CenterDot[l___, Untrace, r___] := CenterDot[r, l]
 (* CenterDot[l___, a_^p_., a_^q_., r___] := CenterDot[l, a^(p + q), r] *)
 CenterDot[x_] := x
 CenterDot[ Sequence[] ] := 1
-SetAttributes[CenterDot, {Flat, OneIdentity}]
 Default[CenterDot] = Default[Times];
+SetAttributes[CenterDot, {Flat, OneIdentity, Protected, ReadProtected}];
 Untrace /: Times[l___, Untrace, r___] := Times[l, 1, r];
 
 
-
 SyntaxInformation[DG] = {"ArgumentsPattern" -> {_, _, _.}};
-DG[{x__}, var__] := Map[DG[#, var] &, {x}];
-DG[any_, {{vars__?FieldQ}}] := Map[DG[any, #] &, {vars}];
+DG[{x__}, var__] := 
+  Map[DG[#, var] &, {x}];
+DG[any_, {{vars__?FieldQ}}] := 
+  Map[DG[any, #] &, {vars}];
 DG[any_, vars : ({_, _Integer?Positive} ..)] := 
  Fold[DG, any, Flatten[ConstantArray @@@ {vars}] ];
-DG[any_, vars__] := Fold[DG, any, {vars}]
+DG[any_, vars__] := 
+  Fold[DG, any, {vars}]
 DG[HoldPattern[Plus][x__], var_?FieldQ] :=
   Total@Map[DG[#, var] &, {x}];
 DG[HoldPattern[h : (CenterDot | Times)][x__], var_?FieldQ] :=
   Total@Array[h @@ MapAt[DG[#, var] &, {x}, {#}] &, Length@{x}];
-DG[var_, var_?FieldQ] := Untrace;
-DG[f_, var_?FieldQ] := D[f, var];
-
+DG[var_, var_?FieldQ] := 
+  Untrace;
+DG[f_, var_?FieldQ] := 
+  D[f, var];
+SetAttributes[DG, {Protected, ReadProtected}];
 
 
 SyntaxInformation[PotentialCoefficientTestQ] = {"ArgumentsPattern" -> {_, _.}};
@@ -142,24 +146,24 @@ PotentialCoefficientTestQ[W_, coefPatt_] := MatchQ[ExpandAll@W,
     (HoldPattern[Times][coefPatt, _?NonAbelianFieldProductQ] | _?NonAbelianFieldProductQ) ..] 
   ]
 ];
-
+SetAttributes[PotentialCoefficientTestQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[PotentialQ] = {"ArgumentsPattern" -> {_}};
 PotentialQ[W_] := PotentialCoefficientTestQ[__][ExpandAll@W];
-
+SetAttributes[PotentialQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[AbelianPotentialQ] = {"ArgumentsPattern" -> {_}};
 AbelianPotentialQ[W_?PotentialQ] := AbelianQ@W;
 AbelianPotentialQ[_] := False;
-
+SetAttributes[AbelianPotentialQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[NonAbelianPotentialQ] = {"ArgumentsPattern" -> {_}};
 NonAbelianPotentialQ[W_?PotentialQ] := Not@AbelianQ@W;
 NonAbelianPotentialQ[_] := False;
-
+SetAttributes[NonAbelianPotentialQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FTerms] = {"ArgumentsPattern" -> {_, _.}};
@@ -169,13 +173,13 @@ FTerms[W_?PotentialQ, f_: Identity] :=
     (_?FieldProductQ) | (_?FieldQ), 
     f@*Simplify
   ];
-
+SetAttributes[FTerms, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FTermsConstraint] = {"ArgumentsPattern" -> {_, _., _.}};
 FTermsConstraint[W_?PotentialQ, f_: Identity, g_: Plus] := 
   g @@@ ReplaceAll[(_?FieldQ) -> 1]@Map[Flatten@*List]@ReplaceAll[Plus -> List]@Expand@FTerms[W, f];
-
+SetAttributes[FTermsConstraint, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_}};
@@ -186,7 +190,7 @@ FTermsTable[W_?PotentialQ] :=
     Simplify@FTermsConstraint[W], 
     Simplify@FTermsConstraint[W, Abs]
   }], Frame -> All];
-
+SetAttributes[FTermsTable, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ToricPotentialQ] = {"ArgumentsPattern" -> {_}};
@@ -196,7 +200,7 @@ ToricPotentialQ[W_?PotentialQ] :=
     SameQ @@ FTermsConstraint[W, Abs]
   ];
 ToricPotentialQ[_] := False
-
+SetAttributes[ToricPotentialQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[IntegrateOutMassTerms] = {"ArgumentsPattern" -> {_}};
@@ -208,7 +212,7 @@ IntegrateOutMassTerms[W_?PotentialQ] :=
       W
     ]
   ];
-
+SetAttributes[IntegrateOutMassTerms, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ChangeGroupIndices] = {"ArgumentsPattern" -> {_, ___}};
@@ -223,7 +227,7 @@ ChangeGroupIndices[i_Integer, j_Integer] :=
 ChangeGroupIndices[{rules__Rule}] := 
   Subscript[symb_, c_][a_, b_] :> Subscript[symb, c] @@ ({a, b} /. {rules}) /; 
     MatchQ[symb, X | Alternatives@@$RedefinitionVars ];
-
+SetAttributes[ChangeGroupIndices, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ToricPotentialTeXForm] = {"ArgumentsPattern" -> {_, _.}};
@@ -254,6 +258,7 @@ ToricPotentialTeXForm[W_?ToricPotentialQ, perline : (_Integer?NonNegative) : 3] 
         Riffle[sorted, " \\\\ \n & \\qquad", perline + 1], 
       StartOfLine ~~ " + " -> ""]
   ];
+SetAttributes[ToricPotentialTeXForm, {Protected, ReadProtected}];
 
 
 End[]

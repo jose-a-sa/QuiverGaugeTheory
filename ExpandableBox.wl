@@ -1,13 +1,15 @@
 (* ::Package:: *)
 
+Unprotect["QuiverGaugeTheory`ExpandableBox`*"];
+ClearAll["QuiverGaugeTheory`ExpandableBox`*"];
+
+
 BeginPackage["QuiverGaugeTheory`ExpandableBox`", {
   "QuiverGaugeTheory`Utils`"
 }]
 
 
 ExpandableBox::usage = "";
-
-
 ExpandableBoxItem::usage = "";
 
 
@@ -89,7 +91,7 @@ ExpandableBox[q_, header_, grid_, fmt_ : StandardForm] :=
       InterpretationBox[ib, q, Selectable -> False]
     ]
   ];
-
+SetAttributes[ExpandableBox, {Protected, ReadProtected}];
 
 
 Options[ExpandableBoxItem] = Normal@Association@{
@@ -98,10 +100,9 @@ Options[ExpandableBoxItem] = Normal@Association@{
   "ReplacementValue" -> Nothing,
   BaseStyle -> {LineSpacing -> {1, 0}}
 };
-
 ExpandableBoxItem[{n_String, v_}, 
   opts: OptionsPattern[ExpandableBoxItem] ] :=
-  ExpandableBoxItem[{n, v}, Identity, opts];
+    ExpandableBoxItem[{n, v}, Identity, opts];
 ExpandableBoxItem[{n_String, v_}, g_: Identity,
   opts: OptionsPattern[ExpandableBoxItem] ] := If[
     OptionValue["ReplacementTest"]@v, 
@@ -112,7 +113,8 @@ ExpandableBoxItem[{n_String, v_}, g_: Identity,
       ],
       BaseStyle -> OptionValue["BaseStyle"]
     ]
-  ]
+  ];
+SetAttributes[ExpandableBoxItem, {Protected, ReadProtected}];
 
 
 End[]

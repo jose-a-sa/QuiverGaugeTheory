@@ -1,5 +1,10 @@
 (* ::Package:: *)
 
+
+Unprotect["QuiverGaugeTheory`Moduli`*"];
+ClearAll["QuiverGaugeTheory`Moduli`*"];
+
+
 BeginPackage["QuiverGaugeTheory`Moduli`", {
   "QuiverGaugeTheory`Utils`",
   "QuiverGaugeTheory`Core`", 
@@ -32,7 +37,6 @@ $GeneratorVars::usage = "";
 Begin["`Private`"]
 
 
-
 $GeneratorVars = Alternatives@@
   ToExpression@Join[
     {"\[FormalCapitalPhi]"},
@@ -40,12 +44,11 @@ $GeneratorVars = Alternatives@@
   ];
 
 
-
 SyntaxInformation[GeneratorRulesQ] = {"ArgumentsPattern" -> {_}};
 GeneratorRulesQ[<|(HoldPattern[Times|CenterDot][__?FieldPowerQ] -> _)..|>] := True;
 GeneratorRulesQ[{(HoldPattern[Times|CenterDot][__?FieldPowerQ] -> _)..}] := True;
 GeneratorRulesQ[_] := False;
-
+SetAttributes[GeneratorRulesQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ToGeneratorVariableRules] = {"ArgumentsPattern" -> {_}};
@@ -53,7 +56,7 @@ ToGeneratorVariableRules[l : {(_?FieldQ | HoldPattern[Times|CenterDot][__?FieldP
   GroupBy[l, Count[#, _?FieldQ, {0, \[Infinity]}] & ] //
     KeyValueMap[Thread[ #2 -> $GeneratorVars[[#1]] /@ Range[Length@#2] ] &] // 
     Flatten;
-
+SetAttributes[ToGeneratorVariableRules, {Protected, ReadProtected}];
 
 
 SyntaxInformation[GeneratorLinearRelations] = {"ArgumentsPattern" -> {_, _}};
@@ -66,7 +69,7 @@ GeneratorLinearRelations[W_?AbelianPotentialQ, genRules : KeyValuePattern[{}] ] 
     rel = ReplaceAll[gens]@Expand@Outer[Times, FTerms@W, FieldCases@W, 1];
     Select[ Flatten@rel, FreeQ[_?FieldQ] ]
   ];
-
+SetAttributes[GeneratorLinearRelations, {Protected, ReadProtected}];
 
 
 Options[ReduceGenerators] = {
@@ -136,8 +139,8 @@ ReduceGenerators[
       KeyValueMap[#1 -> Expand[#2/.sol] &, res],
       Normal@res
     ]
-  ]
-
+  ];
+SetAttributes[ReduceGenerators, {Protected, ReadProtected}];
 
 
 SyntaxInformation[SingularLocus] = {"ArgumentsPattern" -> {_, _}};
@@ -151,7 +154,7 @@ SingularLocus[expr : (List|And)[Except[_List]..], v_] :=
       ideal
     ]
   ];
-
+SetAttributes[SingularLocus, {Protected, ReadProtected}];
 
 
 SyntaxInformation[SimplifyToricEquations] = {"ArgumentsPattern" -> {_}};
@@ -172,7 +175,7 @@ SimplifyToricEquations[expr : (List|And)[Except[_List]..] ] :=
       Expand@l
     ]
  ];
-
+SetAttributes[SimplifyToricEquations, {Protected, ReadProtected}];
 
 
 SyntaxInformation[MesonicGenerators] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
@@ -193,7 +196,7 @@ MesonicGenerators[W_?ToricPotentialQ, OptionsPattern[{Method -> Automatic}] ] :=
     ks = GroupBy[mes, ReplaceAll@pmDecomp];
     KeyTake[ks, SortBy[GroebnerBasis@Keys@ks, LeafCount] ]
   ];
-
+SetAttributes[MesonicGenerators, {Protected, ReadProtected}];
 
 
 SyntaxInformation[GeneratorsLattice] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
@@ -208,7 +211,7 @@ GeneratorsLattice[W_?ToricPotentialQ] :=
       Transpose@Gm];
     GroupBy[Thread[redMes -> ch], Last -> First]
   ];
-
+SetAttributes[GeneratorsLattice, {Protected, ReadProtected}];
 
 
 SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_}};
@@ -270,14 +273,14 @@ GeneratorsTable[data_Association] :=
       Alignment -> {Center, Center},
       Spacings -> {Automatic, 1}, Frame -> All]
  ] /; AllTrue[{"MesonicGenerators","ChiralMesons","RCharges","GeneratorsLattice"}, (KeyExistsQ[data,#]&)];
-GeneratorsTable[W_?PotentialQ] := Message[GeneratorsTable::nontoric];
-GeneratorsTable[a_Association] := Message[GeneratorsTable::misdata];
-GeneratorsTable[_] := Message[GeneratorsTable::argw];
+GeneratorsTable[W_?PotentialQ] := Null /; Message[GeneratorsTable::nontoric];
+GeneratorsTable[a_Association] := Null /; Message[GeneratorsTable::misdata];
+GeneratorsTable[_] := Null /; Message[GeneratorsTable::argw];
 GeneratorsTable::nontoric = "Superpotential or Model provided is not toric."
 GeneratorsTable::argw = "Argument provided is not a valid superpotential or Association."
 GeneratorsTable::misdata = "Association data provided does not contain all keys: \
 \"MesonicGenerators\", \"ChiralMesons\", \"RCharges\", \"GeneratorsLattice\".";
-
+SetAttributes[GeneratorsTable, {Protected, ReadProtected}];
 
 
 SyntaxInformation[SubQuiverRepresentations] = {"ArgumentsPattern" -> {_,_.}};
@@ -299,7 +302,7 @@ SubQuiverRepresentations[W_?ToricPotentialQ, pmPairs : {__} | Automatic] :=
       pairs
     ]
   ];
-
+SetAttributes[SubQuiverRepresentations, {Protected, ReadProtected}];
 
 
 SimplifyThetaCondition[k_Integer] :=
@@ -310,9 +313,6 @@ SimplifyThetaCondition[F_List] :=
     rule = Last[Fivars] -> -Total@Most[Fivars];
     ReplaceAll[rule]
   ];
-ToNonStrict = ReplaceAll[{Greater -> GreaterEqual, Less -> LessEqual}];
-ToStrict = ReplaceAll[{GreaterEqual -> Greater, LessEqual -> Less}];
-
 
 
 SyntaxInformation[KahlerChambers] = {"ArgumentsPattern" -> {_}};
@@ -323,7 +323,7 @@ KahlerChambers[td: KeyValuePattern[{}]?ToricDiagramQ] :=
     tdG = SortBy[{Length@#, #} &]@PositionIndex[td];
     AssociationThread[Keys@tdG, #] & /@ Tuples[Values@tdG]
   ];
-
+SetAttributes[KahlerChambers, {Protected, ReadProtected}];
 
 
 Options[KahlerChambersCompatibility] := DeleteDuplicatesBy[First]@{
@@ -334,8 +334,9 @@ SyntaxInformation[KahlerChambersCompatibility] = {
 };
 KahlerChambersCompatibility[W_?ToricPotentialQ, 
     opts: OptionsPattern[KahlerChambersCompatibility] ] :=
-  Module[{k, status, indicator, td, triang, triangEdgesF, lenK,
+  Module[{ToNonStrict, k, status, indicator, td, triang, triangEdgesF, lenK,
       KC, F, stabilityC, tbPairs, pairsR, properPairs, tb},
+    ToNonStrict = ReplaceAll[{Greater -> GreaterEqual, Less -> LessEqual}];
     F = Sort@VertexList[Values@QuiverFromFields@W];
     simpT = SimplifyThetaCondition[F];
     td = ToricDiagram[W];
@@ -378,7 +379,7 @@ KahlerChambersCompatibility[W_?ToricPotentialQ,
     status = "Done!";
     AssociationThread[triang, (AssociationThread[KC, #] &) /@ tb]
   ];
-
+SetAttributes[KahlerChambersCompatibility, {Protected, ReadProtected}];
 
 
 kcTablePattQ = MatchQ[
@@ -454,7 +455,7 @@ KahlerChambersFlowGraph[tbI_?kcTablePattQ, tbF_?kcTablePattQ,
     status = "Done!";
     Graph[graph]
   ];
-
+SetAttributes[KahlerChambersFlowGraph, {Protected, ReadProtected}];
 
 
 Options[MinimalGLSM] := {
@@ -497,6 +498,7 @@ MinimalGLSM[W_?ToricPotentialQ, opts : OptionsPattern[MinimalGLSM] ] :=
   ];
 MinimalGLSM::mtharg = "Option value `1` for \"BasisMethod\" is not valid. \
 Use methods \"PositiveVolumes\", \"ToricDiagramKernel\" or \"MatchFirst\".";
+SetAttributes[MinimalGLSM, {Protected, ReadProtected}];
 
 
 minimalGLSMBasis[eqs : {{_?MatrixQ, _?MatrixQ} ..}, reg_List, pt : {{_, _} ..}, m_] :=
@@ -529,7 +531,6 @@ minimalGLSMBasis[eqs : {{_?MatrixQ, _?MatrixQ} ..}, reg_List, pt : {{_, _} ..}, 
       (Join[Count[0] /@ #, Count[_?Positive] /@ #] &)@*First
     ]
   ];
-
 
 
 Options[KahlerVolumes] := {
@@ -577,6 +578,7 @@ KahlerVolumes[W_?ToricPotentialQ, opts : OptionsPattern[KahlerVolumes] ] :=
     status = "Done!";
     res
   ];
+SetAttributes[KahlerVolumes, {Protected, ReadProtected}];
 
 
 triangulationFacePairs[trig_?PolytopeTriangulationQ] :=

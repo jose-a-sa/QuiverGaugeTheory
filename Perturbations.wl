@@ -1,5 +1,9 @@
 (* ::Package:: *)
 
+Unprotect["QuiverGaugeTheory`Perturbations`*"];
+ClearAll["QuiverGaugeTheory`Perturbations`*"];
+
+
 BeginPackage["QuiverGaugeTheory`Perturbations`", {
   "QuiverGaugeTheory`Utils`",
   "QuiverGaugeTheory`Core`", 
@@ -17,7 +21,6 @@ $RedefinitionVars = Alternatives@@
 
 
 Begin["`Private`"]
-
 
 
 Options[FieldRedefinition] = {
@@ -44,7 +47,8 @@ FieldRedefinition[Subscript[X, f_][i_, j_], edges_?EdgeListQ,
     redef = Subscript[X, f][i, j] -> Subscript[First@$RedefinitionVars, f][i, j] Subscript[X, f][i, j] 
       + fieldList.Table[Subscript[$RedefinitionVars[[k+1]], f][i, j], {k, Length@fieldList}];
     If[And[OptionValue["ExcludePureRescalings"], fieldList == {}], Nothing, redef]
-  ]
+  ];
+SetAttributes[FieldRedefinition, {Protected, ReadProtected}];
 
 
 SyntaxInformation[RedefinitionMinMonomialCount] = {"ArgumentsPattern" -> {_, _.}};
@@ -58,10 +62,10 @@ RedefinitionMinMonomialCount[W_, form_] :=
       Abs[ Subscript[\[FormalAlpha], _][__] ] 
     ] 
   ] & /@ ReplaceAll[HoldPattern[Times][___, _Plus, ___] -> 0]@FTermsConstraint[W, Abs];
+SetAttributes[RedefinitionMinMonomialCount, {Protected, ReadProtected}];
 
 
 SyntaxInformation[MassShiftRules] = {"ArgumentsPattern" -> {_, _., _.}};
-
 MassShiftRules[coef_, restriction_ : (0<=#<=1 &)] := 
   MassShiftRules[#, coef, restriction] &;
 MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] := 
@@ -74,6 +78,7 @@ MassShiftRules[W_?PotentialQ, coef_, restriction_ :( 0<=#<=1 &)] :=
       And @@ (restriction /@ vars) ], Evaluate[vars], Integers];
     rule/.sol // DeleteCases[ HoldPattern[Rule][f_, f_] ]
   ];
+SetAttributes[MassShiftRules, {Protected, ReadProtected}];
 
 
 End[]

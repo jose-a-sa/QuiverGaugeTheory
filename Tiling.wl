@@ -1,3 +1,7 @@
+Unprotect["QuiverGaugeTheory`Tiling`*"];
+ClearAll["QuiverGaugeTheory`Tiling`*"];
+
+
 BeginPackage["QuiverGaugeTheory`Tiling`", {
   "QuiverGaugeTheory`Utils`",
   "QuiverGaugeTheory`Core`", 
@@ -12,7 +16,7 @@ KasteleynMatrix::usage = "";
 BraneTiling::usage = "";
 BraneTilingGraph::usage = "";
 TwistedZigZag::usage = "";
-IntegrateOut::usage = "";
+IntegrateOutTiling::usage = "";
 
 
 Begin["`Private`"]
@@ -38,6 +42,7 @@ PerfectMatchingMatrix[W_?ToricPotentialQ] :=
       MemberQ[#2, #1] &, fs, (Alternatives @@@ pmList), 1
     ]
   ];
+SetAttributes[PerfectMatchingMatrix, {Protected, ReadProtected}];
 
 
 SyntaxInformation[PerfectMatchings] = {"ArgumentsPattern" -> {_}};
@@ -50,6 +55,7 @@ PerfectMatchings[W_?ToricPotentialQ] :=
       (DeleteCases[fs^#, 1] &) /@ Transpose[P]
     ]
   ];
+SetAttributes[PerfectMatchings, {Protected, ReadProtected}];
 
 
 SyntaxInformation[KasteleynMatrix] = {"ArgumentsPattern" -> {_, _.}};
@@ -106,6 +112,7 @@ KasteleynMatrix[W_?ToricPotentialQ, {x0_, y0_}] :=
       DeleteCases[#1/.{a->1}, 0], #2] &;
     Map[# x^(-avgExp[#, x]) y^(-avgExp[#, y]) &, kast]
   ];
+SetAttributes[KasteleynMatrix, {Protected, ReadProtected}];
 
 
 translateNodes[{i_,j_}] := ReplaceAll[
@@ -289,10 +296,11 @@ BraneTiling[kast_?MatrixQ, opts: OptionsPattern[BraneTiling] ] :=
     ];
     transformTiling[tiling, {opts}]
   ];
+SetAttributes[BraneTiling, {Protected, ReadProtected}];
 
 
-SyntaxInformation[IntegrateOut] = {"ArgumentsPattern" -> {_, _, _.}};
-IntegrateOut[tiling0_, mterm : HoldPattern[CenterDot|List][_?FieldQ,_?FieldQ] ] :=
+SyntaxInformation[IntegrateOutTiling] = {"ArgumentsPattern" -> {_, _, _.}};
+IntegrateOutTiling[tiling0_, mterm : HoldPattern[CenterDot|List][_?FieldQ,_?FieldQ] ] :=
   Module[{nd, vx, fc, tau, toCoords, take1, termE, pos, centeredE, cP,
       newN, rule, tiling},
     {nd, vx, fc, tau} = tiling0;
@@ -316,7 +324,7 @@ IntegrateOut[tiling0_, mterm : HoldPattern[CenterDot|List][_?FieldQ,_?FieldQ] ] 
     MapAt[KeyMap[edgeCentering], {{2}}]@MapAt[
       KeyMap[ nodeReindex[First@tiling] ], tiling, {{1}, {2}, {3}}]
   ];
-IntegrateOut[tiling_, mterm : HoldPattern[CenterDot|List][_?FieldQ,_?FieldQ], t0 : (_?NumberQ)] :=
+IntegrateOutTiling[tiling_, mterm : HoldPattern[CenterDot|List][_?FieldQ,_?FieldQ], t0 : (_?NumberQ)] :=
   Module[{take1, nd, vx, fc, tau, toCoords, termE, pos, centeredE, cP, 
       shifts, t},
     take1 = Take[#, 1] &;
@@ -333,6 +341,7 @@ IntegrateOut[tiling_, mterm : HoldPattern[CenterDot|List][_?FieldQ,_?FieldQ], t0
     MapAt[Association@*KeyValueMap[
       #1 -> #2 - t Lookup[shifts, Take[#1, 1], {0, 0}] &], tiling, {{1}}]
   ];
+SetAttributes[IntegrateOutTiling, {Protected, ReadProtected}];
 
 
 Options[BraneTilingGraph] = Normal@Association@{
@@ -401,6 +410,7 @@ BraneTilingGraph[tiling0 : {_,_,_,_}, {{im_,iM_},{jm_,jM_}}, opts : OptionsPatte
       ]
     ] 
   ];
+SetAttributes[BraneTilingGraph, {Protected, ReadProtected}];
 
 
 tilingEdgeGraphics[edgesA_, opts : OptionsPattern[BraneTilingGraph] ] :=

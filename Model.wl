@@ -1,5 +1,9 @@
 (* ::Package:: *)
 
+Unprotect["QuiverGaugeTheory`Model`*"];
+ClearAll["QuiverGaugeTheory`Model`*"];
+
+
 BeginPackage["QuiverGaugeTheory`Model`", {
   "QuiverGaugeTheory`Utils`",
   "QuiverGaugeTheory`Core`",
@@ -18,7 +22,6 @@ ModelQ::usage = "";
 Model::usage = "";
 ClearModel::usage = "";
 ClearAllModels::usage = "";
-(*ModelData::usage = "";*)
 W::usage = "";
 Quiver::usage = "";
 
@@ -28,46 +31,49 @@ Begin["`Private`"]
 
 ModelKeyQ[_String | {_String, _String}] := True;
 ModelKeyQ[_] := False;
+SetAttributes[ModelKeyQ, {Protected, ReadProtected}];
 
 
 ModelKeyExistsQ[k_?ModelKeyQ] := 
   AssociationQ@ModelData[k];
 ModelKeyExistsQ[_] := False;
+SetAttributes[ModelKeyExistsQ, {Protected, ReadProtected}];
 
 
-SetAttributes[ModelData, {HoldFirst}]
-ModelData[q : Model[key_?ModelKeyQ] ] := ModelData[key];
+ModelData[q : HoldPattern[Model][key_?ModelKeyQ] ] := ModelData[key];
 If[!MatchQ[ModelData[], _List],
   ModelData[] = {}
 ];
+SetAttributes[ModelData, {HoldFirst}];
 
 
-SetAttributes[ClearModel, {HoldFirst}]
-ClearModel[ Model[key_?ModelKeyQ] ] := 
+ClearModel[ HoldPattern[Model][key_?ModelKeyQ] ] := 
   ClearModel[key]
 ClearModel[key_?ModelKeyQ] :=
   Module[{},
-    ModelData[] = DeleteCases[ModelData[], Model[key] ];
+    ModelData[] = DeleteCases[ModelData[], HoldPattern[Model][key] ];
   ];
+SetAttributes[ClearModel, {HoldFirst, Protected, ReadProtected}];
 
 
 ClearAllModels[] := 
   Module[{},
     Clear[ModelData];
-    ModelData[q : Model[key_?ModelKeyQ] ] := ModelData[key];
+    SetAttributes[ModelData, {HoldFirst}];
+    ModelData[q : HoldPattern[Model][key_?ModelKeyQ] ] := ModelData[key];
     ModelData[] = {};
   ];
+SetAttributes[ClearAllModels, {HoldFirst, Protected, ReadProtected}];
 
 
-SetAttributes[updateModelDataList, {HoldFirst}]
-updateModelDataList[q : Model[key_?ModelKeyQ] ] :=
+updateModelDataList[ key_?ModelKeyQ  ] :=
   Module[{old},
     old = If[ListQ@ModelData[],
-      DeleteCases[ModelData[], q],
+      DeleteCases[ModelData[], HoldPattern[Model][key] ],
       {}
     ];
-    ModelData[] = Join[old, {q}];
-    q
+    ModelData[] = Join[old, {Model[key]}];
+    Model[key]
   ];
 
 
@@ -149,8 +155,8 @@ Model[key_?ModelKeyQ, "Properties"] :=
     Keys@ModelData[key],
     Missing["Undefined", key]
   ]
-Model[key_?ModelKeyQ, opts : OptionsPattern[Model] ] :=
-  Module[{modelKey, new},
+Model[key_?ModelKeyQ, opts : OptionsPattern[Model] /; UnsameQ[{opts}, {}] ]  :=
+  Module[{modelKey, new, q},
     modelKey = First@Flatten[{key}];
     new = Association[{
       "Key" -> modelKey,
@@ -167,12 +173,12 @@ Model[key_?ModelKeyQ, opts : OptionsPattern[Model] ] :=
       ]
     ];
     ModelData[key] = DeleteMissing[new];
-    updateModelDataList[ Model[key] ]
-  ] /; UnsameQ[{opts}, {}];
+    updateModelDataList[ key ]
+  ];
 Model::mssgpot = "Valid superpotential not specified.";
 
 
-Model /: MakeBoxes[q : Model[key_?ModelKeyExistsQ], fmt : (StandardForm | TraditionalForm)] := 
+Model /: MakeBoxes[q : HoldPattern[Model][key_?ModelKeyExistsQ], fmt : (StandardForm | TraditionalForm)] := 
   Module[
     {data, handleBox, keyBox, descriptionsBox, potentialBox, 
       toricQBox, noFieldsBox, miniQuiver, quiverBox, scaleDownGraphics, 
@@ -206,24 +212,30 @@ Model /: MakeBoxes[q : Model[key_?ModelKeyExistsQ], fmt : (StandardForm | Tradit
   ];
 
 
-W[ Model[key_?ModelKeyQ] ] :=
+SetAttributes[Model, {Protected, ReadProtected}];
+
+
+Unprotect[{W, Quiver, QuiverGraph, ToricDiagram, GeneratorsTable}];
+
+
+W[ HoldPattern[Model][key_?ModelKeyQ] ] :=
   Model[key, "Potential"];
 
 
-Quiver[ Model[key_?ModelKeyQ] ] :=
+Quiver[ HoldPattern[Model][key_?ModelKeyQ] ] :=
   Model[key, "Quiver"];
 
 
-QuiverGraph[ Model[key_?ModelKeyQ], opts: OptionsPattern[QuiverGraph] ] := 
+QuiverGraph[ HoldPattern[Model][key_?ModelKeyQ], opts: OptionsPattern[QuiverGraph] ] := 
   Model[key, "QuiverGraph"];
-QuiverGraph[ Model[key_?ModelKeyQ], opts: OptionsPattern[QuiverGraph] ] :=
+QuiverGraph[ HoldPattern[Model][key_?ModelKeyQ], opts: OptionsPattern[QuiverGraph] ] :=
   QuiverGraph[Model[key, "QuiverPositioning"], Model[key, "Quiver"], opts];
 QuiverGraph[vertex:{(_Integer|{__Integer})..}, Model[key_?ModelKeyQ], 
     opts: OptionsPattern[QuiverGraph] ] :=
   QuiverGraph[vertex, Model[key, "Quiver"], opts];
 
 
-ToricDiagram[ Model[key_?ModelKeyQ], m_?MatrixQ] :=
+ToricDiagram[ HoldPattern[Model][key_?ModelKeyQ], m_?MatrixQ] :=
   Block[{mat},
     mat = If[Dimensions@m =!= {2,2} || PossibleZeroQ@Det@m, 
       IdentityMatrix[2], m];
@@ -233,7 +245,7 @@ ToricDiagram[ Model[key_?ModelKeyQ] ] :=
   Model[key, "ToricDiagram"]
 
 
-GeneratorsTable[ Model[key_?ModelKeyQ] ] :=
+GeneratorsTable[ HoldPattern[Model][key_?ModelKeyQ] ] :=
   Module[{data, pot},
     data = ModelData[key];
     pot = data["Potential"];
@@ -248,6 +260,9 @@ GeneratorsTable[ Model[key_?ModelKeyQ] ] :=
     ];
     GeneratorsTable[data]
   ];
+
+
+Protect[{W, Quiver, QuiverGraph, ToricDiagram, GeneratorsTable}];
 
 
 End[]
