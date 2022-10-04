@@ -205,12 +205,12 @@ SetAttributes[ToricPotentialQ, {Protected, ReadProtected}];
 
 SyntaxInformation[IntegrateOutMassTerms] = {"ArgumentsPattern" -> {_}};
 IntegrateOutMassTerms[W_?PotentialQ] :=
-  Module[{massF},
+  Module[{massF, int},
     massF = FieldCases@Select[FieldProducts[W], Length[#] == 2 &];
-    If[Length@massF > 0,
-      (W /. Last[Solve[DG[W, {massF}] == 0, massF], {}]) // Expand,
-      W
-    ]
+    int = If[Length@massF == 0, {},
+      Last[Solve[DG[W, {massF}] == 0], {}]
+    ] // DeleteCases[ HoldPattern[Rule][_?FieldProductQ, _?FieldProductQ] ];
+    Simplify@Expand[W /. int]
   ];
 SetAttributes[IntegrateOutMassTerms, {Protected, ReadProtected}];
 

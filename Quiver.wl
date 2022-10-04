@@ -19,8 +19,8 @@ QuiverCycles::usage = "";
 QuiverPathToFields::usage = "";
 GaugeInvariantMesons::usage = "";
 QuiverIncidenceMatrix::usage = "";
+PossibleMesonQ::usage = "";
 MesonQ::usage = "";
-OrderedMesonQ::usage = "";
 GaugeInvariantQ::usage = "";
 Mesons::usage = "";
 ReorderLoopEdges::usage = "";
@@ -132,38 +132,38 @@ QuiverIncidenceMatrix[edges_?EdgeListQ] :=
 SetAttributes[QuiverIncidenceMatrix, {Protected, ReadProtected}];
 
 
-SyntaxInformation[MesonQ] = {"ArgumentsPattern" -> {_}};
-MesonQ[t : (_Times|_CenterDot)?FieldProductQ] :=
-  MesonQ@FieldsToTaggedEdges[
+SyntaxInformation[PossibleMesonQ] = {"ArgumentsPattern" -> {_}};
+PossibleMesonQ[t : (_Times|_CenterDot)?FieldProductQ] :=
+  PossibleMesonQ@FieldsToTaggedEdges[
     (List @@ t) /. {Power -> Splice@*ConstantArray}
   ];
-MesonQ[e_?EdgeListQ] := AllTrue[
+PossibleMesonQ[e_?EdgeListQ] := AllTrue[
     QuiverIncidenceMatrix[e],
     (Count[#, 1] == Count[#, -1]) && (Count[#, 1] > 0) &
   ];
+PossibleMesonQ[_] := False;
+SetAttributes[PossibleMesonQ, {Protected, ReadProtected}];
+
+
+SyntaxInformation[MesonQ] = {"ArgumentsPattern" -> {_}};
+MesonQ[c_CenterDot?FieldProductQ] :=
+  MesonQ@FieldsToTaggedEdges[
+    (List @@ c) /. {Power -> Splice@*ConstantArray}
+  ];
+MesonQ[e_?EdgeListQ] := 
+  (SameQ[#1, RotateRight@#2] &) @@ 
+    Transpose@Map[Take[List @@ #, 2] &, e];
 MesonQ[_] := False;
 SetAttributes[MesonQ, {Protected, ReadProtected}];
 
 
-SyntaxInformation[OrderedMesonQ] = {"ArgumentsPattern" -> {_}};
-OrderedMesonQ[c_CenterDot?FieldProductQ] :=
-  OrderedMesonQ@FieldsToTaggedEdges[
-    (List @@ c) /. {Power -> Splice@*ConstantArray}
-  ];
-OrderedMesonQ[e_?EdgeListQ] := 
-  (SameQ[#1, RotateRight@#2] &) @@ 
-    Transpose@Map[Take[List @@ #, 2] &, e];
-OrderedMesonQ[_] := False;
-SetAttributes[OrderedMesonQ, {Protected, ReadProtected}];
-
-
 SyntaxInformation[GaugeInvariantQ] = {"ArgumentsPattern" -> {_}};
-GaugeInvariantQ[expr_] := AllTrue[FieldProducts@expr, OrderedMesonQ];
+GaugeInvariantQ[expr_] := AllTrue[FieldProducts@expr, MesonQ];
 SetAttributes[GaugeInvariantQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ReorderLoopEdges] = {"ArgumentsPattern" -> {_}};
-ReorderLoopEdges[e_List?MesonQ] :=
+ReorderLoopEdges[e_List?PossibleMesonQ] :=
   Module[{incM, eeM, n, tree},
     n = Length[e];
     incM = Transpose@QuiverIncidenceMatrix[e];
@@ -192,7 +192,7 @@ SetAttributes[ReorderLoopEdges, {Protected, ReadProtected}];
 SyntaxInformation[Mesons] = {"ArgumentsPattern" -> {_}};
 Mesons[expr_?(Not@*FreeQ[_?FieldQ])] :=
   Module[{mesonfp, edgeL},
-    mesonfp = Select[MesonQ]@FieldProducts[expr];
+    mesonfp = Select[PossibleMesonQ]@FieldProducts[expr];
     edgeL = FieldsToTaggedEdges[
       (List @@@ mesonfp) /. {Power -> Splice@*ConstantArray}
     ];
@@ -212,8 +212,8 @@ SyntaxInformation[NonAbelianizeMesons] = {"ArgumentsPattern" -> {_}};
 NonAbelianizeMesons[expr_?(Not@*FreeQ[_?FieldQ])] :=
   Module[{fp, mes, newExpr},
     fp = FieldProducts[expr];
-    If[ AnyTrue[fp, Not@*MesonQ],
-      Message[Mesons::fperr, SelectFirst[Not@*MesonQ]@fp];
+    If[ AnyTrue[fp, Not@*PossibleMesonQ],
+      Message[Mesons::fperr, SelectFirst[Not@*PossibleMesonQ]@fp];
       Return[expr]
     ];
     newExpr = expr /. {Times -> CenterDot};
@@ -354,7 +354,7 @@ MutateQuiver[q: (_?GraphQ | _?EdgeListQ), k_] :=
 MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: {__Integer}}, k_] :=
   MutateQuiver[{Graph@q, AssociationThread[VertexList@Graph@q, ranks]}, k];
 MutateQuiver[{q: (_?GraphQ | _?EdgeListQ), ranks: ({__Integer} | KeyValuePattern[_ -> _Integer])}, ks_List] :=
-  Fold[MutateQuiver, {Graph@q, ranks}, ks];
+  Fold[MutateQuiver, {q, ranks}, ks];
 MutateQuiver[{q : (_?GraphQ | _?EdgeListQ), ranks : KeyValuePattern[_ -> _Integer]}, k_] :=
   Module[{a, V, i, n0, col, row, rk},
     V = VertexList[q];

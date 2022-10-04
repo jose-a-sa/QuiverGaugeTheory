@@ -24,13 +24,13 @@ SetAttributes[NonCommutativeMultiply, {Protected, ReadProtected}];
 
 SetOptions[Simplify, 
   TransformationFunctions -> {Automatic,
-    Replace[c_CenterDot?OrderedMesonQ :> RotateLeft[c, 
+    Replace[c_CenterDot?MesonQ :> RotateLeft[c, 
       First@Ordering[c] - 1] 
     ]}
 ];
 SetOptions[FullSimplify, 
   TransformationFunctions -> {Automatic,
-    Replace[c_CenterDot?OrderedMesonQ :> RotateLeft[c, 
+    Replace[c_CenterDot?MesonQ :> RotateLeft[c, 
       First@Ordering[c] - 1] 
     ]}
 ];

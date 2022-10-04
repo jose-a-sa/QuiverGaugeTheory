@@ -30,9 +30,12 @@ PolytopeCentroid::usage = "";
 TriangulationFlips::usage = "";
 PolytopeTriangulationsGraph::usage = "";
 PolytopeTriangulations::usage = "";
-pqWeb::usage = "";
+pqWebFromTriagulation::usage = "";
+pqWebFromTriagulationQ::usage = "";
 pqWebReduced::usage = "";
-pqWebQ::usage = "";
+pqWebResolve::usage = "";
+pqWebResolvedQ::usage = "";
+pqWebCycle::usage = "";
 pqWebPlot::usage = "";
 AMaximization::usage = "";
 
@@ -106,7 +109,7 @@ SetAttributes[PolytopeTriangulationEdgesQ, {Protected, ReadProtected}];
 SyntaxInformation[PolytopeVertices] = {"ArgumentsPattern" -> {_}};
 PolytopeVertices[pts_?PolytopeQ] :=
   Module[{hull, c0, sortF, ex, bd, ex1},
-    sortF[{x_, y_}] := Apply[N@ArcTan[#1-x,#2-y] &];
+    sortF[{x_, y_}] := Apply[-N@ArcTan[#1-x,#2-y] &];
     hull = ConvexHullMesh[pts];
     c0 = RegionCentroid[hull];
     bd = SortBy[sortF@c0]@Select[
@@ -431,8 +434,9 @@ polytopePlotCellOptions[optN_, defOpt_, cellGroups_, noneDef_, opts : OptionsPat
       ReplaceAll[(None | False) -> noneDef] /@ KeyMap[ptOrderPattSeq]@Association[optV],
       _, $Failed
     ];
-    If[FailureQ@opt, Message[PolytopePlot::opterr, optV, optN];
-      Return[opt] ];
+    If[FailureQ@opt, 
+      Message[PolytopePlot::opterr, optV, optN]; Return[opt]
+    ];
     replaceF = Block[{ruleAuto, ruleFixSty},
       ruleAuto = (True | Automatic) -> Lookup[defOpt, #4];
       ruleFixSty = Directive[x__] :> Directive[Flatten@{x}];
@@ -656,101 +660,250 @@ pqWebReduced[pts_?PolytopeQ] :=
 SetAttributes[pqWebReduced, {Protected, ReadProtected}];
 
 
-SyntaxInformation[pqWeb] = {"ArgumentsPattern" -> {_}};
-pqWeb[trig_?PolytopeTriangulationQ] := 
-  Module[{pts, rotateLine, V, B, L, coordRules, edgeRules, faceRules,
-      bdVectorAssoc, bdLineAssoc, facePolyAssoc, intPosAssoc, edgeFaceC, 
-      intEdges, bdEdges, eqs, sol, basePts, loopEqs, loopVars, loopSol, baseSol},
-    {V, B, L} = {\[FormalCapitalV], \[FormalCapitalB], \[FormalL]};
-    rotateLine = NormalizeGCD@*RotationTransform[-Pi/2]@*Apply[Subtract];
-    pts = Rationalize@MeshCoordinates@trig;
-    coordRules = MapIndexed[First@#2->#1 &, pts];
-    {edgeRules, faceRules} = Table[
-      MapIndexed[First@#2->#1 &, Identity@@@MeshCells[trig, i] ], 
-      {i, 1, 2}];
-    {bdVectorAssoc, bdLineAssoc} = pqWebReduced[pts];
-    facePolyAssoc = GroupBy[
-      EdgeList@MeshConnectivityGraph[trig, {2, 0}, 0],
-      B@*Last@*First -> ReplaceAll[coordRules]@*Last@*Last
-    ];
+SyntaxInformation[pqWebFromTriagulation] = {"ArgumentsPattern" -> {_}};
+pqWebFromTriagulation[trig_?PolytopeTriangulationQ] :=
+  Module[{V, B, L, coordR, edgeR, edgeFaceC, bdRpMap, bdDivisors, intDivisors},
+    {V, B, L} = {\[FormalCapitalV], \[FormalCapitalB], \[FormalL]}; 
+    coordR = MapIndexed[First[#2] -> #1 &, Rationalize@MeshCoordinates@trig]; 
+    edgeR = MapIndexed[First[#2] -> #1 &, Identity@@@MeshCells[trig,1] ]; 
     edgeFaceC = GroupBy[
       EdgeList@MeshConnectivityGraph[trig, {1, 2}, 1],
-      ReplaceAll[coordRules]@*ReplaceAll[edgeRules]@*Last@*First -> Last@*Last
+      ReplaceAll[coordR]@*ReplaceAll[edgeR]@*Last@*First -> Last@*Last
     ];
-    intEdges = KeyValueMap[
-      UndirectedEdge[B@First@#2, B@Last@#2] -> rotateLine[#1] &,
-      Select[edgeFaceC, MatchQ@{_, _}]
+    bdRpMap = KeyValueMap[{OrderlessPatternSequence @@ #1} -> B@@#2 &,
+      Select[ edgeFaceC, MatchQ[{_}] ]
     ];
-    bdEdges = (DirectedEdge[B@First@#2, #1] -> bdVectorAssoc[#1] &) @@@
-      Values@GroupBy[Union[
-          KeyValueMap[{#2, #1} &]@Select[edgeFaceC, MatchQ@{_}],
-          KeyValueMap[List]@bdLineAssoc
-        ],
-        Sort@*Last -> First
-      ];
-    eqs = KeyValueMap[
-      (Subtract @@ #1) == #2 (Identity @@@ L @@ #1) &, 
-      Association@intEdges
+    intDivisors = Association@KeyValueMap[
+      UndirectedEdge @@ (B/@#2) -> #1 &,
+      Reverse@Select[edgeFaceC, MatchQ[{_, _}] ]
     ];
-    basePts = Array[B[#] -> {B[#, 1], B[#, 2]} &, {Length@faceRules}];
-    sol = First@Quiet@Solve[eqs /. basePts];
-    loopEqs = Select[ sol, MatchQ@HoldPattern[Rule][L[__], _] ];
-    loopVars = UniqueCases[ loopEqs, L[__] ];
-    loopSol = If[Length@loopEqs > 0, 
-      Last@Minimize[
-        {Plus@@loopVars, Join[Equal@@@loopEqs, Thread[loopVars>0] ]}, 
-        loopVars, Integers], 
-      {}];
-    baseSol = Select[sol /. loopSol, MatchQ@HoldPattern[Rule][B[__], _] ];
-    intPosAssoc = Association[basePts /. baseSol /. {B[_,_]->0, L[_,_]->1}];
+    bdDivisors = Association@MapIndexed[
+      DirectedEdge[#1/.bdRpMap, V@@#2] -> #1 &,
+      Partition[Last@PolytopeVertices@Values@coordR, 2, 1, {1, 1}]
+    ];
+    Join[intDivisors, bdDivisors]
+  ];
+SetAttributes[pqWebFromTriagulation, {Protected, ReadProtected}];
+
+
+pqWebResolvedQ[g_?EdgeListQ] := 
+  pqWebResolvedQ[Graph@g];
+pqWebResolvedQ[g_?GraphQ] := And @@ MapThread[
+  AllTrue[MatchQ@#2]@Pick[VertexDegree@g, VertexList@g, Alternatives @@ #1@EdgeList@g] &,
+  {{VertexList@*Cases[_UndirectedEdge], Map[Last]@*Cases[_DirectedEdge]}, {3, 1}}
+];
+pqWebResolvedQ[g_?pqWebResolvedQ, pos : KeyValuePattern[{}] ] :=
+  Module[{rp, vecs},
+    rp[v_] := ReplaceAll[{DirectedEdge[_, q_] :> q,
+      UndirectedEdge@OrderlessPatternSequence[v, q_] :> q - v}];
+    vecs = Map[
+      rp[#]@EdgeList@NeighborhoodGraph[g, #] &,
+      Pick[VertexList@g, VertexDegree@g, 3]
+    ];
+    AllTrue[ Map[Total@*Map[NormalizeGCD], vecs/.pos], 
+      MatchQ[{0, 0}]
+    ]
+  ];
+SetAttributes[pqWebResolvedQ, {Protected, ReadProtected}];
+
+
+pqWebFromTriagulationQ[a : KeyValuePattern[_]?(pqWebResolvedQ@*Keys)] :=
+  MatchQ[Normal@a, 
+    {HoldPattern[Rule][
+      _DirectedEdge|_UndirectedEdge, 
+      {Repeated[{_Integer, _Integer}, {2}]}
+    ] ..}
+  ];
+pqWebFromTriagulationQ[_] = False;
+SetAttributes[pqWebFromTriagulationQ, {Protected, ReadProtected}];
+
+
+Options[pqWebResolve] = {
+  "pqWebLengthCondition" -> None
+};
+pqWebResolve[pqdata : KeyValuePattern[_], coord : (KeyValuePattern[_] | {} | <||>), opts : OptionsPattern[pqWebResolve] ] :=
+  Module[{L, rotLine, intEdges, intVert, bdEdges, partial, coordVec, 
+      coordInd, pts, eqs,loopEqs, loopVars, sol0, loopCond, lineCond, loopSol, sol},
+    L = \[FormalL];
+    rotLine = NormalizeGCD@*RotationTransform[-Pi/2]@*Apply[Subtract];
+    intEdges = KeySort@KeySelect[Association@pqdata, MatchQ[_UndirectedEdge] ];
+    intVert = Union@VertexList@Keys@intEdges;
+    bdEdges = KeySortBy[Last]@KeySelect[Association@pqdata, MatchQ[_DirectedEdge] ];
+    {coordVec, coordInd, partial} = ({#1, #2, Union[#1, #2]} &) @@ MapThread[
+      Cases[Normal@coord, HoldPattern[Rule][Alternatives@@#1, #2] ] &,
+      {{intVert, Map[Indexed[#,1|2] &, intVert]}, {{_Integer, _Integer}, _Integer}}
+    ];
+    If[ !ContainsExactly[partial, Normal@coord],
+      Message[pqWebResolve::coordarg, Complement[Normal@coord, partial], intVert]
+    ];
+    pts = Map[# -> Lookup[coordVec, #, {Indexed[#, 1], Indexed[#, 2]}/.coordInd] &, intVert];
+    eqs = KeyValueMap[(Subtract @@ #1/.pts) == (Identity @@@ L @@ #1) #2 &, rotLine /@ intEdges];
+    loopVars = Map[(Identity @@@ L @@ #1) &, Keys@intEdges];
+    loopCond = Join[Thread[loopVars > 0], {Element[loopVars, Integers]}];
+    sol0 = Solve[eqs];
+    If[Length[sol0] == 0 || Simplify[ AnyTrue[loopVars/.Last[sol0,{}], LessEqualThan[0] ], loopCond],
+      Message[pqWebResolve::coorderr, partial]; Return[$Failed]
+    ];
+    loopEqs = Eliminate[eqs, Variables@Values@pts] /. {And->List, True->{}};
+    loopCond = Join[Flatten@{loopEqs}, loopCond];
+    lineCond = OptionValue[pqWebResolve, opts, "pqWebLengthCondition"] //
+      Switch[#,
+        _Function, Check[Apply[#, loopVars], True],
+        _, True
+      ] &;
+    If[False === Simplify@Resolve@Join[loopCond, {lineCond}],
+      If[MatchQ[partial, {}],
+        Message[pqWebResolve::conderr, lineCond],
+        Message[pqWebResolve::condcoorderr, lineCond, partial]
+      ];,
+      loopCond = Simplify@Resolve@Join[loopCond, {lineCond}]
+    ];
+    loopSol = If[Length@loopEqs == 0, {},
+      Last@Minimize[{Plus @@ loopVars, loopCond}, loopVars, Integers]
+    ];
+    sol = First@Solve[eqs /. loopSol];
+    Join[
+      Association[pts /. sol /. {Indexed[_, 1 | 2] -> 0, L[_, _] -> 1}],
+      KeyMap[Last, rotLine /@ bdEdges]
+    ]
+  ];
+pqWebResolve[pqdata : KeyValuePattern[_], opts : OptionsPattern[pqWebResolve] ] :=
+  pqWebResolve[pqdata, {}, opts];
+pqWebResolve[pqdata : KeyValuePattern[_], Automatic, opts : OptionsPattern[pqWebResolve] ] :=
+  pqWebResolve[pqdata, {}, opts];
+pqWebResolve::coorderr = "Coordinates `1` are not valid for (p,q)-web configuration.";
+pqWebResolve::conderr = "Condition `1` is not valid for (p,q)-web configuration. Continuing with no condition.";
+pqWebResolve::condcoorderr = "Condition `1` is not valid for (p,q)-web configuration and coordinates `2`. Continuing with no condition.";
+pqWebResolve::coordarg = "Coordinates `1` are not integer-valued coordinates of vertices `2`.";
+SetAttributes[pqWebResolve, {Protected, ReadProtected}];
+
+
+pqWebPlotPrim[pq : (_Graph | _?EdgeListQ)] :=
+  Module[{intDiv, bdDiv, inG, primF},
+    {intDiv, bdDiv} = (Select[EdgeList@pq, MatchQ@#1] &) /@ {_UndirectedEdge, _DirectedEdge};
+    inG = Graph[intDiv];
+    primF = (If[Length@# == 1, Point@#, Line@#] &);
+    Join[
+      (Polygon[VertexList@#] &) /@ FindCycle[Graph@inG, Infinity, All],
+      (ConicalSimplexHullRegion[
+        primF[(FindShortestPath[inG, #1, #2] & @@ Map[First, #1])],
+        Map[Last, #1] ] &) /@ Partition[bdDiv, 2, 1, {1, 1}]
+    ]
+  ];
+pqWebPlotPrim[pq_Association] :=
+  Module[{rp},
+    rp = Normal@Join[
+      KeyMap[Last]@KeySelect[pq, MatchQ[_DirectedEdge] ],
+      KeyMap[ Apply[Head[#]@*OrderlessPatternSequence, #] &,
+        KeySelect[pq, MatchQ[_UndirectedEdge] ]
+      ]
+    ];
+    AssociationMap[
+      ReplaceAll[{
+        Polygon[l_List] :> 
+          First[Intersection @@ (UndirectedEdge @@@ Partition[l,2,1,{1,1}] /. rp)],
+        ConicalSimplexHullRegion[(Point | Line)[l_List] | l_List, v_] :>
+          First[Intersection @@ (Join[UndirectedEdge @@@ Partition[l, 2, 1], v] /. rp)]
+      }],
+      pqWebPlotPrim[Graph@Keys@pq]
+    ]
+  ];
+
+
+pqWebStyleHandler[{edgePrim_, facePrim_}, opts : OptionsPattern[pqWebPlot] ] :=
+  Module[{styled, styO},
+    styO = Normal@OptionValue["pqWebStyle"];
+    styled = Switch[styO,
+      KeyValuePattern[{(Alternatives @@ Keys@Join[edgePrim, facePrim]) -> _}],
+      Cases[styO, HoldPattern[Rule][(Alternatives@@Keys@#), _] ] & /@ {edgePrim, facePrim},
+      Automatic | None, {{}, {}},
+      _, Message[pqWebPlot0::opterr, "pqWebStyle", styO, "directives"]; {{}, {}}
+    ];
     {
-      Graph@Keys@Union[intEdges, bdEdges],
-      Union[bdVectorAssoc, intPosAssoc],
-      Union[bdLineAssoc, facePolyAssoc]
+      Join[
+        AssociationThread[ Values@edgePrim, Directive[{}] ],
+        Map[Flatten@*Directive]@Association[First@styled /. Normal@edgePrim]
+      ],
+      Map[Flatten@*Directive]@Association[Last@styled /. Normal@facePrim]
     }
   ];
-SetAttributes[pqWeb, {Protected, ReadProtected}];
 
-
-SyntaxInformation[pqWebQ] = {"ArgumentsPattern" -> {_}};
-pqWebQ[expr : {_, _, _}] := 
-  MatchQ[expr, {
-    _Graph, 
-    <|HoldPattern[Rule][(\[FormalCapitalB] | \[FormalCapitalV])[_], _] ..|>, 
-    <|HoldPattern[Rule][(\[FormalCapitalB] | \[FormalCapitalV])[_], _] ..|>
-  }];
-pqWebQ[expr : {_, _}] := 
-  MatchQ[expr, {
-    <|HoldPattern[Rule][(\[FormalCapitalV])[_], _] ..|>, 
-    <|HoldPattern[Rule][(\[FormalCapitalV])[_], _] ..|>
-  }];
-pqWebQ[expr_] := False;
-SetAttributes[pqWebQ, {Protected, ReadProtected}];
+pqWebLabelHandler[{edgePrim_, facePrim_}, opts : OptionsPattern[pqWebPlot] ] :=
+  Module[{labeled, textPos, lblO},
+    textPos = Map[ReplaceAll[{
+        Polygon[p_] :> ({Mean@p, {0, 0}}),
+        ConicalSimplexHullRegion[_[p_], w_] :> ({Mean[p], Normalize@Mean[Normalize /@ w]}),
+        Line[p_] :> ({Mean[p], Normalize@RotationTransform[Pi/2][{1, -1} . p]}),
+        HalfLine[p_, v_] :> ({p + 1/2 Normalize[v], Normalize@RotationTransform[Pi/2][v]})
+      }],
+      Join[facePrim, edgePrim]
+    ];
+    lblO = Normal@OptionValue["pqWebLabel"];
+    labeled = Switch[lblO,
+      KeyValuePattern[{(Alternatives @@ Keys@textPos) -> _}],
+      Cases[lblO, HoldPattern[Rule][(Alternatives @@ Keys@#), _] ] & /@ {edgePrim, facePrim},
+      None, {{}, {}},
+      _, Message[pqWebPlot0::opterr, "pqWebLabel", lblO, "labels"]; {{}, {}}
+    ];
+    Map[KeyValueMap[{#2, #1} &]@*Association, labeled] /. Normal@textPos
+  ];
 
 
 Options[pqWebPlot] = Normal@Association@{
   Splice@Options[Graphics],
-  ImageSize -> Automatic,
-  PlotRangePadding -> 2, 
-  Frame -> True, 
-  FrameTicks -> None
-}
-SyntaxInformation[pqWebPlot] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
-pqWebPlot[trig_?PolytopeTriangulationQ, opts: OptionsPattern[pqWebPlot] ] :=
-  pqWebPlot[ pqWeb[trig], opts ];
-pqWebPlot[pq:{_,_,_}?pqWebQ, opts: OptionsPattern[pqWebPlot] ] :=
-  Module[{pqWebGraph, rules, varPoly},
-    {pqWebGraph, rules, varPoly} = pq;
-    gr = EdgeList@pqWebGraph // ReplaceAll[rules] // ReplaceAll[{
-      UndirectedEdge[i_, j_] :> Line[{i,j}],
-      DirectedEdge[i_, j_] :> HalfLine[i,j]
-    }];
-    Graphics[gr, opts,
-      PlotRangePadding -> 2, 
-      Frame -> True, 
-      FrameTicks -> None
+  "pqWebLengthCondition" -> None,
+  "pqWebStyle" -> Automatic,
+  "pqWebBaseStyle" -> Automatic,
+  "pqWebLabel" -> None
+};
+pqWebPlot[g_?pqWebResolvedQ, coord : KeyValuePattern[_], opts : OptionsPattern[pqWebPlot] ] :=
+  Module[{edgePrim, facePrim, sk1, sk2, lbl1, lbl2, gr, bnd, rng},
+    edgePrim = AssociationThread[
+      EdgeList[g] /. {
+        e : UndirectedEdge[i_, f_] :> e | Reverse[e],
+        e : DirectedEdge[i_, v_] :> e | v
+      },
+      EdgeList[g] /. {UndirectedEdge -> Line@*List, DirectedEdge -> HalfLine}
+    ];
+    facePrim = KeyValueReverse@AssociationMap[
+      ReplaceAll[{
+        Polygon[{f___}] :> pqWebCycle[{CyclicPatternSequence[f]}],
+        ConicalSimplexHullRegion[_[p_], v_] :> pqWebCycle[p | Reverse@p, v | Reverse@v]
+      }],
+      pqWebPlotPrim[g]
+    ];
+    {sk1, sk2} = pqWebStyleHandler[{edgePrim, facePrim}, opts];
+    {lbl1, lbl2} = pqWebLabelHandler[{edgePrim, facePrim}, opts];
+    gr = {
+      KeyValueMap[{#2, #1 /. Normal@coord} &, sk1],
+      Apply[Text[#1, {1, 0.1} . #2, {0, -1.1} . #2] &, lbl1 /. Normal@coord, {1}], 
+      Apply[Text[#1, {1, 0.8} . #2, {0, -0.6} . #2] &, lbl2 /. Normal@coord, {1}]
+    };
+    bnd[s_] = (PlotRange /. AbsoluteOptions@Graphics[ gr, Sequence@@FilterRules[{opts},Options@Graphics] ]) // 
+      Expand@RegionBounds@GeometricTransformation[
+        Rectangle @@ Transpose[#], ScalingTransform[s, Mean/@#] ] &;
+    Graphics[gr,
+      Sequence @@ FilterRules[FilterRules[{opts}, Options@Graphics], Except[PlotRange|Prolog] ],
+      PlotRange -> Switch[PlotRange /. FilterRules[{opts}, PlotRange],
+        _?NumericQ | {_?NumericQ,_?NumericQ} | {Repeated[{_?NumericQ,_?NumericQ}, {2}]},
+        PlotRange /. FilterRules[{opts}, PlotRange],
+        _, bnd@If[Length@lbl2 > 0, 1.4, 1.3]
+      ],
+      Prolog -> {
+        FilterRules[{opts}, Prolog],
+        KeyValueMap[{#2, DiscretizeRegion[ #1/.Normal@coord, bnd[2] ]} &, sk2]
+      }
     ]
   ];
+pqWebPlot[a_?pqWebFromTriagulationQ, coord : (KeyValuePattern[_] | {} | <||>), opts : OptionsPattern[pqWebPlot] ] :=
+  Module[{g, sol},
+    g = Keys@a;
+    sol = pqWebResolve[a, coord, Sequence @@ FilterRules[{opts}, Options@pqWebResolve] ];
+    pqWebPlot[Keys@a, sol, opts]
+  ];
+pqWebPlot[a_?pqWebFromTriagulationQ, opts : OptionsPattern[pqWebPlot] ] :=
+  pqWebPlot[a, {}, opts];
+pqWebPlot::opterr = "The option `1` `2` is not a key-value pattern of pqWebCycle and `3`.";
 SetAttributes[pqWebPlot, {Protected, ReadProtected}];
 
 
@@ -808,8 +961,8 @@ AMaximization[W_?PotentialQ] :=
 AMaximization[W_?PotentialQ, ranks: KeyValuePattern[_->_Integer] ] :=
   Module[{fs, q, cyc, sol},
     fp = FieldProducts[W];
-    If[AnyTrue[fp, Not@*MesonQ],
-      Message[Mesons::fperr, SelectFirst[Not@*MesonQ]@fp]; 
+    If[AnyTrue[fp, Not@*PossibleMesonQ],
+      Message[Mesons::fperr, SelectFirst[Not@*PossibleMesonQ]@fp]; 
       Return[$Failed]
     ];
     q = QuiverFromFields[W];

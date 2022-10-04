@@ -104,12 +104,13 @@ KasteleynMatrix[W_?ToricPotentialQ, {x0_, y0_}] :=
       FieldCases -> (Exponent[#,{x,y}]&)
     ];
     solH1 = Last@Solve@KeyValueMap[(Sort[#1] /. fieldPMwind) == #2 &, monExp];
-    solH2 = Last@FindInstance[
-      -1 <= (Join[hx/@fs, hy/@fs] /. solH1) <= 1, 
-      Variables@Map[Last, solH1], Integers];
+    solH2 = If[Length[solH1] == 2*Length[fs], {},
+      Last@FindInstance[-1 <= (Join[hx/@fs, hy/@fs] /. solH1) <= 1, 
+        Variables@Map[Last, solH1], Integers]
+    ];
     kast = k /. solH1 /. solH2;
-    avgExp := Round@Mean@Exponent[
-      DeleteCases[#1/.{a->1}, 0], #2] &;
+    avgExp := Round@Mean@Flatten@Exponent[
+      DeleteCases[0] /@ MonomialList[#1, {x, y, 1/x, 1/y}], #2] &;
     Map[# x^(-avgExp[#, x]) y^(-avgExp[#, y]) &, kast]
   ];
 SetAttributes[KasteleynMatrix, {Protected, ReadProtected}];

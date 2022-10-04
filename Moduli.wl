@@ -295,7 +295,7 @@ SubQuiverRepresentations[W_?ToricPotentialQ, pmPairs : {__} | Automatic] :=
     pm = AssociationThread[Keys@td, DeleteCases[Keys[Q]^#, 1] & /@ Transpose@P];
     allReps = Subsets[F, {1, Length[F] - 1}];
     properRep = g |-> Select[allReps, 
-      ContainsExactly[VertexOutComponent[g, #], #] &];
+      ContainsExactly[VertexOutComponent[g, Cases[#, Alternatives@@VertexList@g] ], #] &];
     pairs = If[MatchQ[pmPairs, Automatic], List /@ Keys@td, List @@@ pmPairs];
     AssociationMap[
       properRep@Values@KeyDrop[ Q, Flatten[# /. pm] ] &, 

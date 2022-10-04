@@ -32,6 +32,7 @@ StrictlyCoplanarQ::usage = "";
 UniqueCases::usage = "";
 IndexedList::usage = "";
 GridRulesGraphics::usage = "";
+ConicalSimplexHullRegion::usage = "";
 
 FindNonSimplePaths::usage = "";
 SolveMatrixLeft::usage = "";
@@ -293,6 +294,34 @@ GridRulesGraphics[
     ]}
   ] /; (tx > bx) && (ty > by)
 SetAttributes[GridRulesGraphics, {Protected, ReadProtected}];
+
+
+ConicalSimplexHullRegion[{} | {{}}, w_List?MatrixQ] :=
+  ConicHullRegion[{ConstantArray[0, Last@Dimensions@w]}, w];
+ConicalSimplexHullRegion[p_List?MatrixQ] :=
+  Simplex[p];
+ConicalSimplexHullRegion[p_List?MatrixQ, w_List?MatrixQ] :=
+  ConicalSimplexHullRegion[Simplex[p], w];
+ConicalSimplexHullRegion[reg_?RegionQ, {} | {{}}] :=
+  reg;
+ConicalSimplexHullRegion[reg_?RegionQ, w_List?MatrixQ] /; 
+    (RegionEmbeddingDimension[reg] === Last[Dimensions@w, 0]) :=
+  Module[{ts, us, t, u, restr, par, xs},
+    us = Array[u, RegionEmbeddingDimension@reg];
+    ts = Array[t, Length@w];
+    restr = And @@ Join[Thread[ts >= 0], {Element[us, reg]}];
+    par = ParametricRegion[{us + ts . w, restr}, Evaluate@Join[ts, us] ];
+    xs = Array[\[FormalX], RegionDimension@par];
+    With[{cond = Reduce[RegionMember[par, xs], xs, Reals]},
+      ImplicitRegion[cond, Evaluate@xs]
+    ]
+  ];
+ConicalSimplexHullRegion[reg_?RegionQ, w_List?MatrixQ] :=
+  Null /; Message[ConicalSimplexHullRegion::dimerr, 
+    RegionEmbeddingDimension[reg], Last[Dimensions@w,0] ];
+ConicalSimplexHullRegion::dimerr = 
+  "Embedding dimension `1` does not match with vector dimension `2`.";
+SetAttributes[ConicalSimplexHullRegion, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FindNonSimplePaths] = {"ArgumentsPattern" -> {_,_,_,_}};
