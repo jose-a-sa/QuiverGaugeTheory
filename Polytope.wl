@@ -829,11 +829,12 @@ pqWebStyleHandler[{edgePrim_, facePrim_}, opts : OptionsPattern[pqWebPlot] ] :=
   ];
 
 pqWebLabelHandler[{edgePrim_, facePrim_}, opts : OptionsPattern[pqWebPlot] ] :=
-  Module[{labeled, textPos, lblO},
+  Module[{labeled, textPos, lblO, sgn},
+    sgn[x_] := 1 - 2*UnitStep[-x];
     textPos = Map[ReplaceAll[{
         Polygon[p_] :> ({Mean@p, {0, 0}}),
         ConicalSimplexHullRegion[_[p_], w_] :> ({Mean[p], Normalize@Mean[Normalize /@ w]}),
-        Line[p_] :> ({Mean[p], Normalize@RotationTransform[Pi/2][{1, -1} . p]}),
+        Line[p_] :> ({Mean[p], sgn@Cos@VectorAngle[{1,-1}.p, {1, 0}] * Normalize@RotationTransform[-Pi/2][{1, -1}.p]}),
         HalfLine[p_, v_] :> ({p + 1/2 Normalize[v], Normalize@RotationTransform[Pi/2][v]})
       }],
       Join[facePrim, edgePrim]
@@ -876,7 +877,7 @@ pqWebPlot[g_?pqWebResolvedQ, coord : KeyValuePattern[_], opts : OptionsPattern[p
     {lbl1, lbl2} = pqWebLabelHandler[{edgePrim, facePrim}, opts];
     gr = {
       KeyValueMap[{#2, #1 /. Normal@coord} &, sk1],
-      Apply[Text[#1, {1, 0.1} . #2, {0, -1.1} . #2] &, lbl1 /. Normal@coord, {1}], 
+      Apply[Text[#1, {1, 0.05} . #2, {0, -1.05} . #2] &, lbl1 /. Normal@coord, {1}], 
       Apply[Text[#1, {1, 0.8} . #2, {0, -0.6} . #2] &, lbl2 /. Normal@coord, {1}]
     };
     bnd[s_] = (PlotRange /. AbsoluteOptions@Graphics[ gr, Sequence@@FilterRules[{opts},Options@Graphics] ]) // 
