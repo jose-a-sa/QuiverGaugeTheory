@@ -109,7 +109,7 @@ SetAttributes[PolytopeTriangulationEdgesQ, {Protected, ReadProtected}];
 SyntaxInformation[PolytopeVertices] = {"ArgumentsPattern" -> {_}};
 PolytopeVertices[pts_?PolytopeQ] :=
   Module[{hull, c0, sortF, ex, bd, ex1},
-    sortF[{x_, y_}] := Apply[-N@ArcTan[#1-x,#2-y] &];
+    sortF[{x_, y_}] := Apply[N@ArcTan[#1-x,#2-y] &];
     hull = ConvexHullMesh[pts];
     c0 = RegionCentroid[hull];
     bd = SortBy[sortF@c0]@Select[
@@ -924,15 +924,14 @@ AMaximization[pt_?PolytopeQ] :=
       RotationTransform[-Pi/2][#2 - #1] & @@@ Partition[ex, 2, 1, {1, 1}]
     ];
     CC = AssociationMap[
-      Apply[CyclicRange[#1+1, #2, Length@ex] &]@*ReplaceAll[pqWex],
-      (If[0 < Mod[-Subtract @@ ArcTan @@@ #, 2 Pi] <= Pi, #, Reverse@#] &) 
-        /@ Subsets[Keys@pqWex, {2}]
+      Apply[CyclicRange[#1+1, #2, Length@ex] &]@*ReplaceAll[pqWex], 
+      (If[Det@# > 0, #, Reverse@#] &) /@ Subsets[Keys@pqWex, {2}]
     ];
-    trialA[c_, m_:1] := 9/32*m ((c - 1)^3 - (c - 1));
-    maxTerm = Total@KeyValueMap[trialA[Total@(a /@ #2), Det@#1] &, CC];
-    condTerm = And[ Total[Values@charges] == 2, 0 < Values@charges < 1 ];
+    trialA[c_, m_ : 1] := 9/32*m ((c - 1)^3 - (c - 1));
+    maxTerm = Expand@Total@KeyValueMap[trialA[Total@(a /@ #2), Det@#1] &, CC];
+    condTerm = And[Total[Values@charges] == 2, And @@ Thread[0 < Values@charges <= 1] ];
     sol = Maximize[{maxTerm, condTerm}, Values@charges];
-    {RootReduce@First@sol, ReplaceAll[RootReduce@Last@sol] /@ Append[charges,charges0]}
+    {RootReduce@First@sol, ReplaceAll[RootReduce@Last@sol] /@ Append[charges, charges0]}
   ];
 AMaximization[q_?EdgeListQ, cyc_List] :=
   AMaximization[{q, AssociationThread[VertexList@q, 1]}, cyc];
