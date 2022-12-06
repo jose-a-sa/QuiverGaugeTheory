@@ -23,7 +23,8 @@ DualPolytope::usage = "";
 NormalizePolytope::usage = "";
 FastForward::usage = "";
 ToricDiagram::usage = "";
-ZigZagPaths::usage = "";
+ZigZagPerfectMatchings::usage = "";
+ZigZagData::usage = "";
 PolytopePlot::usage = "";
 PolytopeArea::usage = "";
 PolytopeCentroid::usage = "";
@@ -152,8 +153,8 @@ NormalizePolytope[pt_?PolytopeQ] :=
     vert = PolytopeVertices[pt];
     c0 = Round@If[vert[[2]] == {}, PolytopeCentroid[pt], vert[[2]]//Mean ];
     newP = Map[# - c0 &, pt];
-    polyAngle[pts_?MatrixQ] := Association[(#2 -> VectorAngle[#1 - #2, #3 - #2] &)
-      @@@ Partition[RotateRight@pts, 3, 1, {1, 1}]
+    polyAngle[pts_?MatrixQ] := Association[
+      (#2 -> VectorAngle[#1 - #2, #3 - #2] &) @@@ Partition[RotateRight@pts, 3, 1, {1, 1}]
     ];
     sortV = Block[{ex, int, bd, ang},
       {ex, int, bd} = PolytopeVertices[#];
@@ -190,42 +191,42 @@ SetAttributes[NormalizePolytope, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FastForward] = {"ArgumentsPattern" -> {_}};
-FastForward[W_?ToricPotentialQ] :=
-  Module[{d, P, nF, nPM, nG, barReduce, QDb, QD, QF, Q, Gt},
-    P = PerfectMatchingMatrix[W];
-    d = QuiverIncidenceMatrix[W]/.{2->0};
-    {nF, nPM} = Dimensions[P];
+FastForward[w_?ToricPotentialQ] :=
+  Module[{d, pMat, nF, nPM, nG, barReduce, qDb, qD, qF, q, gt},
+    pMat = PerfectMatchingMatrix[w];
+    d = QuiverIncidenceMatrix[w]/.{2->0};
+    {nF, nPM} = Dimensions[pMat];
     nG = First@Dimensions[d];
-    QF = NullSpace[P];
-    QDb = SolveMatrixLeft[Transpose[P], d];
+    qF = NullSpace[pMat];
+    qDb = SolveMatrixLeft[Transpose[pMat], d];
     barReduce = Transpose@Join[
       {Table[-1, {nG-1}]}, 
       IdentityMatrix[nG-1] 
     ];
-    QD = barReduce.QDb;
-    Q = Join[QF, QD];
-    Gt = NullSpace[Q];
-    If[StrictlyCoplanarQ@Transpose@Gt,
-      Gt = Join[Most@Gt, {Table[1, {nPM}]}],
+    qD = barReduce.qDb;
+    q = Join[qF, qD];
+    gt = NullSpace[q];
+    If[StrictlyCoplanarQ@Transpose@gt,
+      gt = Join[Most@gt, {Table[1, {nPM}]}],
       Message[FastForward::notcoplanar]
     ];
-    <|"Gt" -> Gt, "QF" -> QF, "QD" -> QD, "QDb" -> QDb|>
+    <|"Gt" -> gt, "QF" -> qF, "QD" -> qD, "QDb" -> qDb|>
   ];
 FastForward::notcoplanar = "Resulting polytope is not strictly coplanar.";
 SetAttributes[FastForward, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ToricDiagram] = {"ArgumentsPattern" -> {_,_.}};
-ToricDiagram[W_?ToricPotentialQ, m_?MatrixQ ] :=
+ToricDiagram[w_?ToricPotentialQ, m_?MatrixQ ] :=
   Block[{mat},
     mat = If[Dimensions@m =!= {2,2} || PossibleZeroQ@Det@m, 
       IdentityMatrix[2], m];
-    Map[ mat.# &, ToricDiagram[W] ]
+    Map[ mat.# &, ToricDiagram[w] ]
   ];
-ToricDiagram[W_?ToricPotentialQ] :=
+ToricDiagram[w_?ToricPotentialQ] :=
   Module[{ff, pt, ex, int, bd, nex, posEx, posInt, 
       posNEx, exVar, intVar, nexVar, sortedPM},
-    ff = FastForward[W];
+    ff = FastForward[w];
     pt = NormalizePolytope@Transpose@Most@First@ff;
     {ex, int, bd} = PolytopeVertices[pt];
     nex = Complement[bd, ex];
@@ -245,13 +246,29 @@ ToricDiagram[W_?ToricPotentialQ] :=
 SetAttributes[ToricDiagram, {Protected, ReadProtected}];
 
 
-SyntaxInformation[ZigZagPaths] = {"ArgumentsPattern" -> {_}};
-ZigZagPaths[W_?ToricPotentialQ] :=
-  Module[{td, P, pms, pmGroups, pmDiffs, altPatt, mesZZ},
-    td = ToricDiagram[W];
-    P = PerfectMatchingMatrix[W];
-    pms = AssociationThread[Keys[td], 
-      (DeleteCases[FieldCases[W]^#, 1] & /@ Transpose@P)];
+(* ZigZagPerfectMatchings[w_?ToricPotentialQ] :=
+  Module[{f, zzs, td, pms, bd, pmPairs},
+    f = FieldCases[w];
+    zzs = KeyValueReverse@AssociationMap[
+      Sort@*Apply[List], ZigZagPaths@w];
+    td = ToricDiagram[w];
+    bd = Last@PolytopeVertices[Values@td];
+    pms = Normal@AssociationThread[Keys@td,
+      DeleteCases[f^#, 1] & /@ Transpose@PerfectMatchingMatrix[w]
+    ];
+    pmPairs = Join @@ Map[Tuples,
+      Partition[bd /. Normal@GroupBy[td, Identity, Keys], 2, 1, {1, 1}]
+    ];
+    KeyMap[Lookup[zzs, Key@Sort@#] &]@GroupBy[pmPairs,
+      Apply[SymmetricDifference]@*ReplaceAll[pms]
+    ]
+  ] /; (PotentialEulerCharacteristic[w] == 0); *)
+ZigZagPerfectMatchings[w_?ToricPotentialQ] :=
+  Module[{td, pmm, pms, pmGroups, pmDiffs, altPatt, mesZZ},
+    td = ToricDiagram[w];
+    pmm = PerfectMatchingMatrix[w];
+    pms = AssociationThread[Keys@td, 
+      (DeleteCases[FieldCases[w]^#, 1] & /@ Transpose@pmm)];
     pmGroups = Last@PolytopeVertices[Values@td] /. 
       GroupBy[Normal@td, Last -> First];
     pmDiffs = Splice@*Tuples /@ Partition[pmGroups, 2, 1, {1, 1}];
@@ -262,12 +279,42 @@ ZigZagPaths[W_?ToricPotentialQ] :=
       First@Values@Mesons[ CenterDot @@ SymmetricDifference[#1,#2] ],
       MatchQ[altPatt]@*ReplaceAll[ Join[ Thread[#1->1], Thread[#2->-1] ] ]@*Apply[List]
     ] & @@@ (pmDiffs /. pms);
-    GroupBy[
+    KeySelect[ZigZagPathQ@w]@GroupBy[
       Normal@Select[AssociationThread[pmDiffs, mesZZ], Length[#] == 1 &],
       First@*Last -> First
     ]
+  ] /; (PotentialEulerCharacteristic[w] == 0);
+ZigZagPerfectMatchings[w_?ToricPotentialQ] :=
+  Null /; Message[ZigZagPerfectMatchings::gnotimpl, (2 - PotentialEulerCharacteristic[w])/2];
+ZigZagPerfectMatchings::gnotimpl = "ZigZagPerfectMatchings not implemented for genus `1` models.";
+SetAttributes[ZigZagPerfectMatchings, {Protected, ReadProtected}];
+
+
+ZigZagData[w_?ToricPotentialQ] :=
+  Module[{a, sl2Sol, amax, rch, td, zzs, pq, len, ops, normalSize},
+    sl2Sol[{p_, q_}] := Array[a, {2, 2}] /. Last@Solve[
+        Det@Array[a, {2, 2}] == 1 && Inverse[Transpose@Array[a, {2, 2}]].{p, q} == {-1, 0},
+      Integers] /. {C[_] -> 0, a[__] -> 0};
+    amax = Normal@Last@AMaximization[w];
+    td = ToricDiagram[w];
+    zzs = ZigZagPerfectMatchings[w];
+    pq = Map[
+      RotationTransform[Pi/2]@*Apply[Subtract]@*ReplaceAll[td]@*First,
+      zzs];
+    len = AssociationMap[Length, Keys@zzs];
+    normalSize = Map[
+      ReplaceAll@Normal@AssociationMap[
+        Function[v, -Subtract @@ First@CoordinateBounds@Map[sl2Sol[v].# &, td]],
+        Union@Values@pq
+      ], pq];
+    ops = AssociationMap[ZigZagOperators[w, #] &, Keys@zzs];
+    rch = Map[
+      First@*N@*ReplaceAll[amax]@*Abs@*ReplaceAll[CenterDot -> Plus], 
+      ops];
+    Merge[{pq, len, normalSize, ops, rch}, Identity]
   ];
-SetAttributes[ZigZagPaths, {Protected, ReadProtected}];
+SetAttributes[ZigZagData, {Protected, ReadProtected}];
+
 
 
 Options[PolytopePlot] = Normal@Association@{
@@ -362,8 +409,10 @@ PolytopePlot[trig_?PolytopeTriangulationQ, opts : OptionsPattern[PolytopePlot] ]
     ];
     {ex, int, bd} = PolytopeVertices@Values@coord;
     lblOffsets = KeyMap[ReplaceAll@Normal@ptsCells]@Join[
-      (Simplify@RotationTransform[-Pi/2]@Normalize[ Normalize[#3-#2] + Normalize[#2-#1] ] &) 
-        @@@ AssociationThread[(List /@ bd), Partition[RotateRight@bd, 3, 1, {1, 1}] ],
+      (Simplify@RotationTransform[-Pi/2]@Normalize[ 
+        Normalize[#3-#2] + Normalize[#2-#1] ] &) @@@ AssociationThread[
+          (List /@ bd), Partition[RotateRight@bd, 3, 1, {1, 1}] 
+      ],
       AssociationThread[(List /@ int), Table[{-1, -1}/Sqrt[2], Length@int] ]
     ];
     cellStyles = polytopePlotCellOptions["PolytopeCellStyle", 
@@ -647,12 +696,12 @@ SetAttributes[PolytopeTriangulations, {Protected, ReadProtected}];
 
 SyntaxInformation[pqWebReduced] = {"ArgumentsPattern" -> {_, _.}};
 pqWebReduced[pts_?PolytopeQ] :=
-  Module[{V, bd, rotateLine, seg},
-    {V} = {\[FormalCapitalV]};
+  Module[{v, bd, rotateLine, seg},
+    {v} = {\[FormalCapitalV]};
     bd = Last@PolytopeVertices[pts];
     rotateLine = NormalizeGCD@*RotationTransform[Pi/2]@*Apply[Subtract];
     seg = Association@MapIndexed[
-      V@First@#2 -> #1 &,
+      v@First@#2 -> #1 &,
       Partition[bd, 2, 1, {1, 1}]
     ];
     {Map[rotateLine, seg], seg}
@@ -662,24 +711,24 @@ SetAttributes[pqWebReduced, {Protected, ReadProtected}];
 
 SyntaxInformation[pqWebFromTriagulation] = {"ArgumentsPattern" -> {_}};
 pqWebFromTriagulation[trig_?PolytopeTriangulationQ] :=
-  Module[{V, B, L, coordR, edgeR, edgeFaceC, bdRpMap, bdDivisors, intDivisors},
-    {V, B, L} = {\[FormalCapitalV], \[FormalCapitalB], \[FormalL]}; 
+  Module[{v, b, coordR, edgeR, edgeFaceC, bdRpMap, bdDivisors, intDivisors},
+    {v, b} = {\[FormalCapitalV], \[FormalCapitalB]}; 
     coordR = MapIndexed[First[#2] -> #1 &, Rationalize@MeshCoordinates@trig]; 
     edgeR = MapIndexed[First[#2] -> #1 &, Identity@@@MeshCells[trig,1] ]; 
     edgeFaceC = GroupBy[
       EdgeList@MeshConnectivityGraph[trig, {1, 2}, 1],
       ReplaceAll[coordR]@*ReplaceAll[edgeR]@*Last@*First -> Last@*Last
     ];
-    bdRpMap = KeyValueMap[{OrderlessPatternSequence @@ #1} -> B@@#2 &,
+    bdRpMap = KeyValueMap[{OrderlessPatternSequence @@ #1} -> b@@#2 &,
       Select[ edgeFaceC, MatchQ[{_}] ]
     ];
     intDivisors = Association@KeyValueMap[
-      UndirectedEdge @@ (B/@#2) -> #1 &,
+      UndirectedEdge @@ (b/@#2) -> #1 &,
       Reverse@Select[edgeFaceC, MatchQ[{_, _}] ]
     ];
     bdDivisors = Association@MapIndexed[
-      DirectedEdge[#1/.bdRpMap, V@@#2] -> #1 &,
-      Partition[Last@PolytopeVertices@Values@coordR, 2, 1, {1, 1}]
+      DirectedEdge[#1/.bdRpMap, v@@#2] -> #1 &,
+      Partition[Reverse@Last@PolytopeVertices@Values@coordR, 2, 1, {1, 1}]
     ];
     Join[intDivisors, bdDivisors]
   ];
@@ -722,9 +771,9 @@ Options[pqWebResolve] = {
   "pqWebLengthCondition" -> None
 };
 pqWebResolve[pqdata : KeyValuePattern[_], coord : (KeyValuePattern[_] | {} | <||>), opts : OptionsPattern[pqWebResolve] ] :=
-  Module[{L, rotLine, intEdges, intVert, bdEdges, partial, coordVec, 
+  Module[{l, rotLine, intEdges, intVert, bdEdges, partial, coordVec, 
       coordInd, pts, eqs,loopEqs, loopVars, sol0, loopCond, lineCond, loopSol, sol},
-    L = \[FormalL];
+    l = \[FormalL];
     rotLine = NormalizeGCD@*RotationTransform[-Pi/2]@*Apply[Subtract];
     intEdges = KeySort@KeySelect[Association@pqdata, MatchQ[_UndirectedEdge] ];
     intVert = Union@VertexList@Keys@intEdges;
@@ -738,7 +787,7 @@ pqWebResolve[pqdata : KeyValuePattern[_], coord : (KeyValuePattern[_] | {} | <||
     ];
     pts = Map[# -> Lookup[coordVec, #, {Indexed[#, 1], Indexed[#, 2]}/.coordInd] &, intVert];
     eqs = KeyValueMap[(Subtract @@ #1/.pts) == (Identity @@@ L @@ #1) #2 &, rotLine /@ intEdges];
-    loopVars = Map[(Identity @@@ L @@ #1) &, Keys@intEdges];
+    loopVars = Map[(Identity @@@ l @@ #1) &, Keys@intEdges];
     loopCond = Join[Thread[loopVars > 0], {Element[loopVars, Integers]}];
     sol0 = Solve[eqs];
     If[Length[sol0] == 0 || Simplify[ AnyTrue[loopVars/.Last[sol0,{}], LessEqualThan[0] ], loopCond],
@@ -844,7 +893,7 @@ pqWebLabelHandler[{edgePrim_, facePrim_}, opts : OptionsPattern[pqWebPlot] ] :=
       KeyValuePattern[{(Alternatives @@ Keys@textPos) -> _}],
       Cases[lblO, HoldPattern[Rule][(Alternatives @@ Keys@#), _] ] & /@ {edgePrim, facePrim},
       None, {{}, {}},
-      _, Message[pqWebPlot0::opterr, "pqWebLabel", lblO, "labels"]; {{}, {}}
+      _, Message[pqWebPlot::opterr, "pqWebLabel", lblO, "labels"]; {{}, {}}
     ];
     Map[KeyValueMap[{#2, #1} &]@*Association, labeled] /. Normal@textPos
   ];
@@ -861,14 +910,14 @@ pqWebPlot[g_?pqWebResolvedQ, coord : KeyValuePattern[_], opts : OptionsPattern[p
   Module[{edgePrim, facePrim, sk1, sk2, lbl1, lbl2, gr, bnd, rng},
     edgePrim = AssociationThread[
       EdgeList[g] /. {
-        e : UndirectedEdge[i_, f_] :> e | Reverse[e],
-        e : DirectedEdge[i_, v_] :> e | v
+        e : UndirectedEdge[i_, f_] :> e | Reverse[e] | pqWebCycle[{i,f}|{f,i}],
+        e : DirectedEdge[i_, v_] :> e | v | pqWebCycle[{i}|i, {v}|v]
       },
       EdgeList[g] /. {UndirectedEdge -> Line@*List, DirectedEdge -> HalfLine}
     ];
     facePrim = KeyValueReverse@AssociationMap[
       ReplaceAll[{
-        Polygon[{f___}] :> pqWebCycle[{CyclicPatternSequence[f]}],
+        Polygon[{p__}] :> pqWebCycle[{CyclicPatternSequence[p]}],
         ConicalSimplexHullRegion[_[p_], v_] :> pqWebCycle[p | Reverse@p, v | Reverse@v]
       }],
       pqWebPlotPrim[g]
@@ -882,7 +931,7 @@ pqWebPlot[g_?pqWebResolvedQ, coord : KeyValuePattern[_], opts : OptionsPattern[p
     };
     bnd[s_] = (PlotRange /. AbsoluteOptions@Graphics[ gr, Sequence@@FilterRules[{opts},Options@Graphics] ]) // 
       Expand@RegionBounds@GeometricTransformation[
-        Rectangle @@ Transpose[#], ScalingTransform[s, Mean/@#] ] &;
+        Rectangle @@ Transpose[#], ScalingTransform[{s,s}, Mean/@#] ] &;
     Graphics[gr,
       Sequence @@ FilterRules[FilterRules[{opts}, Options@Graphics], Except[PlotRange|Prolog] ],
       PlotRange -> Switch[PlotRange /. FilterRules[{opts}, PlotRange],
@@ -896,13 +945,16 @@ pqWebPlot[g_?pqWebResolvedQ, coord : KeyValuePattern[_], opts : OptionsPattern[p
       }
     ]
   ];
+pqWebPlot[trig_?PolytopeTriangulationQ, coord : (KeyValuePattern[_] | {} | <||>), opts : OptionsPattern[pqWebPlot] ] :=
+  pqWebPlot[pqWebFromTriagulation@trig, coord, opts];
+pqWebPlot[trig_?PolytopeTriangulationQ, opts : OptionsPattern[pqWebPlot] ] :=
+  pqWebPlot[pqWebFromTriagulation@trig, {}, opts];
 pqWebPlot[a_?pqWebFromTriagulationQ, coord : (KeyValuePattern[_] | {} | <||>), opts : OptionsPattern[pqWebPlot] ] :=
-  Module[{g, sol},
-    g = Keys@a;
+  Module[{sol},
     sol = pqWebResolve[a, coord, Sequence @@ FilterRules[{opts}, Options@pqWebResolve] ];
     pqWebPlot[Keys@a, sol, opts]
   ];
-pqWebPlot[a_?pqWebFromTriagulationQ, opts : OptionsPattern[pqWebPlot] ] :=
+pqWebPlot[a : (_?pqWebFromTriagulationQ | _?PolytopeTriangulationQ), opts : OptionsPattern[pqWebPlot] ] :=
   pqWebPlot[a, {}, opts];
 pqWebPlot::opterr = "The option `1` `2` is not a key-value pattern of pqWebCycle and `3`.";
 SetAttributes[pqWebPlot, {Protected, ReadProtected}];
@@ -916,19 +968,22 @@ AMaximization[td : KeyValuePattern[{}]?ToricDiagramQ] := MapAt[
     {2}
   ];
 AMaximization[pt_?PolytopeQ] :=
-  Module[{trialA, ex, int, bd, pqWex, a, charges, charges0, CC, maxTerm, condTerm, sol},
+  Module[{trialA, ex, int, bd, pqWex, a, charges, charges0, cc, maxTerm, condTerm, sol},
     {ex, int, bd} = PolytopeVertices[pt];
     charges = Association@MapIndexed[#1 -> a@First@#2 &, ex];
     charges0 = Association[(#1 -> 0 &) /@ Join[int, Complement[bd,ex] ] ];
     pqWex = First /@ PositionIndex[
       RotationTransform[-Pi/2][#2 - #1] & @@@ Partition[ex, 2, 1, {1, 1}]
     ];
-    CC = AssociationMap[
+    cc = AssociationMap[
       Apply[CyclicRange[#1+1, #2, Length@ex] &]@*ReplaceAll[pqWex], 
       (If[Det@# > 0, #, Reverse@#] &) /@ Subsets[Keys@pqWex, {2}]
     ];
-    trialA[c_, m_ : 1] := 9/32*m ((c - 1)^3 - (c - 1));
-    maxTerm = Expand@Total@KeyValueMap[trialA[Total@(a /@ #2), Det@#1] &, CC];
+    trialA[c_, m_ : 1] := 9/32*(m (c - 1)^3);
+    maxTerm = Expand[
+      9/32 * 2 * PolytopeArea[ex] + 
+        Total@KeyValueMap[trialA[Total@(a /@ #2), Det@#1] &, cc]
+    ];
     condTerm = And[Total[Values@charges] == 2, And @@ Thread[0 < Values@charges <= 1] ];
     sol = Maximize[{maxTerm, condTerm}, Values@charges];
     {RootReduce@First@sol, ReplaceAll[RootReduce@Last@sol] /@ Append[charges, charges0]}
@@ -936,17 +991,17 @@ AMaximization[pt_?PolytopeQ] :=
 AMaximization[q_?EdgeListQ, cyc_List] :=
   AMaximization[{q, AssociationThread[VertexList@q, 1]}, cyc];
 AMaximization[{q_?EdgeListQ, ranks: KeyValuePattern[_->_Integer]}, cyc_List] :=
-  Module[{rk, rkQ, R, t, h, cond, linSol, trialA, vars, sol},
+  Module[{rk, rkQ, rch, t, h, cond, linSol, trialA, vars, sol},
     rk = Association[ranks];
     rkQ = AssociationMap[Apply[Times]@*Map[rk], q];
-    h = GroupBy[q, First -> (rkQ[#] (R[#] - 1) &), Total];
-    t = GroupBy[q, Last -> (rkQ[#] (R[#] - 1) &), Total];
+    h = GroupBy[q, First -> (rkQ[#] (rch[#] - 1) &), Total];
+    t = GroupBy[q, Last -> (rkQ[#] (rch[#] - 1) &), Total];
     cond = Join[
       KeyValueMap[2 rk[#1]^2 + Total[#2] == 0 &]@Merge[{h, t}, Identity],
-      (Total[#] == 2 &)@*Map[R] /@ cyc
+      (Total[#] == 2 &)@*Map[rch] /@ cyc
     ];
     linSol = First@Solve[cond];
-    trialA = 9/32*(Total[rk^2] + Total@Map[rkQ[#]*(R[#]-1)^3 &, q]/.linSol) // ExpandAll;
+    trialA = 9/32*(Total[rk^2] + Total@Map[rkQ[#]*(rch[#]-1)^3 &, q]/.linSol) // ExpandAll;
     vars = Variables@trialA;
     sol = TimeConstrained[
       RootReduce@Maximize[{trialA, 0 <= vars <= 2}, vars], 
@@ -954,22 +1009,30 @@ AMaximization[{q_?EdgeListQ, ranks: KeyValuePattern[_->_Integer]}, cyc_List] :=
       NMaximize[{trialA, 0 <= vars <= 2}, vars]
     ];
     {First@sol, AssociationMap[ 
-      ReplaceAll[Union[(linSol/.Last@sol), Last@sol] ]@*R, q]}
+      ReplaceAll[Union[(linSol/.Last@sol), Last@sol] ]@*rch, q]}
   ];
-AMaximization[W_?PotentialQ] :=
-  AMaximization[W, AssociationThread[VertexList@Values@QuiverFromFields@W, 1] ];
-AMaximization[W_?PotentialQ, ranks: KeyValuePattern[_->_Integer] ] :=
-  Module[{fs, q, cyc, sol},
-    fp = FieldProducts[W];
+AMaximization[w_?ToricPotentialQ] :=
+  Module[{amax, frch},
+    amax = AMaximization[ToricDiagram@w];
+    frch = AssociationThread[FieldCases@w, 
+      PerfectMatchingMatrix[w].Values[Last@amax] // Simplify // RootReduce 
+    ];
+    {First@amax, frch}
+  ];
+(* AMaximization[w_?PotentialQ] :=
+  AMaximization[w, AssociationThread[VertexList@Values@QuiverFromFields@w, 1] ];
+AMaximization[w_?PotentialQ, ranks: KeyValuePattern[_->_Integer] ] :=
+  Module[{fp, q, cyc, sol},
+    fp = FieldProducts[w];
     If[AnyTrue[fp, Not@*PossibleMesonQ],
       Message[Mesons::fperr, SelectFirst[Not@*PossibleMesonQ]@fp]; 
       Return[$Failed]
     ];
-    q = QuiverFromFields[W];
+    q = QuiverFromFields[w];
     cyc = Apply[DirectedEdge, List @@@ fp, {2}];
     sol = AMaximization[{Values@q, ranks}, cyc];
     {First@sol, ReplaceAll[Last@sol] /@ q}
-  ];
+  ]; *)
 AMaximization[_] := Null /; Message[AMaximization::arg];
 SetAttributes[AMaximization, {Protected, ReadProtected}];
 

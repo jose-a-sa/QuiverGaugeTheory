@@ -20,6 +20,7 @@ KeyValueReverse::usage = "";
 AssociationTableToPairs::usage = "";
 MinMaxExponent::usage = "";
 CyclicRange::usage = "";
+CyclicSort::usage = "";
 CyclicPatternSequence::usage = "";
 ToCyclicPattern::usage = "";
 ToSubtractList::usage = "";
@@ -31,8 +32,12 @@ CoplanarQ::usage = "";
 StrictlyCoplanarQ::usage = "";
 UniqueCases::usage = "";
 IndexedList::usage = "";
+
 GridRulesGraphics::usage = "";
 ConicalSimplexHullRegion::usage = "";
+
+AcuteCone::usage = "";
+DualCone::usage = "";
 
 FindNonSimplePaths::usage = "";
 SolveMatrixLeft::usage = "";
@@ -161,6 +166,11 @@ MinMaxExponent[expr_, patt_] :=
     \[FormalLambda]
   ];
 SetAttributes[MinMaxExponent, {Protected, ReadProtected}];
+
+
+SyntaxInformation[CyclicSort] = {"ArgumentsPattern" -> {_}};
+CyclicSort[x_] := RotateLeft[x, First@Ordering[x] - 1];
+SetAttributes[CyclicSort, {Protected, ReadProtected}];
 
 
 SyntaxInformation[CyclicRange] = {"ArgumentsPattern" -> {_, _., _., _.}};
@@ -324,6 +334,76 @@ ConicalSimplexHullRegion::dimerr =
 SetAttributes[ConicalSimplexHullRegion, {Protected, ReadProtected}];
 
 
+AcuteCone[{}] := {{}, {}};
+AcuteCone[{{}}] := Message[AcuteCone::invgen];
+AcuteCone[gen_?(MatrixQ[#, NumericQ] &)] :=
+  Module[{aa, m, n, mf, t, bb, cc},
+    aa = Union[gen];
+    {m, n} = Dimensions[aa];
+    mf = RegionMember@ParametricRegion[
+      Evaluate@{Array[t, m].aa, And @@ Thread[Array[t, m] >= 0]},
+      Evaluate@Array[t, m]
+    ];
+    cc = Select[aa, ! mf[-#] &];
+    bb = If[Length[aa] == Length[cc], {},
+      DeleteCases[RowReduce@Complement[aa, cc], {0 ..}]
+    ];
+    {bb, cc}
+  ];
+AcuteCone::invgen = "Invalid matrix of generators provided.";
+SetAttributes[AcuteCone, {Protected, ReadProtected}];
+
+
+DualCone[{}] := {};
+DualCone[{{}}] := Null /; Message[DualCone::invgen];
+DualCone[gen_?(MatrixQ[#, NumericQ] &)] :=
+  Module[{aa, m, n, t, mf, gammaF, bb, cc},
+    aa = Union[gen];
+    {m, n} = Dimensions[aa];
+    mf = RegionMember@ParametricRegion[
+      Evaluate@{Array[t, m] . aa, And @@ Thread[Array[t, m] >= 0]},
+      Evaluate@Array[t, m]
+    ];
+    gammaF[{vv_, ww_}, a_] :=
+      Block[{vp, piv, inC, h, gg, orthI, z, Irel, Ipick},
+      piv = If[Length@vv == 0, {},
+        Position[vv.a, Except[0, _?NumericQ], {1}]
+      ];
+      inC = Not@mf[-a];
+      If[Length@piv > 0,
+        vp = vv[[First@First@piv]];
+        Return[{
+          Map[# - (a.#)/(a.vp) vp &, Delete[vv, First@piv] ],
+          NormalizeGCD /@ Append[
+            Map[# - (a.#)/(a.vp) vp &, ww], If[inC, -vp/(a.vp), Nothing]
+          ]
+        }]
+      ];
+      h = First@FirstPosition[aa, a];
+      orthI = (Flatten@Position[Take[aa, UpTo@h].#, 0] &);
+      gg = GroupBy[If[#.a == 0, #, #/Abs[#.a] ] & /@ ww, Sign[#.a] &];
+      z = KeyMap[Total]@AssociationMap[
+        Union[Intersection @@ orthI /@ #, {h}] &,
+        Tuples@Lookup[gg, {1,-1}, {}]
+      ];
+      Irel = SimpleGraph@RelationGraph[
+        ContainsAll[#2, #1] &, Values@z, DirectedEdges -> True
+      ];
+      Ipick = Select[
+        Pick[VertexList@Irel, VertexOutDegree@Irel, 0],
+        NoneTrue[orthI /@ Lookup[gg, 0, {}], ContainsAll@#] &
+      ];
+      {vv, Join[
+        Select[ww, #.a == 0 || (inC && #.a < 0) &], 
+        NormalizeGCD /@ Keys@Select[z, MatchQ[Alternatives@@Ipick] ]
+      ]}
+    ];
+    {bb, cc} = Fold[gammaF, {IdentityMatrix[n], {}}, aa];
+    Union[bb, -bb, cc]
+  ];
+DualCone::invgen = "Invalid matrix of generators provided.";
+
+
 SyntaxInformation[FindNonSimplePaths] = {"ArgumentsPattern" -> {_,_,_,_}};
 FindNonSimplePaths[e_?EdgeListQ, s_, t_, kspec_] :=
   FindNonSimplePaths[Graph[e], s, t, kspec];
@@ -417,7 +497,7 @@ UsageForm[u_String, a: ({__String} | HoldPattern[Alternatives][__String] | Autom
     uf[patt_] := ToString[Unevaluated[patt], StandardForm];
     funcPatt = (WordBoundary ~~ Pattern[#1, WordCharacter ..] ~~ 
       Pattern[#2, ("[" ~~ Shortest[__] ~~ "]&" | "] &" | "]") ..]) &;
-    vars = Echo@If[a =!= Automatic, a,
+    vars = If[a =!= Automatic, a,
       Flatten@StringCases[u,
         funcPatt[foo, args] :> StringSplit[args, ("["|"]"|",")] 
       ] 

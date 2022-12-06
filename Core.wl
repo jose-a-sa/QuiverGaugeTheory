@@ -34,7 +34,9 @@ PotentialQ::usage = "";
 AbelianPotentialQ::usage = "";
 NonAbelianPotentialQ::usage = "";
 ToricPotentialQ::usage = "";
+PotentialMemberQ::usage = "";
 IntegrateOutMassTerms::usage = "";
+PotentialEulerCharacteristic::usage = "";
 ToricPotentialTeXForm::usage = "";
 
 
@@ -84,17 +86,17 @@ SetAttributes[AbelianQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FieldCases] = {"ArgumentsPattern" -> {_}};
-FieldCases[W_] := SortBy[
-  UniqueCases[ ExpandAll@W, _?FieldQ ],
+FieldCases[w_] := SortBy[
+  UniqueCases[ ExpandAll@w, _?FieldQ ],
   Apply[DirectedEdge]
 ];
 SetAttributes[FieldCases, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FieldProducts] = {"ArgumentsPattern" -> {_}};
-FieldProducts[W_] := DeleteDuplicates@Map[
+FieldProducts[w_] := DeleteDuplicates@Map[
   ReplaceAll[HoldPattern[Times][l___, _?(FreeQ[_?FieldQ]), r___] :> l*r], 
-  UniqueCases[{ExpandAll@W}, _?FieldProductQ | HoldPattern[Times][_, _?FieldProductQ] ]
+  UniqueCases[{ExpandAll@w}, _?FieldProductQ | HoldPattern[Times][_, _?FieldProductQ] ]
 ];
 SetAttributes[FieldProducts, {Protected, ReadProtected}];
 
@@ -136,11 +138,11 @@ DG[f_, var_?FieldQ] :=
   D[f, var];
 SetAttributes[DG, {Protected, ReadProtected}];
 
-
+ 
 SyntaxInformation[PotentialCoefficientTestQ] = {"ArgumentsPattern" -> {_, _.}};
 PotentialCoefficientTestQ[coefPatt_] := 
   PotentialCoefficientTestQ[#, coefPatt] &;
-PotentialCoefficientTestQ[W_, coefPatt_] := MatchQ[ExpandAll@W,
+PotentialCoefficientTestQ[w_, coefPatt_] := MatchQ[ExpandAll@w,
   HoldPattern[Plus][Alternatives[
     (HoldPattern[Times][coefPatt, __?FieldPowerQ] | _?AbelianFieldProductQ) ..,
     (HoldPattern[Times][coefPatt, _?NonAbelianFieldProductQ] | _?NonAbelianFieldProductQ) ..] 
@@ -150,26 +152,26 @@ SetAttributes[PotentialCoefficientTestQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[PotentialQ] = {"ArgumentsPattern" -> {_}};
-PotentialQ[W_] := PotentialCoefficientTestQ[__][ExpandAll@W];
+PotentialQ[w_] := PotentialCoefficientTestQ[__][ExpandAll@w];
 SetAttributes[PotentialQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[AbelianPotentialQ] = {"ArgumentsPattern" -> {_}};
-AbelianPotentialQ[W_?PotentialQ] := AbelianQ@W;
+AbelianPotentialQ[w_?PotentialQ] := AbelianQ@w;
 AbelianPotentialQ[_] := False;
 SetAttributes[AbelianPotentialQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[NonAbelianPotentialQ] = {"ArgumentsPattern" -> {_}};
-NonAbelianPotentialQ[W_?PotentialQ] := Not@AbelianQ@W;
+NonAbelianPotentialQ[w_?PotentialQ] := Not@AbelianQ@w;
 NonAbelianPotentialQ[_] := False;
 SetAttributes[NonAbelianPotentialQ, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FTerms] = {"ArgumentsPattern" -> {_, _.}};
-FTerms[W_?PotentialQ, f_: Identity] := 
+FTerms[w_?PotentialQ, f_: Identity] := 
   ExpandAll@Collect[
-    ExpandAll@DG[W, {FieldCases@W}], 
+    ExpandAll@DG[w, {FieldCases@w}], 
     (_?FieldProductQ) | (_?FieldQ), 
     f@*Simplify
   ];
@@ -177,42 +179,81 @@ SetAttributes[FTerms, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FTermsConstraint] = {"ArgumentsPattern" -> {_, _., _.}};
-FTermsConstraint[W_?PotentialQ, f_: Identity, g_: Plus] := 
-  g @@@ ReplaceAll[(_?FieldQ) -> 1]@Map[Flatten@*List]@ReplaceAll[Plus -> List]@Expand@FTerms[W, f];
+FTermsConstraint[w_?PotentialQ, f_: Identity, g_: Plus] := 
+  Module[{ff, gg},
+    Map[ Replace[p_Plus :> gg@@p], 
+      Expand@ReplaceAll[_?FieldQ->1]@FTerms[w, ff] 
+    ] // ReplaceAll[{ff -> f, gg -> g}]
+  ];
 SetAttributes[FTermsConstraint, {Protected, ReadProtected}];
 
 
 SyntaxInformation[FTermsTable] = {"ArgumentsPattern" -> {_}};
-FTermsTable[W_?PotentialQ] := 
+FTermsTable[w_?PotentialQ] := 
   Grid[Transpose[{
-    FieldCases@W,
-    FTerms[W, Highlighted],
-    Simplify@FTermsConstraint[W], 
-    Simplify@FTermsConstraint[W, Abs]
+    FieldCases@w,
+    FTerms[w, Highlighted],
+    Simplify@FTermsConstraint[w], 
+    Simplify@FTermsConstraint[w, Abs]
   }], Frame -> All];
 SetAttributes[FTermsTable, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ToricPotentialQ] = {"ArgumentsPattern" -> {_}};
-ToricPotentialQ[W_?PotentialQ] := 
+ToricPotentialQ[w_?PotentialQ] := 
   Simplify@And[
-    And @@ Thread[FTermsConstraint[W] == 0],
-    SameQ @@ FTermsConstraint[W, Abs]
+    And @@ Thread[FTermsConstraint[w] == 0],
+    SameQ @@ FTermsConstraint[w, Abs]
   ];
 ToricPotentialQ[_] := False
 SetAttributes[ToricPotentialQ, {Protected, ReadProtected}];
 
 
+PotentialMemberQ[w_?PotentialQ, c : {__DirectedEdge}, 0] :=
+  AnyTrue[Map[DirectedEdge @@@ List @@ #&, FieldProducts@w], ContainsExactly@c];
+PotentialMemberQ[w_?PotentialQ, c_?FieldProductQ, 0] :=
+  MemberQ[Simplify @ FieldProducts@w, Simplify@c];
+PotentialMemberQ[w_?PotentialQ, e_DirectedEdge, 1] :=
+  MemberQ[Values@FieldCases@w, e];
+PotentialMemberQ[w_?PotentialQ, e_?FieldQ, 1] :=
+  MemberQ[Keys@FieldCases@w, e];
+PotentialMemberQ[w_?PotentialQ, v_, 2] :=
+  MemberQ[Flatten[List @@@ FieldCases@w], v];
+PotentialMemberQ[w : Except[_?PotentialQ], _, _] :=
+  Null /; Message[PotentialMemberQ::warg, w];
+PotentialMemberQ[_?PotentialQ, x : Except[{__DirectedEdge} | _?FieldProductQ], 0] :=
+  Null /; Message[PotentialMemberQ::fparg, x];
+PotentialMemberQ[_?PotentialQ, x : Except[_DirectedEdge | _?FieldQ], 1] :=
+  Null /; Message[PotentialMemberQ::earg, x];
+PotentialMemberQ[_, _, _] := 
+  False;
+PotentialMemberQ::warg = "Argument `1` is not a valid potential.";
+PotentialMemberQ::fparg = "Argument `1` is not a valid superpotential cycle.";
+PotentialMemberQ::earg = "Argument `1` is not a valid superpotential edge or field.";
+SetAttributes[PotentialMemberQ, {Protected, ReadProtected}];
+
+
 SyntaxInformation[IntegrateOutMassTerms] = {"ArgumentsPattern" -> {_}};
-IntegrateOutMassTerms[W_?PotentialQ] :=
+IntegrateOutMassTerms[w_?PotentialQ] :=
   Module[{massF, int},
-    massF = FieldCases@Select[FieldProducts[W], Length[#] == 2 &];
-    int = If[Length@massF == 0, {},
-      Last[Solve[DG[W, {massF}] == 0], {}]
-    ] // DeleteCases[ HoldPattern[Rule][_?FieldProductQ, _?FieldProductQ] ];
-    Simplify@Expand[W /. int]
+    massF = Select[FieldProducts@#, EqualTo[2]@*Length] &;
+    int = NestWhile[
+      # /. Last@Solve[0 == DG[#, {FieldCases@First@massF@#}], FieldCases@First@massF@#] &,
+      w, (Length@massF[#] > 0 &)
+    ];
+    Simplify@Expand[int]
   ];
 SetAttributes[IntegrateOutMassTerms, {Protected, ReadProtected}];
+
+
+PotentialEulerCharacteristic[w_?ToricPotentialQ] :=
+  Module[{fd, fp, fc},
+    fd = FieldCases[w];
+    fp = FieldProducts[w];
+    fc = Union@Flatten[List @@@ fd];
+    Length[fp] - Length[fd] + Length[fc]
+  ];
+SetAttributes[PotentialEulerCharacteristic, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ChangeGroupIndices] = {"ArgumentsPattern" -> {_, ___}};
@@ -231,7 +272,7 @@ SetAttributes[ChangeGroupIndices, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ToricPotentialTeXForm] = {"ArgumentsPattern" -> {_, _.}};
-ToricPotentialTeXForm[W_?ToricPotentialQ, perline : (_Integer?NonNegative) : 3] := 
+ToricPotentialTeXForm[w_?ToricPotentialQ, perline : (_Integer?NonNegative) : 3] := 
   Module[{texStr, terms, gather, sorted, sortF},
     sortF = Composition[
       StringRiffle,
@@ -243,8 +284,8 @@ ToricPotentialTeXForm[W_?ToricPotentialQ, perline : (_Integer?NonNegative) : 3] 
         DirectedEdge[x, y, z]
       ]
     ];
-    texStr = ToString[ W /. {Subscript[X, 1][i_, j_] :> If[
-        MatchQ[UniqueCases[W, Subscript[X, _Integer][i, j] ], {Subscript[X, 1][i, j]}], 
+    texStr = ToString[ w /. {Subscript[X, 1][i_, j_] :> If[
+        MatchQ[UniqueCases[w, Subscript[X, _Integer][i, j] ], {Subscript[X, 1][i, j]}], 
         Subscript[X, Row[{i, j}] ], Subsuperscript[ X, Row[{i, j}], Row[{1}] ] ],
       Subscript[X, k:Except[1] ][i_, j_] :> Subsuperscript[ X, Row[{i, j}], Row[{k}] ]
     }, TeXForm];

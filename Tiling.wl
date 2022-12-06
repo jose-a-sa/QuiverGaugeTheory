@@ -10,6 +10,7 @@ BeginPackage["QuiverGaugeTheory`Tiling`", {
 }]
 
 
+ToricPotentialNodes::usage = "";
 PerfectMatchingMatrix::usage = "";
 PerfectMatchings::usage = "";
 KasteleynMatrix::usage = "";
@@ -30,13 +31,24 @@ $nW = \[FormalW];
 $nB = \[FormalB];
 
 
+ToricPotentialNodes[w_?ToricPotentialQ] :=
+  Module[{fp, res},
+    fp = FieldProducts[w];
+    res = Join @@ KeyValueMap[{k, v} |-> MapIndexed[#1 -> k @@ #2 &, v],
+      GroupBy[fp,Lookup[<|-1 -> $nB, 1 -> $nW|>, Coefficient[w, #] ] &]
+    ];
+    Association[res][[ Key /@ fp ]]
+  ];
+SetAttributes[ToricPotentialNodes, {Protected, ReadProtected}];
+
+
 SyntaxInformation[PerfectMatchingMatrix] = {"ArgumentsPattern" -> {_}};
-PerfectMatchingMatrix[W_?ToricPotentialQ] :=
+PerfectMatchingMatrix[w_?ToricPotentialQ] :=
   Module[{k, fs, pmList, a = $a},
-    fs = FieldCases[W];
-    k = KasteleynMatrix[W, {1, 1}];
+    fs = FieldCases[w];
+    k = KasteleynMatrix[w, {1, 1}];
     pmList = ReplaceAll[a -> Identity]@MonomialList[
-      Expand@Permanent[k], a/@FieldCases@W];
+      Expand@Permanent[k], a/@FieldCases@w];
     If[Dimensions[k] == {1,1}, pmList = List /@ pmList];
     Boole@Outer[
       MemberQ[#2, #1] &, fs, (Alternatives @@@ pmList), 1
@@ -46,61 +58,55 @@ SetAttributes[PerfectMatchingMatrix, {Protected, ReadProtected}];
 
 
 SyntaxInformation[PerfectMatchings] = {"ArgumentsPattern" -> {_}};
-PerfectMatchings[W_?ToricPotentialQ] :=
-  Module[{fs, pmV, P},
-    fs = FieldCases[W];
-    pmV = Keys@ToricDiagram[W];
-    P = PerfectMatchingMatrix[W];
+PerfectMatchings[w_?ToricPotentialQ] :=
+  Module[{fs, pmV, pmm},
+    fs = FieldCases[w];
+    pmV = Keys@ToricDiagram[w];
+    pmm = PerfectMatchingMatrix[w];
     AssociationThread[pmV, 
-      (DeleteCases[fs^#, 1] &) /@ Transpose[P]
+      (DeleteCases[fs^#, 1] &) /@ Transpose[pmm]
     ]
   ];
 SetAttributes[PerfectMatchings, {Protected, ReadProtected}];
 
 
 SyntaxInformation[KasteleynMatrix] = {"ArgumentsPattern" -> {_, _.}};
-KasteleynMatrix[W_?ToricPotentialQ] :=
-  KasteleynMatrix[W, {$x, $y}];
-KasteleynMatrix[W_?ToricPotentialQ, {1|1., 1|1.}] :=
+KasteleynMatrix[w_?ToricPotentialQ] :=
+  KasteleynMatrix[w, {$x, $y}];
+KasteleynMatrix[w_?ToricPotentialQ, {1|1., 1|1.}] :=
   Module[{sp, terms, k, fs, a},
     a = $a;
-    sp = ExpandAll@If[AbelianPotentialQ@W,
-      NonAbelianizeMesons[W], W];
+    sp = ExpandAll@If[AbelianPotentialQ@w,
+      NonAbelianizeMesons[w], w];
     If[sp === $Failed, Return[$Failed] ];
     fs = FieldCases[sp];
-    terms = GroupBy[
-      Cases[sp, HoldPattern[Times][x_.,c_?FieldProductQ] :> {x, c}],
-      First -> Last
-    ];
+    terms = GroupBy[ToricPotentialNodes[sp], Head, Keys];
     k = Outer[
       Sum[a[e] Boole@AllTrue[{##}, MemberQ@e], {e, fs}] &,
-      terms[1], terms[-1], 1
+      terms[$nW], terms[$nB], 1
     ];
     Return[k];
   ];
-KasteleynMatrix[W_?ToricPotentialQ, {x0_, y0_}] :=
-  Module[{sp, terms, k, td, P, fieldPMwind, monExp, 
+KasteleynMatrix[w_?ToricPotentialQ, {x0_, y0_}] :=
+  Module[{sp, terms, k, td, pmm, fieldPMwind, monExp, 
       solH1, solH2, fs, a, x, y, hx, hy, kast, avgExp},
     {a, x, y}  = {$a, $x, $y};
-    sp = ExpandAll@If[AbelianPotentialQ@W,
-      NonAbelianizeMesons[W], W];
+    sp = ExpandAll@If[AbelianPotentialQ@w,
+      NonAbelianizeMesons[w], w];
     If[sp === $Failed, Return[$Failed] ];
-    td = ToricDiagram[W];
-    P = PerfectMatchingMatrix[W];
+    td = ToricDiagram[w];
+    pmm = PerfectMatchingMatrix[w];
     fs = FieldCases[sp];
     fieldPMwind = AssociationThread[
-      Sort@DeleteCases[fs^#, 1] & /@ Transpose[P], 
+      Sort@DeleteCases[fs^#, 1] & /@ Transpose[pmm], 
       Values@td];
-    terms = GroupBy[
-      Cases[sp, HoldPattern[Times][x_.,c_?FieldProductQ] :> {x, c}],
-      First -> Last
-    ];
+    terms = GroupBy[ToricPotentialNodes[sp], Head, Keys];
     k = Outer[
       Sum[a[e] x^hx[e] y^hy[e] Boole@AllTrue[{##}, MemberQ@e], {e, fs}] &,
-      terms[1], terms[-1], 1
+      terms[$nW], terms[$nB], 1
     ];
     monExp = First /@ GroupBy[
-      MonomialList[Expand@Permanent[k], a/@FieldCases@W],
+      MonomialList[Expand@Permanent[k], a/@FieldCases@w],
       FieldCases -> (Exponent[#,{x,y}]&)
     ];
     solH1 = Last@Solve@KeyValueMap[(Sort[#1] /. fieldPMwind) == #2 &, monExp];
@@ -509,8 +515,8 @@ tilingZigZagGraphics[edgesA_, toCoords_, opts : OptionsPattern[BraneTilingGraph]
       {"ZigZags", "ZigZagsStyle", "ZigZagsFunction"}];
     zzQ = And[FieldProductQ@#,GaugeInvariantQ@#] &;
     zzs = Join[
-      Association@Cases[Normal@opt, HoldPattern[Rule][z_?(zzQ),d_]
-        :> Rule[z, Flatten@Directive@d]
+      Association@Cases[Normal@opt, 
+        HoldPattern[Rule][z_?(zzQ),d_] :> Rule[z, Flatten@Directive@d]
       ],
       Cases[Normal@opt, _?(zzQ)] // AssociationThread[#,
         ColorData[97] /@ Range@Length@#] &

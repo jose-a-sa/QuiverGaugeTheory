@@ -215,19 +215,18 @@ SetAttributes[GeneratorsLattice, {Protected, ReadProtected}];
 
 
 SyntaxInformation[GeneratorsTable] = {"ArgumentsPattern" -> {_}};
-GeneratorsTable[W_?ToricPotentialQ] :=
-  Module[{td, P, pmDecomp, rchPM, mes, redMes, gen, latt, lattPM},
-    td = ToricDiagram[W];
-    P = PerfectMatchingMatrix[W];
-    latt = GeneratorsLattice[W];
+GeneratorsTable[w_?ToricPotentialQ] :=
+  Module[{td, pmDecomp, rch, mes, redMes, gen, latt, lattPM},
+    td = ToricDiagram[w];
+    latt = GeneratorsLattice[w];
     pmDecomp = Map[
       (Times @@ Power[Keys@td, #] &), 
-      AssociationThread[FieldCases@W, P]
+      AssociationThread[FieldCases@w, PerfectMatchingMatrix@w]
     ];
-    rchPM = Last@AMaximization[td];
-    mes = GaugeInvariantMesons[QuiverFromFields@W, Infinity];
+    rch = Last@AMaximization[w];
+    mes = GaugeInvariantMesons[QuiverFromFields@w, Infinity];
     redMes = DeleteCases[
-      ReduceGenerators[W, Join @@ Values@latt, ToGeneratorVariableRules@mes],
+      ReduceGenerators[w, Join @@ Values@latt, ToGeneratorVariableRules@mes],
       HoldPattern[Rule][_, _Times | _Power]
     ];
     gen = GroupBy[Keys@redMes, ReplaceAll@pmDecomp];
@@ -237,7 +236,7 @@ GeneratorsTable[W_?ToricPotentialQ] :=
     GeneratorsTable@Association[
       "ChiralMesons" -> redMes,
       "MesonicGenerators" -> gen,
-      "RCharges" -> rchPM,
+      "RCharges" -> rch,
       "GeneratorsLattice" -> lattPM
     ]
   ];
@@ -245,10 +244,10 @@ GeneratorsTable[data_Association] :=
   Module[{genF, chiralVar, rch, pmColF, fieldColF, chiralColF, sortF,
       latt, rawTable, headings},
     genF = data["MesonicGenerators"];
+    rch = Normal@data["RCharges"];
     chiralVar = Map[ReplaceAll@data["ChiralMesons"], genF];
-    rch = AssociationMap[ RootReduce@*ReplaceAll[ 
-        KeyMap[Log]@data["RCharges"] 
-      ]@*PowerExpand@*Log, Keys[genF]
+    rch = Association@KeyValueMap[
+      #1 -> RootReduce@Total[(List @@ First[#2])/.rch] &, genF
     ];
     latt = data["GeneratorsLattice"];
     pmColF = ReplaceAll[
@@ -273,9 +272,9 @@ GeneratorsTable[data_Association] :=
       Alignment -> {Center, Center},
       Spacings -> {Automatic, 1}, Frame -> All]
  ] /; AllTrue[{"MesonicGenerators","ChiralMesons","RCharges","GeneratorsLattice"}, (KeyExistsQ[data,#]&)];
-GeneratorsTable[W_?PotentialQ] := Null /; Message[GeneratorsTable::nontoric];
-GeneratorsTable[a_Association] := Null /; Message[GeneratorsTable::misdata];
-GeneratorsTable[_] := Null /; Message[GeneratorsTable::argw];
+GeneratorsTable[_?PotentialQ] := Message[GeneratorsTable::nontoric];
+GeneratorsTable[_Association] := Message[GeneratorsTable::misdata];
+GeneratorsTable[_] := Message[GeneratorsTable::argw];
 GeneratorsTable::nontoric = "Superpotential or Model provided is not toric."
 GeneratorsTable::argw = "Argument provided is not a valid superpotential or Association."
 GeneratorsTable::misdata = "Association data provided does not contain all keys: \
@@ -291,14 +290,14 @@ SubQuiverRepresentations[W_?ToricPotentialQ, pmPairs : {__} | Automatic] :=
     Q = QuiverFromFields@W;
     td = ToricDiagram[W];
     F = Sort@VertexList[Values@Q];
-    P = PerfectMatchingMatrix[W];
-    pm = AssociationThread[Keys@td, DeleteCases[Keys[Q]^#, 1] & /@ Transpose@P];
-    allReps = Subsets[F, {1, Length[F] - 1}];
-    properRep = g |-> Select[allReps, 
-      ContainsExactly[VertexOutComponent[g, Cases[#, Alternatives@@VertexList@g] ], #] &];
+    pm = Normal@PerfectMatchings[W];
+    properRep = g |-> DeleteCases[
+      Map[Sort@VertexOutComponent[g, #] &, ConnectedComponents@g],
+      {OrderlessPatternSequence@@F}
+    ];
     pairs = If[MatchQ[pmPairs, Automatic], List /@ Keys@td, List @@@ pmPairs];
     AssociationMap[
-      properRep@Values@KeyDrop[ Q, Flatten[# /. pm] ] &, 
+      properRep@Values@KeyDrop[ Q, Flatten[#/.pm] ] &, 
       pairs
     ]
   ];
