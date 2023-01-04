@@ -83,7 +83,7 @@ SetAttributes[MassShiftRules, {Protected, ReadProtected}];
 
 
 FindFieldRedefinition[w_?PotentialQ, param_ : Automatic] :=
-  Module[{f, aa, vv, possParam, m, redefR0, enoughRedefNumQ, s, nestF, redefR, ftermsSgn, sgnVars, sgnSol},
+  Module[{f, aa, vv, possParam, m, redefR0, s, nestF, redefR, ftermsSgn, sgnVars, sgnSol},
     f = FieldCases[w];
     {aa, vv} = {First[$RedefinitionVars], Rest[$RedefinitionVars]};
     possParam = DeleteCases[Variables@Abelianize@w, Alternatives @@ f];

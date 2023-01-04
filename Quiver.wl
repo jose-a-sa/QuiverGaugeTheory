@@ -241,7 +241,7 @@ SetAttributes[NonAbelianizeMesons, {Protected, ReadProtected}];
 ZigZagPathQ[w_?ToricPotentialQ][zz_] :=
   ZigZagPathQ[zz, w];
 ZigZagPathQ[zz_?MesonQ, w_?ToricPotentialQ] :=
-  IsomorphicGraphQ[
+  MatchQ[q_?NumericQ /; q > 0]@Length@FindGraphIsomorphism[
     Graph[UndirectedEdge @@@ Map[Simplify@CenterDot[DG[w, #], #] &, List @@ zz]], 
     CycleGraph[Length@zz]
   ];
@@ -295,7 +295,11 @@ ZigZagOrderings[w_?ToricPotentialQ, zz_?MesonQ] :=
   Module[{f1, f2, fterm1, sgn},
     {f1, f2} = Take[List @@ zz, 2];
     fterm1 = List @@ Expand@DG[w, f1];
-    sgn = SelectFirst[fterm1, Not@*FreeQ[f2], 0] /. {_CenterDot -> 1};
+    sgn = Coefficient[Total@fterm1,
+      SelectFirst[FieldProducts@fterm1, 
+        MatchQ[HoldPattern[CenterDot][f2, __]]
+      ]
+    ];
     sgn*Power[-1, 1 + Range@Length@zz]
   ] /; ZigZagPathQ[zz, w];
 ZigZagOrderings[w_?ToricPotentialQ] :=
@@ -342,7 +346,7 @@ SpecularDual[w_?ToricPotentialQ] :=
       {k, v} |-> Splice@MapIndexed[#1 -> (Subscript[X, First@#2] @@ k) &, v],
       ordered
     ];
-    NonAbelianizeMesons@Abelianize[w /. rp]
+    NonAbelianizeMesons[w /. rp]
   ];
 SetAttributes[SpecularDual, {Protected, ReadProtected}];
 

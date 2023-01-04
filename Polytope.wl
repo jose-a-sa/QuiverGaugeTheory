@@ -786,7 +786,7 @@ pqWebResolve[pqdata : KeyValuePattern[_], coord : (KeyValuePattern[_] | {} | <||
       Message[pqWebResolve::coordarg, Complement[Normal@coord, partial], intVert]
     ];
     pts = Map[# -> Lookup[coordVec, #, {Indexed[#, 1], Indexed[#, 2]}/.coordInd] &, intVert];
-    eqs = KeyValueMap[(Subtract @@ #1/.pts) == (Identity @@@ L @@ #1) #2 &, rotLine /@ intEdges];
+    eqs = KeyValueMap[(Subtract @@ #1/.pts) == (Identity @@@ l @@ #1) #2 &, rotLine /@ intEdges];
     loopVars = Map[(Identity @@@ l @@ #1) &, Keys@intEdges];
     loopCond = Join[Thread[loopVars > 0], {Element[loopVars, Integers]}];
     sol0 = Solve[eqs];
@@ -808,11 +808,11 @@ pqWebResolve[pqdata : KeyValuePattern[_], coord : (KeyValuePattern[_] | {} | <||
       loopCond = Simplify@Resolve@Join[loopCond, {lineCond}]
     ];
     loopSol = If[Length@loopEqs == 0, {},
-      Last@Minimize[{Plus @@ loopVars, loopCond}, loopVars, Integers]
+      Last@Minimize[Echo@{Plus @@ loopVars, loopCond}, loopVars, Integers]
     ];
     sol = First@Solve[eqs /. loopSol];
     Join[
-      Association[pts /. sol /. {Indexed[_, 1 | 2] -> 0, L[_, _] -> 1}],
+      Association[pts /. sol /. {Indexed[_, 1 | 2] -> 0, l[_, _] -> 1}],
       KeyMap[Last, rotLine /@ bdEdges]
     ]
   ];
