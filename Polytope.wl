@@ -367,7 +367,7 @@ $polytopeCellLabelFunction = Association@{
   "Polygons" -> (Text[#1, #2 + 0.15 #3, -#3] &)
 };
 PolytopePlot[td_?ToricDiagramQ, opts : OptionsPattern[PolytopePlot] ] :=
-  Module[{trig, tdG, ex, in, bd, coord, optLbl, cellLbl, pattQ, tranfPM},
+  Module[{trig, tdG, ex, in, bd, coord, optLbl, cellLbl, pattQ},
     tdG = PositionIndex[td];
     {ex, in, bd} = PolytopeVertices[Keys@tdG];
     coord = MapIndexed[#1 -> First[#2] &, Keys@tdG];
@@ -380,6 +380,8 @@ PolytopePlot[td_?ToricDiagramQ, opts : OptionsPattern[PolytopePlot] ] :=
       KeyMap[Point]@If[pattQ[tdG], Map[Last]@tdG,
         KeySelect[ FreeQ[Alternatives@@ex] ]@Map[Length]@tdG
       ],
+      "Counts" | Automatic,
+      KeyMap[Point]@KeySelect[ FreeQ[Alternatives@@ex] ]@Map[Length]@tdG,
       _, optLbl
     ];
     PolytopePlot[trig,
@@ -388,7 +390,7 @@ PolytopePlot[td_?ToricDiagramQ, opts : OptionsPattern[PolytopePlot] ] :=
     ]
   ];
 PolytopePlot[trig_?PolytopeTriangulationQ, opts : OptionsPattern[PolytopePlot] ] :=
-  Module[{remPrim, sortPrim, sortCoord, coord, cell, cellType, cellPts, ptsCells, cellGroups,
+  Module[{remPrim, sortPrim, coord, cell, cellType, cellPts, ptsCells, cellGroups,
       ex, int, bd, lblOffsets, cellStyles, cellFuncs, cellLbls, cellLblFuncs,
       grPolyAssoc, grCellLblAssoc, grPoly, grLbls, grPQWeb, gr, bounds},
     remPrim = ReplaceAll[{
