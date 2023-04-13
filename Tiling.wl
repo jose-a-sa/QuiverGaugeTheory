@@ -46,9 +46,9 @@ SyntaxInformation[PerfectMatchingMatrix] = {"ArgumentsPattern" -> {_}};
 PerfectMatchingMatrix[w_?ToricPotentialQ] :=
   Module[{k, fs, pmList, a = $a},
     fs = FieldCases[w];
-    k = KasteleynMatrix[w, {1, 1}];
-    pmList = ReplaceAll[a -> Identity]@MonomialList[
-      Expand@Permanent[k], a/@FieldCases@w];
+    k = SparseArray@KasteleynMatrix[w, {1, 1}];
+    pmList = ReplaceAll[a -> Identity]@ReplaceAll[HoldPattern[Times][-1, x_] :> x]@MonomialList[
+      Expand@Det[k], a/@FieldCases@w];
     If[Dimensions[k] == {1,1}, pmList = List /@ pmList];
     Boole@Outer[
       MemberQ[#2, #1] &, fs, (Alternatives @@@ pmList), 1
@@ -101,12 +101,13 @@ KasteleynMatrix[w_?ToricPotentialQ, {x0_, y0_}] :=
       Sort@DeleteCases[fs^#, 1] & /@ Transpose[pmm], 
       Values@td];
     terms = GroupBy[ToricPotentialNodes[sp], Head, Keys];
-    k = Outer[
+    k = SparseArray@Outer[
       Sum[a[e] x^hx[e] y^hy[e] Boole@AllTrue[{##}, MemberQ@e], {e, fs}] &,
       terms[$nW], terms[$nB], 1
     ];
     monExp = First /@ GroupBy[
-      MonomialList[Expand@Permanent[k], a/@FieldCases@w],
+      ReplaceAll[HoldPattern[Times][-1, x_] :> x]@MonomialList[
+        Expand@Det[k], a/@FieldCases@w],
       FieldCases -> (Exponent[#,{x,y}]&)
     ];
     solH1 = Last@Solve@KeyValueMap[(Sort[#1] /. fieldPMwind) == #2 &, monExp];
@@ -114,7 +115,7 @@ KasteleynMatrix[w_?ToricPotentialQ, {x0_, y0_}] :=
       Last@FindInstance[-1 <= (Join[hx/@fs, hy/@fs] /. solH1) <= 1, 
         Variables@Map[Last, solH1], Integers]
     ];
-    kast = k /. solH1 /. solH2;
+    kast = Normal[k] /. solH1 /. solH2;
     avgExp := Round@Mean@Flatten@Exponent[
       DeleteCases[0] /@ MonomialList[#1, {x, y, 1/x, 1/y}], #2] &;
     Map[# x^(-avgExp[#, x]) y^(-avgExp[#, y]) &, kast]

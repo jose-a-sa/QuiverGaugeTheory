@@ -909,7 +909,7 @@ Options[pqWebPlot] = Normal@Association@{
   "pqWebLabel" -> None
 };
 pqWebPlot[g_?pqWebResolvedQ, coord : KeyValuePattern[_], opts : OptionsPattern[pqWebPlot] ] :=
-  Module[{edgePrim, facePrim, sk1, sk2, lbl1, lbl2, gr, bnd, rng},
+  Module[{edgePrim, facePrim, sk1, sk2, lbl1, lbl2, gr, bnd},
     edgePrim = AssociationThread[
       EdgeList[g] /. {
         e : UndirectedEdge[i_, f_] :> e | Reverse[e] | pqWebCycle[{i,f}|{f,i}],
@@ -927,6 +927,7 @@ pqWebPlot[g_?pqWebResolvedQ, coord : KeyValuePattern[_], opts : OptionsPattern[p
     {sk1, sk2} = pqWebStyleHandler[{edgePrim, facePrim}, opts];
     {lbl1, lbl2} = pqWebLabelHandler[{edgePrim, facePrim}, opts];
     gr = {
+      Normal@OptionValue["pqWebBaseStyle"] /. Automatic -> Nothing,
       KeyValueMap[{#2, #1 /. Normal@coord} &, sk1],
       Apply[Text[#1, {1, 0.05} . #2, {0, -1.05} . #2] &, lbl1 /. Normal@coord, {1}], 
       Apply[Text[#1, {1, 0.8} . #2, {0, -0.6} . #2] &, lbl2 /. Normal@coord, {1}]

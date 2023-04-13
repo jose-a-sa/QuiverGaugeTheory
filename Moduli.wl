@@ -475,7 +475,7 @@ MinimalGLSM[W_?ToricPotentialQ, opts : OptionsPattern[MinimalGLSM] ] :=
     simpT = SimplifyThetaCondition[F];
     pms = Keys[td];
     vars = Sort@KeyValueMap[Subscript[First[#2], #1] &, First@KC];
-    thetaC = Apply[ And[##, Total@Array[FIvar, G] == 0] &
+    thetaC = Apply[ And[##, Total@Map[FIvar, F] == 0] &
       ]@*Map[LessEqualThan[0]@*Total@*Map[FIvar] ];
     regKC = Map[Simplify@*simpT@*thetaC,
       Join @@@ (Map[Values, KC] /. subQReps)];
@@ -509,7 +509,7 @@ minimalGLSMBasis[eqs : {{_?MatrixQ, _?MatrixQ} ..}, reg_List, pt : {{_, _} ..}, 
     {charges, vols} = Transpose[eqs];
     n = Length@First@charges;
     ptCharges = NullSpace@Transpose@Join[pt, Table[{1}, Length@pt], 2];
-    glZ := Select[Tuples[Range[-3, 3], {n, n}], Abs@Det[#1] == 1 &];
+    glZ := Select[Tuples[Range[-2, 2], {n, n}], Abs@Det[#1] == 1 &];
     minCoefCases := Values@DeleteDuplicatesBy[
       AssociationMap[# . ptCharges &, glZ], Sort];
     toPiecewise = reducePwF@simpF@Piecewise[Transpose@{#, reg}] &;
@@ -517,7 +517,7 @@ minimalGLSMBasis[eqs : {{_?MatrixQ, _?MatrixQ} ..}, reg_List, pt : {{_, _} ..}, 
       SolveMatrixLeft[#1, ch] . Flatten[#2] & @@@ eqs];
     final = Switch[m,
       Automatic | "ToricDiagramKernel",
-      AssociationMap[getVols, {ptCharges}],
+      AssociationMap[getVols, Echo@{ptCharges}],
       "PositiveVolumes",
       Select[AssociationMap[getVols, minCoefCases],
         MatchQ[{True ..}|True]@*Map[(Reduce[# >= 0, Reals] &)]
