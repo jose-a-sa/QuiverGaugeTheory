@@ -47,8 +47,8 @@ PerfectMatchingMatrix[w_?ToricPotentialQ] :=
   Module[{k, fs, pmList, a = $a},
     fs = FieldCases[w];
     k = SparseArray@KasteleynMatrix[w, {1, 1}];
-    pmList = ReplaceAll[a -> Identity]@ReplaceAll[HoldPattern[Times][-1, x_] :> x]@MonomialList[
-      Expand@Det[k], a/@FieldCases@w];
+    pmList = ReplaceAll[a -> Identity]@MonomialList[
+      ReplaceAll[HoldPattern[Times][-1, x_] :> x]@Expand@Det[k], a/@FieldCases@w];
     If[Dimensions[k] == {1,1}, pmList = List /@ pmList];
     Boole@Outer[
       MemberQ[#2, #1] &, fs, (Alternatives @@@ pmList), 1
@@ -106,8 +106,8 @@ KasteleynMatrix[w_?ToricPotentialQ, {x0_, y0_}] :=
       terms[$nW], terms[$nB], 1
     ];
     monExp = First /@ GroupBy[
-      ReplaceAll[HoldPattern[Times][-1, x_] :> x]@MonomialList[
-        Expand@Det[k], a/@FieldCases@w],
+      MonomialList[
+        ReplaceAll[HoldPattern[Times][-1, x_] :> x]@Expand@Det[k], a/@FieldCases@w],
       FieldCases -> (Exponent[#,{x,y}]&)
     ];
     solH1 = Last@Solve@KeyValueMap[(Sort[#1] /. fieldPMwind) == #2 &, monExp];

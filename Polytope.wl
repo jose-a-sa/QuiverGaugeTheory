@@ -810,7 +810,7 @@ pqWebResolve[pqdata : KeyValuePattern[_], coord : (KeyValuePattern[_] | {} | <||
       loopCond = Simplify@Resolve@Join[loopCond, {lineCond}]
     ];
     loopSol = If[Length@loopEqs == 0, {},
-      Last@Minimize[Echo@{Plus @@ loopVars, loopCond}, loopVars, Integers]
+      Last@Minimize[{Plus @@ loopVars, loopCond}, loopVars, Integers]
     ];
     sol = First@Solve[eqs /. loopSol];
     Join[
