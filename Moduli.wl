@@ -290,14 +290,14 @@ SubQuiverRepresentations[W_?ToricPotentialQ, pmPairs : {__} | Automatic] :=
     Q = QuiverFromFields@W;
     td = ToricDiagram[W];
     F = Sort@VertexList[Values@Q];
-    pm = Normal@PerfectMatchings[W];
-    properRep = g |-> DeleteCases[
-      Map[Sort@VertexOutComponent[g, #] &, ConnectedComponents@g],
-      {OrderlessPatternSequence@@F}
-    ];
+    P = PerfectMatchingMatrix[W];
+    pm = AssociationThread[Keys@td, DeleteCases[Keys[Q]^#, 1] & /@ Transpose@P];
+    allReps = Subsets[F, {1, Length[F] - 1}];
+    properRep = g |-> Select[allReps, 
+      ContainsExactly[VertexOutComponent[g, #], #] &];
     pairs = If[MatchQ[pmPairs, Automatic], List /@ Keys@td, List @@@ pmPairs];
     AssociationMap[
-      properRep@Values@KeyDrop[ Q, Flatten[#/.pm] ] &, 
+      properRep@Values@KeyDrop[ Q, Flatten[# /. pm] ] &, 
       pairs
     ]
   ];
