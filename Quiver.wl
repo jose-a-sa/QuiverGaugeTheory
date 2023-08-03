@@ -28,7 +28,7 @@ NonAbelianizeMesons::usage = "";
 ZigZagPathQ::usage = "";
 ZigZagPaths::usage = "";
 ZigZagOrderings::usage = "";
-ZigZagOperators::usage = "";
+ZigZagOperator::usage = "";
 SpecularDual::usage = "";
 FindQuiverPaths::usage = "";
 QuiverGraph::usage = "";
@@ -123,6 +123,8 @@ SetAttributes[QuiverPathToFields, {Protected, ReadProtected}];
 
 
 SyntaxInformation[GaugeInvariantMesons] = {"ArgumentsPattern" -> {_, _}};
+GaugeInvariantMesons[pot_?PotentialQ, deg_] := 
+    GaugeInvariantMesons[QuiverFromFields@pot, deg];
 GaugeInvariantMesons[edges: (_?QuiverEdgesQ | _?EdgeListQ), 
   degspec:{ ({_Integer, _Integer}|{_Integer}) .. }] := 
     Flatten@QuiverPathToFields[QuiverCycles[edges, degspec], edges];
@@ -241,9 +243,12 @@ SetAttributes[NonAbelianizeMesons, {Protected, ReadProtected}];
 ZigZagPathQ[w_?ToricPotentialQ][zz_] :=
   ZigZagPathQ[zz, w];
 ZigZagPathQ[zz_?MesonQ, w_?ToricPotentialQ] :=
-  MatchQ[q_?NumericQ /; q > 0]@Length@FindGraphIsomorphism[
-    Graph[UndirectedEdge @@@ Map[Simplify@CenterDot[DG[w, #], #] &, List @@ zz]], 
-    CycleGraph[Length@zz]
+  Module[{ord},
+    ord = Map[
+      Apply[ Coefficient[DG[w, #1], SelectFirst[FieldProducts@DG[w, #1], MatchQ[HoldPattern[CenterDot][#2, ___]]]] & ],
+      Partition[Apply[List, zz], 2, 1, {1, 1}]
+    ];
+    MatchQ[ord, {PatternSequence[1, -1] ..} | {PatternSequence[-1, 1] ..}]
   ];
 ZigZagPathQ[_, w_?ToricPotentialQ] := False;
 ZigZagPathQ[_, _] := False;
@@ -310,21 +315,21 @@ ZigZagOrderings[w_?ToricPotentialQ] :=
 SetAttributes[ZigZagOrderings, {Protected, ReadProtected}];
 
 
-ZigZagOperators[w_?ToricPotentialQ, zz_?MesonQ] := 
+ZigZagOperator[w_?ToricPotentialQ, zz_?MesonQ, r : _Integer : 1] := 
   Module[{rmsgn},
     rmsgn = First@*Simplify@*Abs;
     KeyValueMap[Times]@GroupBy[
       DG[w, ##] & @@@ Partition[List @@ zz, 2, 1, {1, 1}],
       (2 Boole[#] - 1 &)@*MatchQ[HoldPattern[Times][-1, __]],
-      rmsgn@*Apply[CenterDot]@*Reverse
+      (CenterDot@@Table[#, r] &)@*rmsgn@*Apply[CenterDot]@*Reverse
     ]
   ] /; ZigZagPathQ[zz, w];
-ZigZagOperators[w_?ToricPotentialQ] := 
+ZigZagOperator[w_?ToricPotentialQ] := 
   AssociationMap[
-    ZigZagOperators[w, #] &,
+    ZigZagOperator[w, #] &,
     ZigZagPaths@w
   ];
-SetAttributes[ZigZagOperators, {Protected, ReadProtected}];
+SetAttributes[ZigZagOperator, {Protected, ReadProtected}];
 
 
 SpecularDual[w_?ToricPotentialQ] :=
@@ -334,13 +339,19 @@ SpecularDual[w_?ToricPotentialQ] :=
       Subsets[Range@Length@zzs, {2}],
       Intersection @@@ Subsets[List @@@ zzs, {2}]
     ];
+    selfIntersect = Association@MapIndexed[
+      Join[#2, #2] -> #1[[
+          First /@ Position[Boole@UpperTriangularize[Outer[SameQ, #1, #1], 1], 1]
+        ]] &,
+      List @@@ zzs
+    ];
     ord = ZigZagOrderings[w, #] & /@ zzs;
     ordered = Association@KeyValueMap[
       {k, v} |-> KeyValueMap[
         If[#1 == {1, -1}, k, Reverse@k] -> v[[#2]] &,
         PositionIndex[Extract[ord[[k]], Position[zzs[[k]], #]] & /@ v]
       ],
-      intersect
+      Join[intersect, selfIntersect]
     ];
     rp = KeyValueMap[
       {k, v} |-> Splice@MapIndexed[#1 -> (Subscript[X, First@#2] @@ k) &, v],
@@ -505,7 +516,7 @@ SeibergDual[v_, opts : OptionsPattern[SeibergDual]][{w_?PotentialQ, ranks: KeyVa
 SeibergDual[w_?PotentialQ, v_, opts : OptionsPattern[SeibergDual]] :=
   SeibergDual[{w, AssociationThread[VertexList@Values@QuiverFromFields@w, 1]}, v, opts];
 SeibergDual[{w_?PotentialQ, ranks : KeyValuePattern[_ -> _Integer]}, v_, OptionsPattern[SeibergDual]] :=
-  Module[{m, q, qc, quiv, toricSiebergQ, in, out, nc, nf, ij0, z0, comp, rp, newM, newW, resolveF, relabelF},
+  Module[{m, q, qc, quiv, toricSiebergQ, in, out, nc, nf, ij0, z0, comp, rp, newM, newW, resolveF, relabelF, z},
     {m, q, qc, z} = {\[FormalCapitalM], \[FormalCapitalQ], \[FormalCapitalC], \[FormalZeta]};
     quiv = QuiverFromFields@w;
     toricSiebergQ = MemberQ[v]@Extract[VertexList@Values@quiv,
@@ -654,7 +665,7 @@ FindModelIsomorphism[w1_?PotentialQ, w2_?PotentialQ, n : (_Integer?Positive | Al
     ];
     f1 = FieldCases[w1];
     iso[foo_] := Composition[
-      Map[ ReplaceAll[Global`c_CenterDot :> foo@Global`c]@*ReplaceAll[Thread[f1 -> #]] & ],
+      Map[ ReplaceAll[c_CenterDot :> foo@Gc]@*ReplaceAll[Thread[f1 -> #]] & ],
       KeyValueMap[Splice[#1 /. #2] &]@*DeleteCases[{}],
       AssociationMap[ findMulRp[w1 /. Thread[f1 -> #1] /. {c_CenterDot :> foo@c}] &],
       Map[(f1 /. {Subscript[X, k_][i_, j_] :> Subscript[X, k]@@foo[{i, j}]} /. ChangeGroupIndices[Values@KeySort@#]) &]

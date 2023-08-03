@@ -18,8 +18,10 @@ GeneratorRulesQ::usage = "";
 ToGeneratorVariableRules::usage = "";
 GeneratorLinearRelations::usage = "";
 ReduceGenerators::usage = "";
+ChiralIdealFromPotential::usage = "";
+MinimalIdealPresentation::usage = "";
 SingularLocus::usage = "";
-SimplifyToricEquations::usage = "";
+(* SimplifyToricEquations::usage = ""; *)
 MesonicGenerators::usage = "";
 GeneratorsLattice::usage = "";
 GeneratorsTable::usage = "";
@@ -143,6 +145,38 @@ ReduceGenerators[
 SetAttributes[ReduceGenerators, {Protected, ReadProtected}];
 
 
+ChiralIdealFromPotential[w_?PotentialQ, deg : (_Integer?Positive | Infinity | Automatic) : Infinity] :=
+  Module[{mes, rel},
+    mes = ToGeneratorVariableRules@GaugeInvariantMesons[
+      QuiverFromFields@w, deg /. Automatic -> Infinity];
+    rel = Abelianize@Join[Thread[0 == FTerms@w], Equal @@@ mes];
+    Eliminate[rel, FieldCases@w]
+  ];
+SetAttributes[ChiralIdealFromPotential, {Protected, ReadProtected}];
+
+
+MinimalIdealPresentation[ideal_] := 
+  MinimalIdealPresentation[ideal, UniqueCases[ideal, $GeneratorVars[__]]];
+MinimalIdealPresentation[ideal_, vars_] :=
+  Module[{vv, mmF, sol, final},
+    vv = Flatten[{vars}];
+    mmF = MinMaxExponent[Alternatives @@ vv];
+    sol = First@Quiet@Solve[Select[ideal, MatchQ[{1, 1}]@*mmF] == 0];
+    final = GroebnerBasis@NestWhile[
+      Block[{eq, curr},
+        eq =  SelectFirst[#, MatchQ[{1, _}]@*mmF];
+        curr = First@Solve[eq == 0];
+        sol = Union[sol /. curr, curr];
+        DeleteCases[# /. curr, 0]
+      ] &,
+      DeleteCases[ideal /. sol, 0],
+      GreaterThan[0]@*Length@*Select[MatchQ[{1, _}]@*mmF]
+    ];
+    {final, sol}
+  ];
+SetAttributes[MinimalIdealPresentation, {Protected, ReadProtected}];
+
+
 SyntaxInformation[SingularLocus] = {"ArgumentsPattern" -> {_, _}};
 SingularLocus[expr : (List|And)[Except[_List]..], v_] :=
   Module[{vars, ideal, jac},
@@ -157,7 +191,7 @@ SingularLocus[expr : (List|And)[Except[_List]..], v_] :=
 SetAttributes[SingularLocus, {Protected, ReadProtected}];
 
 
-SyntaxInformation[SimplifyToricEquations] = {"ArgumentsPattern" -> {_}};
+(* SyntaxInformation[SimplifyToricEquations] = {"ArgumentsPattern" -> {_}};
 SimplifyToricEquations[expr : (List|And)[Except[_List]..] ] := 
   Module[{selF, monPatt, l},
     l = (If[Equal === Head[#1], #1, Simplify[#1 == 0] ] &) /@ 
@@ -175,7 +209,7 @@ SimplifyToricEquations[expr : (List|And)[Except[_List]..] ] :=
       Expand@l
     ]
  ];
-SetAttributes[SimplifyToricEquations, {Protected, ReadProtected}];
+SetAttributes[SimplifyToricEquations, {Protected, ReadProtected}]; *)
 
 
 SyntaxInformation[MesonicGenerators] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};

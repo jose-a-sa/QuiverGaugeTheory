@@ -307,7 +307,7 @@ ZigZagData[w_?ToricPotentialQ] :=
         Function[v, -Subtract @@ First@CoordinateBounds@Map[sl2Sol[v].# &, td]],
         Union@Values@pq
       ], pq];
-    ops = AssociationMap[ZigZagOperators[w, #] &, Keys@zzs];
+    ops = AssociationMap[ZigZagOperator[w, #] &, Keys@zzs];
     rch = Map[
       First@*N@*ReplaceAll[amax]@*Abs@*ReplaceAll[CenterDot -> Plus], 
       ops];

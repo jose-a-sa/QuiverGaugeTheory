@@ -7,6 +7,8 @@ ClearAll["QuiverGaugeTheory`Utils`*"];
 BeginPackage["QuiverGaugeTheory`Utils`"]
 
 
+DistributedTermsList::usage = "";
+
 ContainsQ::usage = "";
 ApplyAt::usage = "";
 FirstLast::usage = "";
@@ -48,6 +50,10 @@ EchoUniqueMessages::usage = "";
 
 
 Begin["`Private`"]
+
+
+DistributedTermsList[v__] := GroebnerBasis`DistributedTermsList[v];
+SetAttributes[DistributedTermsList, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ContainsQ] = {"ArgumentsPattern" -> {_, _., _.}};
@@ -199,6 +205,7 @@ SetAttributes[ToCyclicPattern, {Protected, ReadProtected}];
 
 
 SyntaxInformation[ToSubtractList] = {"ArgumentsPattern" -> {_}};
+ToSubtractList[{}] = {};
 ToSubtractList[ expr : _Equal ] := ToSubtractList[{expr}];
 ToSubtractList[ expr : (List|And)[Except[_List]..] ] := 
   Map[ Through@*If[MatchQ[_Equal], Apply[Subtract], Identity],
