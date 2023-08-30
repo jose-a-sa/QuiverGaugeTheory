@@ -574,87 +574,37 @@ primF_[ TwistedZigZag[lines_, d_ : 0.1] ] ^:=
   ] /; MatchQ[primF, Line | Arrow | BSplineCurve | BezierCurve];
 
 
-(* ZigZagDeformation[w_?ToricPotentialQ, zz_] /; ZigZagPathQ[zz, w] :=
-  ZigZagDeformation[w, zz, 1];
-ZigZagDeformation[w_?ToricPotentialQ, zzPath_, k : (_Integer?Positive)] /; ZigZagPathQ[zzPath, w] := 
-  Module[{G, M, V, n, ord, nodes, ffNodes, zz, gRules, g, nodeFromPair, newNodes, repNodes},
-    {G, M} = {\[FormalCapitalG], \[FormalM]};
-    V = (Max[Length@#, Max@#] &)@VertexList@Values@QuiverFromFields[w];
-    n = Length[zzPath]/2;
-    ord = ZigZagOrderings[w, zzPath];
-    nodes = KeyValueReverse@ToricPotentialNodes[w];
-    ffNodes = AssociationMap[
-      Sort@Keys@Select[nodes, ContainsQ@#] &, 
-      FieldCases@w
-    ];
-    zz = Reverse@MapApply[UndirectedEdge]@MapAt[Reverse,
-      AssociationMap[Lookup[ffNodes, #] &,
-        List @@ If[First@ord == 1, RotateLeft@zzPath, zzPath]
-      ], 
-      Table[{i}, {i, 2, 2 n, 2}]
-    ];
-    nodeFromPair[x_] := (First@Pick[VertexList@#, VertexDegree@#, 2] &)@Values[x];
-    gRules = Union @@ Table[
-      Thread[{G[Mod[i, n, 1], 0], G[Mod[i, n, 1], k]} -> (List @@ Keys[zz][[Mod[2 i, 2 n, 1]]])], 
-      {i, 1, n}
-    ];
-    gRules = Join[gRules, 
-      MapIndexed[#1 -> First[#2] + V &, 
-        Union@Flatten@Table[G[Mod[i, n, 1], Mod[j, k + 1]], {i, 1, n}, {j, 1, k - 1}]
-      ]
-    ];
-    repNodes = Flatten@Table[
-      MapThread[
-        nodeFromPair@#1 -> CenterDot[Fold[DG, nodes@nodeFromPair@#1, Keys@#1], #2] &, 
-        {{zz[[Mod[{2 i, 2 i + 1}, 2 n, 1]]], zz[[Mod[{2 i - 1, 2 i}, 2 n, 1]]]},
-        {X[g[i + 1, k], g[i, k], M], X[g[i, 0], g[i - 1, 0], M]}}
-      ],
-      {i, 1, n}
-    ];
-    newNodes = Flatten@Table[{
-      $nW[i, j] -> CenterDot[
-        X[g[i, j - 1], g[i - 1, j - 1], M], 
-        X[g[i - 1, j - 1], g[i - 1, j], M], 
-        X[g[i - 1, j], g[i, j - 1], M]
-      ],
-      $nB[i, j] -> CenterDot[
-        X[g[i, j], g[i - 1, j], M], 
-        X[g[i - 1, j], g[i, j - 1], M], 
-        X[g[i, j - 1], g[i, j], M]
-      ]},
-      {j, 1, k}, {i, 1, n}];
-    nodes = Append[nodes, 
-      Join[repNodes, newNodes] /. {g[i_, j_] :> G[Mod[i, n, 1], Mod[j, k + 1]]} /. gRules
-    ];
-    RelabelFieldMultiplicity@Total@KeyValueMap[
-      (2 Boole@MatchQ[_$nW]@#1 - 1) #2 &, 
-      nodes
-    ]
-  ];
-SetAttributes[ZigZagDeformation, {Protected, ReadProtected}]; *)
 
-$termsZag[i_, j_, g_, M_] := {
+$termsZagHN[i_, j_, g_, M_] := {
   $nW[i, j] -> CenterDot[
-    X[g[i, j], g[i - 1, j], M], 
-    X[g[i - 1, j], g[i, j - 1], M], 
-    X[g[i, j - 1], g[i, j], M]
+    X[g[i, j], g[i - 1, j], M], X[g[i - 1, j], g[i, j - 1], M@0], X[g[i, j - 1], g[i, j], M]
   ],
   $nB[i, j] -> CenterDot[
-    X[g[i, j - 1], g[i - 1, j - 1], M], 
-    X[g[i - 1, j - 1], g[i - 1, j], M], 
-    X[g[i - 1, j], g[i, j - 1], M]
+    X[g[i, j - 1], g[i - 1, j - 1], M], X[g[i - 1, j - 1], g[i - 1, j], M], X[g[i - 1, j], g[i, j - 1], M@0]
   ]
 };
-$termsZig[i_, j_, g_, M_] := {
+$termsZigHN[i_, j_, g_, M_] := {
   $nW[i, j] -> CenterDot[
-    X[g[i, j - 1], g[i - 1, j - 1], M], 
-    X[g[i - 1, j - 1], g[i - 1, j], M], 
-    X[g[i - 1, j], g[i, j - 1], M]
+    X[g[i, j - 1], g[i - 1, j - 1], M], X[g[i - 1, j - 1], g[i - 1, j], M], X[g[i - 1, j], g[i, j - 1], M@0]
   ], 
   $nB[i, j] -> CenterDot[
-    X[g[i, j], g[i - 1, j], M], 
-    X[g[i - 1, j], g[i, j - 1], M], 
-    X[g[i, j - 1], g[i, j], M]
+    X[g[i, j], g[i - 1, j], M], X[g[i - 1, j], g[i, j - 1], M@0], X[g[i, j - 1], g[i, j], M]
+  ]
+};
+$termsZig2[i_, j_, g_, M_] := {
+  $nW[i, j] -> CenterDot[
+    X[g[i, j - 1], g[i - 1, j - 1], M], X[g[i - 1, j - 1], g[i, j], M@0], X[g[i, j], g[i, j - 1], M]
+  ], 
+  $nB[i, j] -> CenterDot[
+    X[g[i, j], g[i - 1, j], M], X[g[i - 1, j], g[i - 1, j - 1], M], X[g[i - 1, j - 1], g[i, j], M@0]
+  ]
+};
+$termsZag2[i_, j_, g_, M_] := {
+  $nW[i, j] -> CenterDot[
+    X[g[i, j], g[i - 1, j], M], X[g[i - 1, j], g[i - 1, j - 1], M], X[g[i - 1, j - 1], g[i, j], M@0]
+  ], 
+  $nB[i, j] -> CenterDot[
+    X[g[i, j - 1], g[i - 1, j - 1], M], X[g[i - 1, j - 1], g[i, j], M@0], X[g[i, j], g[i, j - 1], M]
   ]
 };
 
@@ -664,15 +614,16 @@ ZigZagDeformation[
   k : (_Integer?Positive) : 1,
   opts : OptionsPattern[ZigZagDeformation]
 ] /; ZigZagPathQ[zzPath, w] :=
-  Module[{G, M, method, terms, V, n, ord, nodes, ffNodes, zz, gRules, g, nodeFromPair, newNodes},
-    {G, M} = {\[FormalCapitalG], \[FormalM]};
-    {method, terms} = Switch[
-      OptionValue[Method],
-      "Zig", {1, $termsZig},
-      "Zag", {-1, $termsZag},
-      _, {1, $termsZig}
+  Module[{g, m, method, terms, v, n, ord, nodes, ffNodes, zz, gRules, nodeFromPair, newNodes},
+    {g, m} = {\[FormalCapitalG], \[FormalM]};
+    {method, terms} = Switch[OptionValue[Method],
+      "ZigHN", {1, $termsZigHN},
+      "ZagHN", {-1, $termsZagHN},
+      "Zig", {1, $termsZig2},
+      "Zag", {-1, $termsZag2},
+      _, {1, $termsZigHN}
     ];
-    V = (Max[Length[#1], Max[#1]] &)@VertexList@Values@QuiverFromFields[w];
+    v = (Max[Length[#1], Max[#1]] &)@VertexList@Values@QuiverFromFields[w];
     n = Length[zzPath]/2; 
     ord = ZigZagOrderings[w, zzPath]; 
     nodes = KeyValueReverse@ToricPotentialNodes[w]; 
@@ -686,25 +637,25 @@ ZigZagDeformation[
     ];
     nodeFromPair[x_] := (First[Pick[VertexList[#1], VertexDegree[#1], 2]] &)@Values[x]; 
     gRules = Union @@ Table[
-      Thread[{G[Mod[i, n, 1], 0], G[Mod[i, n, 1], k]} -> 
+      Thread[{g[Mod[i, n, 1], 0], g[Mod[i, n, 1], k]} -> 
         List @@ Keys[zz][[Mod[2 i, 2 n, 1]]]
       ], {i, 1, n}];
     gRules = Join[gRules, 
-      MapIndexed[#1 -> First[#2] + V &,
-        Union@Flatten@Table[G[Mod[i, n, 1], Mod[j, k + 1]], {i, 1, n}, {j, 1, k - 1}]
+      MapIndexed[#1 -> (v + First@#2) &,
+        Union@Flatten@Table[g[Mod[i, n, 1], Mod[j, k + 1]], {i, 1, n}, {j, 1, k - 1}]
       ]
     ];
     newNodes = Flatten@Table[
       MapThread[
         nodeFromPair[#1] -> CenterDot[Fold[DG, nodes@nodeFromPair@#1, Keys@#1], #2] &,
         {{zz[[Mod[{2 i, 2 i + 1}, 2 n, 1]]], zz[[Mod[{2 i - 1, 2 i}, 2 n, 1]]]},
-        {X[g[i + 1, k], g[i, k], M], X[g[i, 0], g[i - 1, 0], M]}}
+         {X[g[i + 1, k], g[i, k], M], X[g[i, 0], g[i - 1, 0], M]}}
       ],
       {i, 1, n}
     ];
     newNodes = Join[newNodes,
-      Flatten@Table[terms[i, j, g, M], {j, 1, k}, {i, 1, n}]
-    ] /. {g[i_, j_] :> G[Mod[i, n, 1], Mod[j, k + 1]]} /. gRules;
+      Flatten@Table[terms[i, j, g, m], {j, 1, k}, {i, 1, n}]
+    ] /. {g[i_, j_] :> g[Mod[i, n, 1], Mod[j, k + 1]]} /. gRules;
     nodes = Append[nodes, newNodes];
     RelabelFieldMultiplicity@Total@KeyValueMap[(2 Boole[MatchQ[_$nW][#1]] - 1) #2 &, nodes]
   ];
@@ -715,12 +666,12 @@ ZigDeformation[
   w_?ToricPotentialQ, zzPath_?PossibleMesonQ, 
   k : (_Integer?Positive) : 1,
   opts : OptionsPattern[Normal@KeyDrop[Method]@Options@ZigZagDeformation]
-] := ZigZagDeformation[w, zzPath, k, Method -> "Zig"];
+] := ZigZagDeformation[w, zzPath, k, Method -> "ZigHN"];
 ZagDeformation[
   w_?ToricPotentialQ, zzPath_?PossibleMesonQ, 
   k : (_Integer?Positive) : 1,
   opts : OptionsPattern[Normal@KeyDrop[Method]@Options@ZigZagDeformation]
-] := ZigZagDeformation[w, zzPath, k, Method -> "Zag"];
+] := ZigZagDeformation[w, zzPath, k, Method -> "ZagHN"];
 SetAttributes[ZigDeformation, {Protected, ReadProtected}];
 SetAttributes[ZagDeformation, {Protected, ReadProtected}];
 
