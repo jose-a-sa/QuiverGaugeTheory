@@ -1,2 +1,2 @@
 # QuiverGaugeTheory
-Mathematica package for handling Quiver Gauge Theories
+Mathematica package for Quiver Gauge Theories
