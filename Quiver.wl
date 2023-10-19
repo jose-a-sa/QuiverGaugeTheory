@@ -245,7 +245,11 @@ ZigZagPathQ[w_?ToricPotentialQ][zz_] :=
 ZigZagPathQ[zz_?MesonQ, w_?ToricPotentialQ] :=
   Module[{ord},
     ord = Map[
-      Apply[ Coefficient[DG[w, #1], SelectFirst[FieldProducts@DG[w, #1], MatchQ[HoldPattern[CenterDot][#2, ___]]]] & ],
+      Apply[Coefficient[DG[w, #1], 
+        SelectFirst[FieldProducts@DG[w, #1], 
+          MatchQ[HoldPattern[CenterDot][#2, ___] | #2] 
+        ]
+      ]& ],
       Partition[Apply[List, zz], 2, 1, {1, 1}]
     ];
     MatchQ[ord, {PatternSequence[1, -1] ..} | {PatternSequence[-1, 1] ..}]

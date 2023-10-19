@@ -95,8 +95,10 @@ SetAttributes[FieldCases, {Protected, ReadProtected}];
 
 SyntaxInformation[FieldProducts] = {"ArgumentsPattern" -> {_}};
 FieldProducts[w_] := DeleteDuplicates@Map[
-  ReplaceAll[HoldPattern[Times][l___, _?(FreeQ[_?FieldQ]), r___] :> l*r], 
-  UniqueCases[{ExpandAll@w}, _?FieldProductQ | HoldPattern[Times][_, _?FieldProductQ] ]
+  ReplaceAll[ HoldPattern[Times][l___, _?(FreeQ[_?FieldQ]), r___] :> l*r ], 
+  Cases[ Flatten[{ExpandAll@w}/.Plus -> List], 
+    _?FieldProductQ | _?FieldPowerQ | HoldPattern[Times][_, _?FieldProductQ | _?FieldPowerQ]
+  ]
 ];
 SetAttributes[FieldProducts, {Protected, ReadProtected}];
 
