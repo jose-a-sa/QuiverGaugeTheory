@@ -40,6 +40,7 @@ ConicalSimplexHullRegion::usage = "";
 
 AcuteCone::usage = "";
 DualCone::usage = "";
+PolarCone::usage = "";
 
 FindNonSimplePaths::usage = "";
 SolveMatrixLeft::usage = "";
@@ -406,9 +407,15 @@ DualCone[gen_?(MatrixQ[#, NumericQ] &)] :=
       ]}
     ];
     {bb, cc} = Fold[gammaF, {IdentityMatrix[n], {}}, aa];
-    Union[bb, -bb, cc]
+    Union[bb, -bb, -cc]
   ];
 DualCone::invgen = "Invalid matrix of generators provided.";
+
+
+PolarCone[{}] := {};
+PolarCone[{{}}] := Null /; Message[PolarCone::invgen];
+PolarCone[gen_?(MatrixQ[#, NumericQ] &)] := Union[ -DualCone@gen ];
+PolarCone::invgen = DualCone::invgen;
 
 
 SyntaxInformation[FindNonSimplePaths] = {"ArgumentsPattern" -> {_,_,_,_}};
