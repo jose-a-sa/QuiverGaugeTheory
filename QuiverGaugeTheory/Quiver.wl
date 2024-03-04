@@ -669,7 +669,7 @@ FindModelIsomorphism[w1_?PotentialQ, w2_?PotentialQ, n : (_Integer?Positive | Al
     ];
     f1 = FieldCases[w1];
     iso[foo_] := Composition[
-      Map[ ReplaceAll[c_CenterDot :> foo@Gc]@*ReplaceAll[Thread[f1 -> #]] & ],
+      Map[ ReplaceAll[c_CenterDot :> foo@c]@*ReplaceAll[Thread[f1 -> #]] & ],
       KeyValueMap[Splice[#1 /. #2] &]@*DeleteCases[{}],
       AssociationMap[ findMulRp[w1 /. Thread[f1 -> #1] /. {c_CenterDot :> foo@c}] &],
       Map[(f1 /. {Subscript[X, k_][i_, j_] :> Subscript[X, k]@@foo[{i, j}]} /. ChangeGroupIndices[Values@KeySort@#]) &]
